@@ -10,19 +10,21 @@ interface ThesisProps {
     introduction: string;
     discussion: string;
     references: string;
+    conclusion: string;
 }
 
 export async function SumbitThesis(req: Request, res: Response) {
     try {
         const user_id = req.user?.id;
-        const { title, author, course, issueDate, abstract, introduction, discussion, references }: ThesisProps = req.body;
+        const { title, author, course, issueDate, abstract, introduction, conclusion, discussion, references }: ThesisProps = req.body;
+        
 
         // ✅ Get file from multer (upload.any())
         const files = req.files as Express.Multer.File[];
         const thesis_file = files?.[0];
 
         // Validate text fields
-        if (!title || !author || !issueDate || !course || !abstract || !introduction || !discussion || !references) {
+        if (!title || !author || !issueDate || !course || !abstract || !conclusion || !introduction || !discussion || !references) {
             res.status(400).json({ status: false, message: "All fields are required" });
             return;
         }
@@ -63,7 +65,7 @@ export async function SumbitThesis(req: Request, res: Response) {
         const thesis_file_url = urlData.publicUrl; // properly declared here
 
         // Save thesis record to database
-        const { error } = await supabase
+        const {  data: thesis, error: thesisError } = await supabase
             .from("Thesis")
             .insert([{
                 admin_id: user_id,
@@ -72,15 +74,35 @@ export async function SumbitThesis(req: Request, res: Response) {
                 course,
                 abstract,
                 introduction,
+                conclusion,
                 discussion,
                 references,
                 issue_date: issueDate,
                 thesis_file_url,
                 thesis_file_name: thesis_file.originalname,
-            }]);
+            }])
+            .select();
 
-        if (error) {
-            console.error('Supabase error:', error);
+
+            if (thesisError || !thesis?.[0]) {
+                console.error("Failed to insert thesis:", thesisError);
+                return res.status(500).json({ error: "Failed to create thesis" });
+            }
+
+            const { error: thesisDataError } = await supabase
+                .from("ThesisData")
+                .insert([{
+                    thesis_id: thesis[0].id
+                }]);
+
+            if (thesisDataError) {
+                console.error("Failed to insert ThesisData:", thesisDataError);
+                return res.status(500).json({ error: "Failed to create ThesisData record" });
+            }
+
+
+        if (thesisError) {
+            console.error('Supabase error:', thesisError);
 
             // Rollback: remove uploaded file if DB insert fails
             await supabase.storage.from("thesis-files").remove([fileName]);
@@ -105,6 +127,25 @@ export async function SumbitThesis(req: Request, res: Response) {
             }
         });
     } catch (error: any) {
+        console.error('Server error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+        return;
+    }
+}
+
+export async function getThesis(req: Request, res: Response){
+    try {
+        const { data: thesis, error } = await supabase
+        .from("Thesis")
+        .select("*");
+
+        if (error) {
+            res.status(500).json({ error: 'Failed to fetch thesis' });
+            return;
+        }
+
+        res.status(200).json(thesis)
+    } catch (error) {
         console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });
         return;
