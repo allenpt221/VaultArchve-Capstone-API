@@ -54,34 +54,37 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
             return res.status(400).json({ message: "Thesis ID and filename are required" });
         }
 
-        // 1️ Increment the downloads count
-        const { data: thesisData, error: incrementError } = await supabase
+        const { data: thesisData, error: fetchError } = await supabase
             .from("ThesisData")
-            .select("download")
+            .select("downloads")
             .eq("thesis_id", thesis_id)
             .single();
 
-        if (incrementError || !thesisData) {
-            return res.status(404).json({ message: "ThesisData not found" });
+        // If row does not exist, create it
+        if (fetchError || !thesisData) {
+            await supabase
+                .from("ThesisData")
+                .insert({ thesis_id, downloads: 1, views: 0 });
+        } else {
+            // Increment downloads
+            await supabase
+                .from("ThesisData")
+                .update({ downloads: (thesisData.downloads || 0) + 1 })
+                .eq("thesis_id", thesis_id);
         }
 
-        await supabase
-            .from("ThesisData")
-            .update({ downloads: (thesisData.download || 0) + 1 })
-            .eq("thesis_id", thesis_id);
-
-        // 2️ Generate signed URL to allow download (private bucket)
+        // Generate signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
             .storage
             .from("thesis-files")
-            .createSignedUrl(filename, 60); // URL valid for 60 seconds
+            .createSignedUrl(filename, 60);
 
         if (signedUrlError || !signedUrlData?.signedUrl) {
             console.error(signedUrlError);
             return res.status(500).json({ message: "Failed to generate download link" });
         }
 
-        // 3️ Redirect user to signed URL so they can download
+        // Redirect to signed URL
         res.redirect(signedUrlData.signedUrl);
 
     } catch (error: any) {
