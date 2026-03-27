@@ -1,5 +1,5 @@
 import express from 'express';
-import { RecommendedAI } from '../controller/generativeAI.controller';
+import { ProgressiveTrail, RecommendedAI } from '../controller/generativeAI.controller';
 import { verifyToken } from '../middleware/middware';
 
 
@@ -7,6 +7,9 @@ import { verifyToken } from '../middleware/middware';
 const router = express.Router();
 
 router.post("/recommendation", verifyToken, RecommendedAI);
+
+router.post("/progressive", verifyToken, ProgressiveTrail);
+
 
 
 
