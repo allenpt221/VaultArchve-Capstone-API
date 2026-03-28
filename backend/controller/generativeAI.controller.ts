@@ -142,7 +142,6 @@ export async function ProgressiveTrail(req: Request, res: Response) {
                 break;
         }
 
-        // Call AI
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent(prompt);
         const aiFeedback = result.response.text().trim();

@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { getThesis, SumbitThesis } from '../controller/repository.controller';
+import { getRandomThesis, getThesis, SumbitThesis } from '../controller/repository.controller';
 import { adminOnly, verifyToken } from '../middleware/middware';
 import { downloadThesis, incrementView } from '../controller/dataAnalytics.controller';
 
@@ -15,6 +15,7 @@ router.get('/getthesis', getThesis)
 // dataAnalytics
 router.put('/views/:id', incrementView);
 router.get('/download/:thesis_id/:filename', downloadThesis);
+router.get('/features', getRandomThesis);
 
 
 

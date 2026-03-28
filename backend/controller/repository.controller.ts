@@ -151,3 +151,26 @@ export async function getThesis(req: Request, res: Response){
         return;
     }
 }
+
+
+export async function getRandomThesis(req: Request, res: Response){
+    try {
+        
+        const { data, error } = await supabase
+        .from("Thesis")
+        .select("*")
+        .order("created_at", { ascending: Math.random() < 0.5 })
+        .limit(4);
+
+
+        if (error) {
+           console.error("Failed to fetch thesis:", error);
+            return res.status(500).json({ error: "Failed to fetch thesis" });
+        }
+        res.status(200).json({success: true, data, length: data.length})
+    } catch (error:any) {
+        console.error('Server error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+        return;
+    }
+}
