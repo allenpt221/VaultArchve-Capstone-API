@@ -16,7 +16,7 @@ export async function incrementView(req: Request, res: Response) {
         const { data: thesisData, error: fetchError } = await supabase
             .from("Thesis")
             .select("views")
-            .eq("thesis_id", id)
+            .eq("id", id)
             .single();
 
         if (fetchError || !thesisData) {
@@ -27,7 +27,7 @@ export async function incrementView(req: Request, res: Response) {
         const { data: updatedPage, error: updateError } = await supabase
             .from("Thesis")
             .update({ views: thesisData.views + 1 })
-            .eq("thesis_id", id)
+            .eq("id", id)
             .select()
             .single();
 
@@ -91,4 +91,45 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
         console.error(error);
         res.status(500).json({ message: "Internal server error" });
     }
+}
+
+
+export async function sortThesisByYear(req: Request, res: Response) {
+  try {
+    const { year, sort = "issue_date", order = "desc" } = req.query as {
+      year?: string;
+      sort?: string;
+      order?: "asc" | "desc";
+    };
+
+    let query = supabase.from("Thesis").select("*");
+
+    // Filter by year
+    if (year && year !== "all") {
+      const start = `${year}-01-01`;
+      const end = `${Number(year) + 1}-01-01`;
+
+      query = query
+        .gte("issue_date", start)
+        .lt("issue_date", end);
+    }
+
+    // Safe sorting
+    const allowedSortColumns = ["issue_date", "title", "author"];
+    const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
+
+    query = query.order(sortColumn, {
+      ascending: order === "asc",
+    });
+
+    const { data, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 }

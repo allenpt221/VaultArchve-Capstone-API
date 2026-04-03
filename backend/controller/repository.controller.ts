@@ -29,15 +29,20 @@ export async function SumbitThesis(req: Request, res: Response) {
             return;
         }
 
+        const allowedTypes = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+        ];
+
         // Validate file
         if (!thesis_file) {
-            res.status(400).json({ status: false, message: "PDF file is required" });
+            res.status(400).json({ status: false, message: "PDF or DOCX file is required" });
             return;
         }
 
         // Validate PDF file type
-        if (thesis_file.mimetype !== "application/pdf") {
-            res.status(400).json({ status: false, message: "Only PDF files are allowed" });
+        if (!allowedTypes.includes(thesis_file.mimetype)) {
+            res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
             return;
         }
 
@@ -47,7 +52,7 @@ export async function SumbitThesis(req: Request, res: Response) {
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from("thesis-files")
             .upload(fileName, thesis_file.buffer, {
-                contentType: "application/pdf",
+                contentType: thesis_file.mimetype,  
                 upsert: false,
             });
 
@@ -87,17 +92,6 @@ export async function SumbitThesis(req: Request, res: Response) {
             if (thesisError || !thesis?.[0]) {
                 console.error("Failed to insert thesis:", thesisError);
                 return res.status(500).json({ error: "Failed to create thesis" });
-            }
-
-            const { error: thesisDataError } = await supabase
-                .from("ThesisData")
-                .insert([{
-                    thesis_id: thesis[0].id
-                }]);
-
-            if (thesisDataError) {
-                console.error("Failed to insert ThesisData:", thesisDataError);
-                return res.status(500).json({ error: "Failed to create ThesisData record" });
             }
 
 
