@@ -120,6 +120,7 @@ export async function SumbitThesis(req: Request, res: Response) {
                 course,
                 abstract,
                 introduction,
+                issueDate,
                 discussion,
                 references,
                 thesis_file_url,
