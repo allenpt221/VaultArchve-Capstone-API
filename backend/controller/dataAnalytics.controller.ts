@@ -14,7 +14,7 @@ export async function incrementView(req: Request, res: Response) {
 
         // 1️⃣ Get current views
         const { data: thesisData, error: fetchError } = await supabase
-            .from("ThesisData")
+            .from("Thesis")
             .select("views")
             .eq("thesis_id", id)
             .single();
@@ -25,7 +25,7 @@ export async function incrementView(req: Request, res: Response) {
 
         // 2️⃣ Increment views
         const { data: updatedPage, error: updateError } = await supabase
-            .from("ThesisData")
+            .from("Thesis")
             .update({ views: thesisData.views + 1 })
             .eq("thesis_id", id)
             .select()
@@ -55,7 +55,7 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
         }
 
         const { data: thesisData, error: fetchError } = await supabase
-            .from("ThesisData")
+            .from("Thesis")
             .select("downloads")
             .eq("thesis_id", thesis_id)
             .single();
