@@ -6,6 +6,12 @@
 @custom-variant dark (&:is(.dark *));
 
 
+[data-highlighted] {
+  background-color: #eab308 !important;
+  color: black !important;
+}
+
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -130,4 +136,5 @@
     @apply font-sans;
   }
 }
+
 
