@@ -19,7 +19,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies.accessToken;
 
   if (!token) {
-    return res.status(401).json({ error: "Access denied" });
+    return res.status(401).json({ error: "Unauthorized Access. Please log in" });
   }
 
   try {
