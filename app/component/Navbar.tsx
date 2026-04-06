@@ -57,7 +57,7 @@ function Navbar() {
         </div>
         
         {/* mobile view */}
-        <div className='block sm:hidden'>
+        <div className='block md:hidden'>
             <button onClick={() => setOpenMenu(!openMenu)}>
               {openMenu ? <X className='text-white' size={25} /> : <Menu className='text-white' size={25} /> }
             </button>
