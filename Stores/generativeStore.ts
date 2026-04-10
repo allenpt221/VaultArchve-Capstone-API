@@ -4,14 +4,14 @@ import { create } from 'zustand';
 
 
 interface RecommendedProps{
+    topic: string;
     course: string;
-    interest: string;
     chatPrompt: string;
 }
 
 interface generativeAiProps {
   RecommendedAI: (data: RecommendedProps) => Promise<void>;
-  result: any,
+  result: any[],
   loading: boolean,
   message: string,
 
@@ -20,28 +20,30 @@ interface generativeAiProps {
 
 
 export const generativeStore = create<generativeAiProps>((set, get) => ({
-    result: "",
+    result: [],
     loading: false,
     message: "",
 
-    RecommendedAI: async({course, interest, chatPrompt} : RecommendedProps ): Promise<void> => {
+    RecommendedAI: async({topic, course, chatPrompt} : RecommendedProps ): Promise<void> => {
         try {
             set({ loading: true, message: "" });
 
             const res = await axios.post('/ai/recommendation', {
+                topic,
                 course,
-                interest,
                 chatPrompt
             });
 
-            set({result: res.data.recommendations, message: "AI recommendations generated successfully!" })
+            set({result: res.data.recommendations, loading:false,  message: "AI recommendations generated successfully!" })
             
         } catch (error: any) {
             set({ loading: false });
 
             if (error.response?.status === 401) {
             set({ message: "Unauthorized Access. Please log in" });
+            return;
             }
+
 
             // General error
             console.error("AI Recommendation Error:", error);
