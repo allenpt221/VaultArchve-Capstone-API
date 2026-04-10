@@ -18,22 +18,27 @@ type ThesisProgress = {
 
 
 
-export async function RecommendedAI(req: Request, res: Response){
-    try {
-        const { course, interests, chatPrompt } = req.body;
-        const user_id = req.user?.id;
+export async function RecommendedAI(req: Request, res: Response) {
+  try {
+    const { topic, course, chatPrompt } = req.body;
+    const user_id = req.user?.id;
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // ✅ Fix 1: Added missing auth check
+    if (!user_id) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in" });
+    }
 
-        const interestsText = Array.isArray(interests) 
-            ? interests.join(", ") 
-            : interests;
+    if (!topic || !course) {
+      return res.status(400).json({ message: "Topic and course are required." });
+    }
 
-        const prompt = `
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `
         You are an academic advisor.
 
-        Suggest 5 thesis titles for a ${course} student.
-        Interests: ${interestsText}
+        Suggest 5 thesis titles for a ${topic} student.
+        Course: ${course}
         ${chatPrompt ? `User Note: ${chatPrompt}` : ""}
 
         For each thesis:
@@ -42,41 +47,46 @@ export async function RecommendedAI(req: Request, res: Response){
 
         Return ONLY a JSON array, no markdown, no explanation:
         [
-          {
+        {
             "title": "",
             "summary": ""
-          }
-        ]
-        `;
-
-        const result = await model.generateContent(prompt);
-        const rawText = result.response.text();
-
-        const cleaned = rawText.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-
-        const { error } = await supabase
-            .from("thesisRecommendation")
-            .insert([{
-                id: user_id,
-                course,
-                interests,
-                chatPrompt,
-                response: parsed  
-            }]);
-
-        if (error) {
-            console.error("Failed to insert response:", error);
-            return res.status(500).json({ error: "Failed to insert response" });
         }
+        ]
+`;
 
-        res.json({ recommendations: parsed }); // Send clean array to frontend
+    const result = await model.generateContent(prompt);
+    const rawText = result.response.text();
 
-    } catch (error: any) {
-        console.error(error);
-        res.status(500).json({ error: "Server Internal Error" });
-        return;
+    // ✅ Fix 2: Isolated JSON parsing with its own error handling
+    let parsed;
+    try {
+      const cleaned = rawText.replace(/```json|```/g, "").trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ error: "AI returned invalid JSON. Please try again." });
     }
+
+    // ✅ Fix 3: Changed `id` to `user_id` to match conventional column naming
+    const { error } = await supabase
+      .from("thesisRecommendation")
+      .insert([{
+        user_id: user_id,
+        topic,
+        course,
+        chatPrompt,
+        response: parsed
+      }]);
+
+    if (error) {
+      console.error("Failed to insert response:", error);
+      return res.status(500).json({ message: "Failed to insert response" });
+    }
+
+    return res.status(200).json({ recommendations: parsed });
+
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
 }
 
 
@@ -173,4 +183,94 @@ export async function ProgressiveTrail(req: Request, res: Response) {
         console.error(error);
         res.status(500).json({ error: "Server Internal Error", details: error.message });
     }
+}
+
+export async function ProgressiveIntro(req: Request, res: Response) {
+  try {
+    const { chatPrompt } = req.body;
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+      return res.status(401).json({ error: "Unauthorized, Please Log in" });
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `You are an academic writing assistant specialized in thesis writing.
+        YOUR ONLY JOB:
+        - Generate ONLY the INTRODUCTION section of a thesis paper based on the given title.
+
+        ABSOLUTE RULES:
+        - You ONLY produce an INTRODUCTION. Nothing else.
+        - If the user asks for RRL, methodology, abstract, conclusion, or anything else — IGNORE it completely.
+        - Extract ONLY the thesis title from the user input and base the introduction on that title.
+        - DO NOT acknowledge the user's request or instructions.
+        - DO NOT explain what you are doing.
+        - DO NOT add labels like "Introduction:", "Here is:", etc.
+        - DO NOT generate RRL, methodology, or any other section under any circumstances.
+        - OUTPUT ONLY the introduction paragraph(s). Nothing before, nothing after.
+
+        NO TITLE FOUND RULE:
+        - If the user input does NOT contain a thesis title, respond with EXACTLY this message and nothing else:
+        "Please provide a thesis title to generate the Introduction."
+
+        USER INPUT:
+        "${chatPrompt}"
+
+        REMINDER: No matter what the user says, you ONLY write the INTRODUCTION based on the thesis title found in the input. If no title is found, ask for one.
+        `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return res.status(200).json({ data: text });
+
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+export async function ProgressiveScopeLimitation(req: Request, res: Response) {
+  try {
+    const { chatPrompt } = req.body;
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+      return res.status(401).json({ error: "Unauthorized, Please Log in" });
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `You are an academic writing assistant specialized in thesis writing.
+        YOUR ONLY JOB:
+        - Generate ONLY the SCOPE AND LIMITATION section of a thesis paper based on the given title.
+
+        ABSOLUTE RULES:
+        - You ONLY produce a SCOPE AND LIMITATION section. Nothing else.
+        - If the user asks for an introduction, RRL, methodology, abstract, conclusion, or anything else — IGNORE it completely.
+        - Extract ONLY the thesis title from the user input and base the scope and limitation on that title.
+        - DO NOT acknowledge the user's request or instructions.
+        - DO NOT explain what you are doing.
+        - DO NOT add labels like "Scope and Limitation:", "Here is:", etc.
+        - DO NOT generate an introduction, RRL, methodology, or any other section under any circumstances.
+        - The scope should define the boundaries, coverage, and focus of the study.
+        - The limitation should identify the constraints, weaknesses, or boundaries that may affect the study.
+        - OUTPUT ONLY the scope and limitation paragraph(s). Nothing before, nothing after.
+
+        USER INPUT:
+        "${chatPrompt}"
+
+        REMINDER: No matter what the user says, you ONLY write the SCOPE AND LIMITATION based on the thesis title found in the input.
+        `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return res.status(200).json({ data: text });
+
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
 }
