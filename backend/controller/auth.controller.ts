@@ -83,8 +83,14 @@ export async function Login(req: Request, res: Response){
         .eq("email", normalizedEmail)
         .single();
 
+        if(password.length <= 8){
+          res.status(401).json({ message: "Password must be at least 8 characters.", success: false});
+          return
+        }
+
         if(error || !user){
-            res.status(401).json({ error: 'Invalid credentials' });
+            console.log("Invalid credentials");
+            res.status(401).json({ message: 'Invalid credentials', success: false });
             return;
         }
 
@@ -92,7 +98,8 @@ export async function Login(req: Request, res: Response){
         const passwordMatch = await bcrypt.compare(password, user.password);
 
         if(!passwordMatch){
-            return res.json({message: "Invalid credentials'"})
+            console.log("Invalid credentials");
+            return res.status(401).json({ message: "Invalid credentials", success: false})
         }
 
 
@@ -125,6 +132,7 @@ export async function Login(req: Request, res: Response){
 
         res.status(200).json({
         message: "Login successful",
+        success: true,
         user: {
             email: user.email,
             firstname: user.firstname,

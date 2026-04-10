@@ -19,7 +19,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies.accessToken;
 
   if (!token) {
-    return res.status(401).json({ error: "Unauthorized Access. Please log in" });
+    return res.status(401).json({ message: "Unauthorized Access. Please log in" });
   }
 
   try {
@@ -32,7 +32,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
 
     next();
   } catch (error) {
-    return res.status(403).json({ error: "Invalid token" });
+    return res.status(403).json({ message: "Invalid token" });
   }
 }
 
@@ -40,7 +40,7 @@ export function adminOnly(req: Request, res: Response, next: NextFunction) {
   const user = req.user;
 
   if (!user || user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
+    return res.status(403).json({ message: "Admin access required" });
   }
 
   next();
