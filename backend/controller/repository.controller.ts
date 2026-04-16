@@ -169,3 +169,33 @@ export async function getRandomThesis(req: Request, res: Response){
         return;
     }
 }
+
+export async function getRepoById(req: Request, res: Response){
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({ error: 'ID is required' });
+        }
+        
+        const { data, error } = await supabase
+            .from('Thesis')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        if (!data) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+
+        return res.status(200).json(data);
+
+    } catch (error) {
+        console.error('Server error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}

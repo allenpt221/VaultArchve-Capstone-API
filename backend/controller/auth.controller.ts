@@ -30,6 +30,10 @@ export async function  Signup(req:Request, res:Response) {
         return res.status(500).json({ error: "Database error" });
         }
 
+        if(password.length < 8){
+          return res.status(400).json({ message: 'Password must be at least 8 characters', success: false});
+        }
+
         if (ExistingUser && ExistingUser.length > 0) {
         return res.status(400).json({
             error: "Email already registered"
