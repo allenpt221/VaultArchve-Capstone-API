@@ -18,7 +18,7 @@ router.get('/getbyid/:id', getRepoById);
 
 // dataAnalytics
 router.put('/views/:id', verifyToken, incrementView);
-router.get('/download/:thesis_id/:filename', downloadThesis);
+router.get('/download/:thesis_id', downloadThesis);
 router.get('/features', getRandomThesis);
 
 

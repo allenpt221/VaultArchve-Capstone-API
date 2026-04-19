@@ -55,7 +55,8 @@ export async function incrementView(req: Request, res: Response) {
 
 export async function downloadThesis(req: Request<DownloadProps>, res: Response) {
     try {
-        const { thesis_id, filename } = req.params;
+        const { thesis_id } = req.params;
+        const filename = req.query.filename as string;
 
         if (!thesis_id || !filename) {
             return res.status(400).json({ message: "Thesis ID and filename are required" });
