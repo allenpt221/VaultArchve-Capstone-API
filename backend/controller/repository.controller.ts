@@ -17,60 +17,49 @@ export async function SumbitThesis(req: Request, res: Response) {
     try {
         const user_id = req.user?.id;
         const { title, author, course, issueDate, abstract, introduction, conclusion, discussion, references }: ThesisProps = req.body;
-        
 
-        // ✅ Get file from multer (upload.any())
         const files = req.files as Express.Multer.File[];
         const thesis_file = files?.[0];
 
-        // Validate text fields
         if (!title || !author || !issueDate || !course || !abstract || !conclusion || !introduction || !discussion || !references) {
             res.status(400).json({ status: false, message: "All fields are required" });
             return;
         }
 
         const allowedTypes = [
-        "application/pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ];
 
-        // Validate file
         if (!thesis_file) {
             res.status(400).json({ status: false, message: "PDF or DOCX file is required" });
             return;
         }
 
-        // Validate PDF file type
         if (!allowedTypes.includes(thesis_file.mimetype)) {
             res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
             return;
         }
 
-        // Upload PDF to Supabase Storage
         const fileName = `${user_id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from("thesis-files")
             .upload(fileName, thesis_file.buffer, {
-                contentType: thesis_file.mimetype,  
+                contentType: thesis_file.mimetype,
                 upsert: false,
             });
 
         if (uploadError) {
             console.error("Storage upload error:", uploadError);
-            res.status(500).json({ status: false, error: "Failed to upload PDF file" });
+            res.status(500).json({ status: false, error: "Failed to upload file" });
             return;
         }
 
-        // Get public URL of the uploaded file
-        const { data: urlData } = supabase.storage
-            .from("thesis-files")
-            .getPublicUrl(uploadData.path);
+        // ✅ Save only the storage path, not the full public URL
+        const thesis_file_url = uploadData.path;
 
-        const thesis_file_url = urlData.publicUrl; // properly declared here
-
-        // Save thesis record to database
-        const {  data: thesis, error: thesisError } = await supabase
+        const { data: thesis, error: thesisError } = await supabase
             .from("Thesis")
             .insert([{
                 admin_id: user_id,
@@ -83,26 +72,18 @@ export async function SumbitThesis(req: Request, res: Response) {
                 discussion,
                 references,
                 issue_date: issueDate,
-                thesis_file_url,
+                thesis_file_url,           // ← clean storage path
                 thesis_file_name: thesis_file.originalname,
             }])
             .select();
 
-
-            if (thesisError || !thesis?.[0]) {
-                console.error("Failed to insert thesis:", thesisError);
-                return res.status(500).json({ error: "Failed to create thesis" });
-            }
-
-
-        if (thesisError) {
-            console.error('Supabase error:', thesisError);
+        if (thesisError || !thesis?.[0]) {
+            console.error("Failed to insert thesis:", thesisError);
 
             // Rollback: remove uploaded file if DB insert fails
             await supabase.storage.from("thesis-files").remove([fileName]);
 
-            res.status(500).json({ error: 'Failed to create thesis' });
-            return;
+            return res.status(500).json({ error: "Failed to create thesis" });
         }
 
         res.status(200).json({
@@ -121,6 +102,7 @@ export async function SumbitThesis(req: Request, res: Response) {
                 thesis_file_name: thesis_file.originalname,
             }
         });
+
     } catch (error: any) {
         console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });

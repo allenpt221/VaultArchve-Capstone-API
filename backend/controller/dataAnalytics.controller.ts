@@ -6,6 +6,13 @@ interface DownloadProps{
     filename: string;
 }
 
+interface queryProps{
+    year: string;
+    department: string;
+    sort: string;
+    order: "asc" | "desc";
+}
+
 export async function incrementView(req: Request, res: Response) {
     try {
         const { id } = req.params;
@@ -54,24 +61,21 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
             return res.status(400).json({ message: "Thesis ID and filename are required" });
         }
 
-        const { data: thesisData, error: fetchError } = await supabase
-            .from("Thesis")
-            .select("downloads")
-            .eq("thesis_id", thesis_id)
-            .single();
+    const { data: thesisData, error: fetchError } = await supabase
+        .from("Thesis")
+        .select("downloads")
+        .eq("id", thesis_id)
+        .single();
 
-        // If row does not exist, create it
-        if (fetchError || !thesisData) {
-            await supabase
-                .from("ThesisData")
-                .insert({ thesis_id, downloads: 1, views: 0 });
-        } else {
-            // Increment downloads
-            await supabase
-                .from("ThesisData")
-                .update({ downloads: (thesisData.downloads || 0) + 1 })
-                .eq("thesis_id", thesis_id);
-        }
+    if (fetchError || !thesisData) {
+        return res.status(404).json({ message: "Thesis not found" });
+    } 
+
+// Just update, no insert needed
+    await supabase
+        .from("Thesis")
+        .update({ downloads: (thesisData.downloads || 0) + 1 })
+        .eq("id", thesis_id);  
 
         // Generate signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
@@ -94,13 +98,10 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
 }
 
 
-export async function sortThesisByYear(req: Request, res: Response) {
+export async function getFilteredThesis(req: Request, res: Response) {
   try {
-    const { year, sort = "issue_date", order = "desc" } = req.query as {
-      year?: string;
-      sort?: string;
-      order?: "asc" | "desc";
-    };
+    const { year, department, sort = "issue_date", order = "desc" 
+    } = req.query as { year?: string; department?: string; sort?: string; order?: "asc" | "desc"; };
 
     let query = supabase.from("Thesis").select("*");
 
@@ -114,8 +115,13 @@ export async function sortThesisByYear(req: Request, res: Response) {
         .lt("issue_date", end);
     }
 
-    // Safe sorting
-    const allowedSortColumns = ["issue_date", "title", "author"];
+    // Filter by department                     
+    if (department && department !== "all") {
+      query = query.eq("course", department);
+    }
+
+    // Safe sorting — added "views" 👇
+    const allowedSortColumns = ["issue_date", "title", "author", "views"];
     const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
 
     query = query.order(sortColumn, {
