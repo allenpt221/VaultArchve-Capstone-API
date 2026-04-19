@@ -110,23 +110,40 @@ export async function SumbitThesis(req: Request, res: Response) {
     }
 }
 
-export async function getThesis(req: Request, res: Response){
-    try {
-        const { data: thesis, error } = await supabase
-        .from("Thesis")
-        .select("*");
+export async function getThesis(req: Request, res: Response) {
+  try {
+    const { page, limit } = req.query as { page: string; limit: string };
 
-        if (error) {
-            res.status(500).json({ error: 'Failed to fetch thesis' });
-            return;
-        }
-
-        res.status(200).json(thesis)
-    } catch (error) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-        return;
+    if (!page || !limit) {
+      return res.status(400).json({
+        success: false,
+        message: 'page and limit are required'
+      });
     }
+
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    const { data: thesis, error, count } = await supabase  
+      .from('Thesis')
+      .select('*', { count: 'exact' })
+      .range(from, to);
+
+    if (error) throw error;  
+
+    return res.status(200).json({
+      success: true,
+      thesis: {
+        thesis,
+        totalCount: count,
+        currentPage: Number(page),
+        totalPages: Math.ceil(count! / Number(limit)) 
+      }
+    });
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
 
 
