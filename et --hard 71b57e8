@@ -1,0 +1,15 @@
+[33m16b6563[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m add pagination page for the thesis
+[33m50dc61b[m fix the download the submit thesis for short and not more work in frontend side and also add some query sorting function in the data analytics controller
+[33m0f16dd2[m create where the user get the id then get the data by the Id and fix some issues
+[33m2c4c952[m change the alternative ai and some changes for the progresive Ai
+[33m482691f[m change the error message
+[33mfd9501d[m create a get by the year to sort it
+[33mef3ddf7[m change the data where it send into table
+[33md1b0ff0[m create the frontend side and add some fetching 4 random thesis for features
+[33m51c0eaa[m feat: create the progressive trail for thesis
+[33m1cab970[m feat: install the Ai and create the chat ai prompt contain a course and interest of the thesis
+[33mcf7d522[m fix the error on the downloadTehsis
+[33m40ae07d[m feat: create the view and download count
+[33m7d142cf[m include the data download of url and send it into supabase storage to the table of it
+[33m06e0528[m ignore the private key in the enviroment
+[33m3a25904[m contain Authentication and submitting Thesis
