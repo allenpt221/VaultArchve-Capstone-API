@@ -1,6 +1,7 @@
 import express from 'express';
 import { getProfile, getUsers, Login, Logout, Signup } from '../controller/auth.controller';
 import { adminOnly, verifyToken } from '../middleware/middware';
+import { loginLimiter } from '../lib/ratelimit';
 
 
 const route = express.Router();

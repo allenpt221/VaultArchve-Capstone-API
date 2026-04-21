@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
+import redis from "../lib/ioredis";
 
 interface ThesisProps {
     title: string;
@@ -113,12 +114,19 @@ export async function SumbitThesis(req: Request, res: Response) {
 export async function getThesis(req: Request, res: Response) {
   try {
     const { page, limit } = req.query as { page: string; limit: string };
-
+    
     if (!page || !limit) {
-      return res.status(400).json({
-        success: false,
-        message: 'page and limit are required'
-      });
+        return res.status(400).json({
+            success: false,
+            message: 'page and limit are required'
+        });
+    }
+
+    const cacheKey = "thesis:page:${page}:limit:${limit}";
+
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, thesis: cached }); // ⚡ fast
     }
 
     const from = (Number(page) - 1) * Number(limit);
@@ -131,14 +139,18 @@ export async function getThesis(req: Request, res: Response) {
 
     if (error) throw error;  
 
+    const responseData = {
+      thesis,
+      totalCount: count,
+      currentPage: Number(page),
+      totalPages: Math.ceil(count! / Number(limit)),
+    };
+
+    await redis.set(cacheKey, responseData, { ex: 3600 });
+
     return res.status(200).json({
       success: true,
-      thesis: {
-        thesis,
-        totalCount: count,
-        currentPage: Number(page),
-        totalPages: Math.ceil(count! / Number(limit)) 
-      }
+      thesis: responseData,
     });
   } catch (error) {
     console.error('Server error:', error);

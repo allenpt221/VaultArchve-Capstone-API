@@ -2,6 +2,9 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { supabase } from '../supabase/supa-client';
 import { Request, Response } from 'express';
+import redis from '../lib/ioredis';
+import { loginLimiter } from '../lib/ratelimit';
+
 
 
 interface User {
@@ -77,7 +80,20 @@ export async function  Signup(req:Request, res:Response) {
 
 export async function Login(req: Request, res: Response){
     try {
-        const { email, password }: User = req.body; 
+        const { email, password }: User = req.body;
+
+        const ip = req.ip || req.headers["x-forwarded-for"] as string;
+
+
+        const { success, reset } = await loginLimiter.limit(ip);
+
+        if (!success) {
+          return res.status(429).json({
+            success: false,
+            message: "You have been timed out. Please try again later.",
+            retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
+          });
+        }
 
         const normalizedEmail = email.trim().toLowerCase();
 
@@ -87,7 +103,7 @@ export async function Login(req: Request, res: Response){
         .eq("email", normalizedEmail)
         .single();
 
-        if(password.length <= 8){
+        if(password.length < 8){
           res.status(401).json({ message: "Password must be at least 8 characters.", success: false});
           return
         }
@@ -110,7 +126,7 @@ export async function Login(req: Request, res: Response){
         const accessToken = jwt.sign(
             { id: user.id, email: user.email, role: user.role },
             process.env.JWT_SECRET as string,
-            { expiresIn: "15m" }
+            { expiresIn: "1h" }
         );
 
 
@@ -124,14 +140,14 @@ export async function Login(req: Request, res: Response){
         httpOnly: true,       
         secure: process.env.NODE_ENV === 'production',        
         sameSite: "strict",
-        maxAge: 15 * 60 * 1000
+        maxAge: 60 * 60 * 1000
         });
 
         res.cookie("refreshToken", refreshToken, {
         httpOnly: true,       
         secure: process.env.NODE_ENV === 'production',        
         sameSite: "strict",
-        maxAge: 60 * 60 * 1000 
+        maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.status(200).json({
@@ -176,6 +192,14 @@ export async function Logout(req: Request, res: Response) {
 
 export async function getUsers(req: Request, res: Response) {
   try {
+
+      const cacheKey = "users:all";
+
+    const cached = await redis.get(cacheKey);
+      if (cached) {
+        return res.status(200).json({ users: cached }); // ⚡ fast, skip supabase
+      }
+
     const { data, error } = await supabase
       .from("Authentication")
       .select("*")
@@ -189,6 +213,8 @@ export async function getUsers(req: Request, res: Response) {
     if (!data || data.length === 0) {
       return res.status(404).json({ message: "No users found" });
     }
+
+    await redis.set(cacheKey, data, { ex: 3600 });
 
     // Return all users
     return res.status(200).json({ users: data });

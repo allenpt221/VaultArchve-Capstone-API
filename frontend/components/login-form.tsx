@@ -28,18 +28,27 @@ export function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState('');
+   const [retryAfter, setRetryAfter] = useState<string | null>(null);
+   const [countdown, setCountdown] = useState<number | null>(null);
   
 
 
   const { logIn, loading } = authUserStore();
 
+    const parseRetryAfter = (retryAfter?: string): number | null => {
+      if (!retryAfter) return null;
+      const match = retryAfter.match(/\d+/);
+      return match ? parseInt(match[0]) : null;
+  };
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); // reset previous error
-    setSuccess(false);
-    setFailed(false);
+      e.preventDefault();
+      setError('');
+      setSuccess(false);
+      setFailed(false);
+      setRetryAfter(null);
 
       if (!email.trim() || !password.trim()) {
         setError('All fields are required.');
@@ -47,37 +56,53 @@ export function LoginForm({
         return;
       }
 
+      try {
+        const result = await logIn({ email, password });
 
-    try {
-      const result = await logIn({ email, password });
-
-          
-      if (!result) {
-        // read the message from the store
-        setError('Invalid credentials');
-        setFailed(true)
-      } else {
-        setSuccess(true);
-        setPassword('');
-        setEmail('');
-        
+        if (!result.success) {
+          setError(result.message || 'Invalid credentials.');
+          setRetryAfter(result.retryAfter ?? null);
+          setCountdown(parseRetryAfter(result.retryAfter));
+          setFailed(true);
+        } else {
+          setSuccess(true);
+          setPassword('');
+          setEmail('');
+        }
+      } catch (error: any) {
+        console.error(error);
+        setError('Something went wrong. Please try again.');
+        setFailed(true);
       }
-    } catch (error: any) {
-      console.error(error);
-      setError('Something went wrong. Please try again.');
-      setFailed(true)
-    }
-  };
+    };
 
   useEffect(() => {
     if (!success && !failed) return;
     const timer = setTimeout(() => {
       setSuccess(false);
-      setFailed(false)
-    }, 3000)
+      setFailed(false);
+      setRetryAfter(null);
+    }, 5000);
 
     return () => clearTimeout(timer);
-  }, [success, failed])
+  }, [success, failed]);
+
+
+    useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [countdown]);
 
 
 
@@ -92,13 +117,13 @@ export function LoginForm({
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-balance text-muted-foreground">
-                  Login to your Acme Inc account
+                  Login to your VaultArchve account
                 </p>
               </div>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
-                  className={`sm:text-base text-sm ${failed && !email.trim() ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                  className={`sm:text-base h-10 text-sm ${failed && !email.trim() ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   id="email"
                   type="email"
                   placeholder="me@example.com"
@@ -118,7 +143,7 @@ export function LoginForm({
                     {showPassword ? <EyeOff className="w-4 h-4 text-gray-500" /> : <Eye className="w-4 h-4 text-gray-500" />}
                   </span>
                   <Input
-                    className={`sm:text-base text-sm pr-10 ${failed && !password.trim() ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    className={`sm:text-base h-10 text-sm pr-10 ${failed && !password.trim() ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
@@ -135,10 +160,20 @@ export function LoginForm({
                 </a>
               <Field>
                 <Button type="submit" 
-                disabled={loading}
+                disabled={loading || countdown !== null}
                 className="bg-amber-500 py-5 cursor-pointer text-black hover:bg-amber-500/80 font-semibold">
-                {loading ? 'Logging in...' : 'Log In'}
+                  {loading
+                    ? 'Logging in...'
+                    : 'Log In'
+                  }
                 </Button>
+                {countdown !== null && (
+                  <span className=" text-xs text-red-500 font-medium">
+                    Too many attempts. Please wait{" "}
+                    <span className="font-bold">{countdown}s</span>{" "}
+                    before trying again.
+                  </span>
+                )}
               </Field>
             </FieldGroup>
           </form>
@@ -178,23 +213,27 @@ export function LoginForm({
       )}
 
       {failed && (
-      <Alert
-        variant="default"
-        className={`fixed top-6 left-1/2 -translate-x-1/2 z-100 w-[90%] max-w-md px-6 py-4 shadow-lg rounded-xl border border-red-500 bg-red-100`}
-      >
-        <div className="flex items-start gap-3">
-          <CircleCheckBig className="text-red-500" />
-          <div>
-            <AlertTitle
-              className='text-red-600 font-semibold'>
-              Login Failed
-            </AlertTitle>
-            <AlertDescription className="text-red-600 text-xs">
-              {error}
-            </AlertDescription>
+        <Alert
+          variant="default"
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-100 w-[90%] max-w-md px-6 py-4 shadow-lg rounded-xl border border-red-500 bg-red-100"
+        >
+          <div className="flex items-start gap-3">
+            <CircleCheckBig className="text-red-500" />
+            <div>
+              <AlertTitle className="text-red-600 font-semibold">
+                Login Failed
+              </AlertTitle>
+              <AlertDescription className="text-red-600 text-xs">
+                {error}
+                {retryAfter && (
+                  <span className="block mt-1 font-medium">
+                    Please try again in {retryAfter}.
+                  </span>
+                )}
+              </AlertDescription>
+            </div>
           </div>
-        </div>
-      </Alert>
+        </Alert>
       )}
     </div>
   )
