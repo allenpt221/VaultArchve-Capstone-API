@@ -17,13 +17,19 @@ interface LoginProps{
     password: string;
 }
 
+interface LoginResult {
+  success: boolean;
+  message?: string;
+  retryAfter?: string;
+}
+
 
 interface authProps{
     user: userProps | null;
     loading: boolean;
     checkingAuth: boolean;
     justLoggedIn: boolean;
-    logIn: (data: LoginProps) => Promise<Boolean>;
+    logIn: (data: LoginProps) => Promise<LoginResult>;
     logOut: () => void;
     checkAuth: () => void;
 }
@@ -35,31 +41,32 @@ export const authUserStore = create<authProps>((set, get) => ({
     justLoggedIn: false,
     checkingAuth: true,
 
-logIn: async ({ email, password }: LoginProps): Promise<boolean> => {
-    try {
-      set({ loading: true });
+logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
+  try {
+    set({ loading: true });
 
-      const res = await axios.post('/auth/login', {
-        email,
-        password,
-      });
+    const res = await axios.post('/auth/login', { email, password });
 
-      set({
-        user: res.data.user,
-        loading: false,
-        justLoggedIn: true,
-      });
+    set({
+      user: res.data.user,
+      loading: false,
+      justLoggedIn: true,
+    });
 
-      return true;
-    } catch (error: any) {
+    return { success: true };
 
-      set({
-        loading: false });
+  } catch (error: any) {
+    set({ loading: false });
 
+    const data = error.response?.data;
 
-      return false;
-    }
-  },    
+    return {
+      success: false,
+      message: data?.message || 'Something went wrong.',
+      retryAfter: data?.retryAfter,
+    };
+  }
+},  
 
   checkAuth: async (): Promise<void> => {
     set({ checkingAuth: true });
