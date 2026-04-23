@@ -24,6 +24,17 @@ export async function  Signup(req:Request, res:Response) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
 
+        const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
+
+        if (!gmailRegex.test(email)) {
+          return res.status(400).json({
+            message: "Only @gmail.com email addresses are allowed",
+            success: false
+          });
+        }
+
+
         const { data: ExistingUser, error: findError } = await supabase
         .from("Authentication")
         .select("email")
