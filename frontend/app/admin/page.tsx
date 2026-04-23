@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar";
 import DataAnalytics from "@/components/AdminComponents/DataAnalytics";
+import { Divide } from "lucide-react";
+import ThesisSubmit from "@/components/AdminComponents/ThesisSubmit";
 
 function Admin() {
   const router = useRouter();
@@ -81,6 +83,8 @@ function Admin() {
           </Breadcrumb>
         </header>
             {activePage === "data-analytics" && ( <DataAnalytics /> )}
+            {activePage === "submit-thesis" && ( <ThesisSubmit />)}
+
       </SidebarInset>
     </SidebarProvider>
   )

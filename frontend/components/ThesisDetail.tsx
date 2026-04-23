@@ -5,6 +5,7 @@ import NotFound from '@/app/not-found';
 import { PageLoader } from './loading';
 import Link from 'next/link';
 import { Eye, Download, Calendar, ArrowLeft } from 'lucide-react';
+import { Card } from './ui/card';
 
 function ThesisDetail({ id }: { id: string }) {
   const { ThesisById, thesisData, loading, notFound, incrementDownloads } = repoStores();
@@ -14,13 +15,29 @@ function ThesisDetail({ id }: { id: string }) {
 if (loading) return <PageLoader />;
 if (notFound || !thesisData) return <NotFound />;
 
-function handleDownload(id: string, file_url: string) {
-  window.open(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/repository/download/${id}?filename=${file_url}`,
-    '_blank'
-  );
+async function handleDownload(id: string, file_url: string) {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/repository/download/${id}?filename=${file_url}`
+    );
+    const { url } = await res.json();
 
-  incrementDownloads();
+    const fileRes = await fetch(url);
+    const blob = await fileRes.blob();
+
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = file_url.split('/').pop() || 'thesis.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+
+    incrementDownloads();
+  } catch (error) {
+    console.error('Download failed:', error);
+  }
 }
 
   const sections = [
@@ -38,7 +55,7 @@ function handleDownload(id: string, file_url: string) {
     .join('');
 
   return (
-    <div className="max-w-7xl mx-auto sm:px-4 px-5 py-8">
+    <div className="max-w-345 mx-auto sm:px-4 px-5 py-8">
 
       {/* Back */}
       <Link
@@ -91,51 +108,51 @@ function handleDownload(id: string, file_url: string) {
       </div>
 
       {/* Body + Sidebar */}
-      <div className="flex flex-col-reverse md:grid md:grid-cols-[1fr_240px] gap-8 items-start">
-
-        {/* Sections */}
-        <div className="space-y-7">
-          {sections.map(({ title, content }) => (
-            <div key={title}>
-              <h2 className="text-base font-medium text-gray-900 mb-2">{title}</h2>
-              <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line">{content}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Sidebar */}
-        <div className="flex flex-col gap-3">
-          <div className="border rounded-xl p-4">
-            <p className="text-sm font-medium text-gray-900 mb-3">Details</p>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Department', value: thesisData.course },
-                { label: 'Year', value: new Date(thesisData.issue_date).getFullYear() },
-                { label: 'Issue date', value: new Date(thesisData.issue_date).toLocaleDateString() },
-                { label: 'Views', value: thesisData.views },
-                { label: 'Downloads', value: thesisData.downloads ?? 0 },
-                { label: 'Created', value: new Date(thesisData.created_at).toLocaleDateString() },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex flex-col gap-0.5">
-                  <span className="text-xs uppercase tracking-wide text-gray-400">{label}</span>
-                  <span className="text-sm font-medium text-gray-900 truncate">{value}</span>
+        <div className="flex flex-col sm:flex-row gap-8 items-start">
+            <Card className='p-4 w-full'>
+              {/* Sections */}
+                <div className="space-y-7">
+                  {sections.map(({ title, content }) => (
+                    <div key={title}>
+                      <h2 className="text-base font-medium text-gray-900 mb-2">{title}</h2>
+                      <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line">{content}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+          </Card>
+          {/* Sidebar */}
+          <div className="flex flex-col  gap-1 md:w-120">
+            <Card className="border rounded-xl p-4">
+              <p className="text-sm font-medium text-gray-900">Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Department', value: thesisData.course },
+                  { label: 'Year', value: new Date(thesisData.issue_date).getFullYear() },
+                  { label: 'Issue date', value: new Date(thesisData.issue_date).toLocaleDateString() },
+                  { label: 'Views', value: thesisData.views },
+                  { label: 'Downloads', value: thesisData.downloads ?? 0 },
+                  { label: 'Created', value: new Date(thesisData.created_at).toLocaleDateString() },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex flex-col gap-0.5">
+                    <span className="text-xs uppercase tracking-wide text-gray-400">{label}</span>
+                    <span className="text-sm font-medium text-gray-900 truncate">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {thesisData.thesis_file_url && (
+              <button
+                onClick={() => handleDownload(thesisData.id, thesisData.thesis_file_url)}
+                className="cursor-pointer w-full flex items-center justify-center gap-2 mt-2 bg-amber-600 hover:bg-amber-700 text-white text-base font-medium py-2.5 px-4 rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download full thesis
+              </button>
+            )}
           </div>
 
-          {thesisData.thesis_file_url && (
-            <button
-              onClick={() => handleDownload(thesisData.id, thesisData.thesis_file_url)}
-              className="w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-base font-medium py-2.5 px-4 rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download full thesis
-            </button>
-          )}
         </div>
-
-      </div>
     </div>
   );
 }
