@@ -87,6 +87,11 @@ export async function SumbitThesis(req: Request, res: Response) {
             return res.status(500).json({ error: "Failed to create thesis" });
         }
 
+        const keys = await redis.keys("thesis:page:*");
+        if (keys.length > 0) {
+            await redis.del(...keys);
+        }
+
         res.status(200).json({
             status: true,
             message: "Thesis created successfully",
@@ -122,7 +127,7 @@ export async function getThesis(req: Request, res: Response) {
         });
     }
 
-    const cacheKey = "thesis:page:${page}:limit:${limit}";
+    const cacheKey = `thesis:page:${page}:limit:${limit}`;
 
     const cached = await redis.get(cacheKey);
     if (cached) {
@@ -208,5 +213,60 @@ export async function getRepoById(req: Request, res: Response){
     } catch (error) {
         console.error('Server error:', error);
         return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+
+export async function deleteId(req: Request, res: Response) {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({ error: "ID is required" });
+        }
+
+        // 1️⃣ Get thesis to retrieve the file path for storage deletion
+        const { data: thesis, error: fetchError } = await supabase
+            .from("Thesis")
+            .select("thesis_file_url")
+            .eq("id", id)
+            .single();
+
+        if (fetchError || !thesis) {
+            return res.status(404).json({ error: "Thesis not found" });
+        }
+
+        // 2️⃣ Delete file from Supabase storage
+        if (thesis.thesis_file_url) {
+            const { error: storageError } = await supabase.storage
+                .from("thesis-files")
+                .remove([thesis.thesis_file_url]);
+
+            if (storageError) {
+                console.error("Failed to delete file from storage:", storageError);
+            }
+        }
+
+        // 3️⃣ Delete thesis record from database
+        const { error: deleteError } = await supabase
+            .from("Thesis")
+            .delete()
+            .eq("id", id);
+
+        if (deleteError) {
+            return res.status(500).json({ error: "Failed to delete thesis" });
+        }
+
+        // 4️⃣ Invalidate redis cache so deleted thesis disappears immediately
+        const keys = await redis.keys("thesis:page:*");
+        if (keys.length > 0) {
+            await redis.del(...keys);
+        }
+
+        return res.status(200).json({ success: true, message: "Thesis deleted successfully" });
+
+    } catch (error) {
+        console.error("Server error:", error);
+        return res.status(500).json({ error: "Internal server error" });
     }
 }

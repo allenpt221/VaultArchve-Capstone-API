@@ -14,22 +14,34 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 
-
-const stats = [
-  { icon: BookOpen, label: "Total Theses", value: "1,240+" },
-  { icon: Users, label: "Contributors", value: "3,800+" },
-  { icon: GraduationCap, label: "Departments", value: "12" },
-  { icon: TrendingUp, label: "Monthly Views", value: "15K+" },
-];
-
-
-
 export default function Home() {
 
-    const { randomRepository,} = repoStores();
+    const { randomRepository, repository} = repoStores();
     const [isLoading, setIsLoading] = useState(true);
     const [showAlert, setShowAlert] = useState(false);
     const [isClickable, setIsClickable] = useState(true);
+    const totalViews = repository.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
+    const totalDownloads = repository.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
+
+    
+    function formatViews(num: number) {
+      if (num >= 1_000_000) {
+        return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+      }
+      if (num >= 1_000) {
+        return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+      }
+      return num.toString();
+    }
+
+
+    const stats = [
+      { icon: BookOpen, label: "Total Theses", value: "1,240+" },
+      { icon: Users, label: "Contributors", value: formatViews(totalDownloads)},
+      { icon: GraduationCap, label: "Courses", value: "4" },
+      { icon: TrendingUp, label: "Total Views", value: formatViews(totalViews)},
+    ];
+
 
     const handleCountView = async (id: string) => {
       try {
@@ -59,7 +71,6 @@ export default function Home() {
   };
   
 
-  
   return (
       <div className="">
       <div className="relative  min-h-130 flex justify-center items-center overflow-hidden">

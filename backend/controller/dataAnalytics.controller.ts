@@ -55,11 +55,6 @@ export async function incrementView(req: Request, res: Response) {
 
 export async function downloadThesis(req: Request<DownloadProps>, res: Response) {
     try {
-        const user = (req as any).user;
-        
-        if (!user) {
-            return res.status(401).json({ message: "Not logged in" });
-        }
         const { thesis_id } = req.params;
         const filename = req.query.filename as string;
 
@@ -95,7 +90,7 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
         }
 
         // Redirect to signed URL
-        res.redirect(signedUrlData.signedUrl);
+        return res.status(200).json({ url: signedUrlData.signedUrl });
 
     } catch (error: any) {
         console.error(error);

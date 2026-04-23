@@ -4,13 +4,10 @@ import { ChartNoAxesCombined, BookOpen, Eye, TrendingUp, Download } from 'lucide
 
 function DataAnalytics() {
     const { repository } = repoStores();
-    const totalViews = repository.reduce((sum, repo) => sum + repo.views, 0);
-    const totalDownloads = repository.reduce((sum, repo) => sum + (repo.downloads || 0), 0);
-    const mostViewed = repository.reduce((top, repo) =>
-    repo.views > top.views ? repo : top, repository[0]
-    );
+    const totalViews = repository.reduce((sum, repo) => sum + (Number(repo.views) || 0), 0);
+    const totalDownloads = repository.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
+    const mostViewed = repository.length > 0 ? repository.reduce((top, repo) => (Number(repo.views) || 0) > (Number(top.views) || 0) ? repo : top ) : null;
 
-    console.log(totalDownloads)
 
 const stats = [
   {
@@ -25,7 +22,7 @@ const stats = [
   {
     icon: <Eye className="w-4 h-4" style={{ color: '#3B6D11' }} />,
     iconBg: '#EAF3DE',
-    value: totalViews.toLocaleString(),
+    value: totalViews,
     label: 'Total views',
     badge: 'All time',
     badgeBg: '#EAF3DE',
@@ -43,7 +40,7 @@ const stats = [
   {
     icon: <TrendingUp className="w-4 h-4" style={{ color: '#BA7517' }} />,
     iconBg: '#FAEEDA',
-    value: mostViewed?.views.toLocaleString() ?? '0',
+    value: mostViewed?.views?.toLocaleString() ?? '0',
     label: mostViewed?.title ?? '—',
     badge: 'Most viewed',
     badgeBg: '#FAEEDA',

@@ -35,7 +35,7 @@ function Browse() {
   const [sort, setSort] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { repository, FilteredThesis } = repoStores();
+  const { repository, FilteredThesis, incrementViews } = repoStores();
 
   const [showAlert, setShowAlert] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +58,7 @@ function Browse() {
   const handleCountView = async (id: string) => {
     try {
       await axios.put(`repository/views/${id}`);
+      incrementViews(id);
     } catch (error: any) {
       console.error(error);
     }
