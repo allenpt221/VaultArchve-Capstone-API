@@ -58,7 +58,7 @@ function Browse() {
   const handleCountView = async (id: string) => {
     try {
       await axios.put(`repository/views/${id}`);
-      incrementViews(id);
+      incrementViews();
     } catch (error: any) {
       console.error(error);
     }
@@ -91,9 +91,9 @@ function Browse() {
     <div className="sm:px-20 px-5 py-12">
       {/* Header */}
       <div className="mb-10">
-        <h1 className="font-display text-4xl font-bold text-foreground mb-2">Browse Theses</h1>
+        <h1 className="font-display text-4xl font-bold text-foreground mb-2">Browse Thesis</h1>
         <p className="font-body text-muted-foreground">
-          Search and explore the complete collection of academic theses.
+          Search and explore the complete collection of academic thesis.
         </p>
       </div>
 
