@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
+import redis from "../lib/ioredis";
+import { downloadLimiter } from "../lib/ratelimit";
 
 interface DownloadProps{
     thesis_id: string;
@@ -41,6 +43,7 @@ export async function incrementView(req: Request, res: Response) {
         if (updateError) {
             return res.status(500).json({ message: "Failed to increment views", error: updateError });
         }
+        
 
         return res.status(200).json({
             message: "View count incremented",
@@ -57,28 +60,44 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
     try {
         const { thesis_id } = req.params;
         const filename = req.query.filename as string;
+        const ip = req.ip || req.headers["x-forwarded-for"] as string || "unknown";
 
         if (!thesis_id || !filename) {
             return res.status(400).json({ message: "Thesis ID and filename are required" });
         }
 
-    const { data: thesisData, error: fetchError } = await supabase
-        .from("Thesis")
-        .select("downloads")
-        .eq("id", thesis_id)
-        .single();
+        const { success, remaining } = await downloadLimiter.limit(`download:${ip}:${thesis_id}`);
 
-    if (fetchError || !thesisData) {
-        return res.status(404).json({ message: "Thesis not found" });
-    } 
+        if (!success) {
+            return res.status(429).json({
+                message: "Too many downloads. Please try again later.",
+                remaining,
+            });
+        }
 
-// Just update, no insert needed
-    await supabase
-        .from("Thesis")
-        .update({ downloads: (thesisData.downloads || 0) + 1 })
-        .eq("id", thesis_id);  
+        const { data: thesisData, error: fetchError } = await supabase
+            .from("Thesis")
+            .select("downloads")
+            .eq("id", thesis_id)
+            .single();
 
-        // Generate signed URL
+        if (fetchError || !thesisData) {
+            return res.status(404).json({ message: "Thesis not found" });
+        }
+
+        // 2️⃣ Increment downloads
+        await supabase
+            .from("Thesis")
+            .update({ downloads: (thesisData.downloads || 0) + 1 })
+            .eq("id", thesis_id);
+
+        // 3️⃣ Invalidate cache so reload shows updated downloads
+        const keys = await redis.keys("thesis:page:*");
+        if (keys.length > 0) {
+            await redis.del(...keys);
+        }
+
+        // 4️⃣ Generate signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
             .storage
             .from("thesis-files")
@@ -89,7 +108,6 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
             return res.status(500).json({ message: "Failed to generate download link" });
         }
 
-        // Redirect to signed URL
         return res.status(200).json({ url: signedUrlData.signedUrl });
 
     } catch (error: any) {
@@ -116,12 +134,12 @@ export async function getFilteredThesis(req: Request, res: Response) {
         .lt("issue_date", end);
     }
 
-    // Filter by department                     
+    // Filter by department
     if (department && department !== "all") {
       query = query.eq("course", department);
     }
 
-    // Safe sorting — added "views" 👇
+    // Safe sorting
     const allowedSortColumns = ["issue_date", "title", "author", "views"];
     const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
 

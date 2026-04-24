@@ -116,6 +116,7 @@ export async function SumbitThesis(req: Request, res: Response) {
     }
 }
 
+
 export async function getThesis(req: Request, res: Response) {
   try {
     const { page, limit } = req.query as { page: string; limit: string };
@@ -127,12 +128,14 @@ export async function getThesis(req: Request, res: Response) {
         });
     }
 
-    const cacheKey = `thesis:page:${page}:limit:${limit}`;
+    // const cacheKey = `thesis:page:${page}:limit:${limit}`;
 
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return res.status(200).json({ success: true, thesis: cached }); // ⚡ fast
-    }
+    // const cached = await redis.get(cacheKey);
+    // if (cached) {
+    //   return res.status(200).json({ success: true, thesis: cached }); // ⚡ fast
+    // }
+
+
 
     const from = (Number(page) - 1) * Number(limit);
     const to = from + Number(limit) - 1;
@@ -151,7 +154,7 @@ export async function getThesis(req: Request, res: Response) {
       totalPages: Math.ceil(count! / Number(limit)),
     };
 
-    await redis.set(cacheKey, responseData, { ex: 3600 });
+    // await redis.set(cacheKey, responseData, { ex: 3600 });
 
     return res.status(200).json({
       success: true,

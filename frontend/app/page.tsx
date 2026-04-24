@@ -16,12 +16,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
 
-    const { randomRepository, repository} = repoStores();
+    const { randomRepository, repository, incrementViews } = repoStores();
     const [isLoading, setIsLoading] = useState(true);
     const [showAlert, setShowAlert] = useState(false);
     const [isClickable, setIsClickable] = useState(true);
     const totalViews = repository.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
     const totalDownloads = repository.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
+
 
     
     function formatViews(num: number) {
@@ -46,6 +47,7 @@ export default function Home() {
     const handleCountView = async (id: string) => {
       try {
         await axios.put(`repository/views/${id}`);
+        incrementViews();
 
       } catch (error:any) {
         console.error(error); 

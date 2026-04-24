@@ -225,11 +225,6 @@ export function LoginForm({
               </AlertTitle>
               <AlertDescription className="text-red-600 text-xs">
                 {error}
-                {retryAfter && (
-                  <span className="block mt-1 font-medium">
-                    Please try again in {retryAfter}.
-                  </span>
-                )}
               </AlertDescription>
             </div>
           </div>
