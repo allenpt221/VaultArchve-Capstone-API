@@ -45,7 +45,6 @@ const cardStyles = [
 function AIrecommendation() {
 
   const [selectedInterest, setSelectedInterest] = useState("Accountancy");
-  const [searchTopic, setSearchTopic] = useState('');
   const [chatPrompt, setChatPrompt] = useState('');
   const [disabled, setDisabled] = useState(false);
   const [active, setActive] = useState<'recommendation' | 'progressive'>('recommendation');
@@ -83,9 +82,8 @@ function AIrecommendation() {
 
 
   await RecommendedAI({
-    topic: searchTopic,
-    course: selectedInterest,
     chatPrompt: chatPrompt || "Suggest thesis ideas",
+    course: selectedInterest
   });
 
     setTimeout(() => {
@@ -154,12 +152,6 @@ function AIrecommendation() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input
-              placeholder="Enter a research topic (e.g., Ai In Accounting Information System)"
-              className="sm:text-base text-sm"
-              value={searchTopic}
-              onChange={(e) => setSearchTopic(e.target.value)}
-            />
             <Select
             value={selectedInterest}
             onValueChange={(value) => setSelectedInterest(value)}>
@@ -183,7 +175,7 @@ function AIrecommendation() {
             />
             <Button
             type="submit"
-            disabled={!searchTopic.trim() || loading || disabled}
+            disabled={!chatPrompt.trim() || loading || disabled}
               className="bg-amber-400 py-5 px-2 text-black font-semibold cursor-pointer  text-sm"
             >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SparklesIcon className="h-5 w-5" />}
