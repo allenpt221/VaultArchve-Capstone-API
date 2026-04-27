@@ -22,42 +22,83 @@ type ThesisProgress = {
 
 export async function RecommendedAI(req: Request, res: Response) {
   try {
-    const { topic, course, chatPrompt } = req.body;
+    const { course, chatPrompt } = req.body;
     const user_id = req.user?.id;
 
     if (!user_id) {
       return res.status(401).json({ message: "Unauthorized, Please Log in" });
     }
 
-    if (!topic || !course) {
-      return res.status(400).json({ message: "Topic and course are required." });
+    if (!course) {
+      return res.status(400).json({ message: "Course is required." });
     }
 
-  const prompt = `
-    You are an academic advisor.
+    const { data: existingTheses, error: fetchError } = await supabase
+      .from("Thesis")             
+      .select("id, title, introduction")
+      .ilike("course", `%${course}%`)        
+      .limit(10);
 
-    VALIDATION RULE:
-    - If the topic appears to be random characters, gibberish, or not a real academic field (e.g. "qweqweqwe", "asdasd", "123abc"), respond with EXACTLY this JSON and nothing else:
-    [{ "error": "Please provide a valid academic topic." }]
+    if (fetchError) {
+      return res.status(500).json({ message: "Failed to fetch existing theses", error: fetchError });
+    }
 
-    Suggest 5 thesis titles for a ${topic} student.
-    Course: ${course}
-    ${chatPrompt ? `User Note: ${chatPrompt}` : ""}
+    const hasExisting = existingTheses && existingTheses.length > 0;
 
-    For each thesis:
-    - Title
-    - Summary
-    - Tags: 3 short keyword tags related to the thesis
+    const existingBlock = hasExisting
+      ? existingTheses
+          .map(
+            (t, i) =>
+              `[${i + 1}] Title: "${t.title}"\n     Introduction: ${
+                t.introduction
+                  ? t.introduction.slice(0, 300) + "..."
+                  : "No introduction available."
+              }`
+          )
+          .join("\n\n")
+      : null;
 
-    Return ONLY a JSON array, no markdown, no explanation:
-    [
-      {
-        "title": "",
-        "summary": ""
-        "tags": ["","",""]
-        
+    const prompt = `
+      You are an academic advisor and research innovation expert.
+
+      ${
+        hasExisting
+          ? `
+      EXISTING PUBLISHED THESES (from the database for course: ${course}):
+      ${existingBlock}
+
+      YOUR TASK:
+      - Use the existing thesis titles and introductions above as your BASE
+      - EVOLVE each one: add new features, new research angles, updated scope, or modern methods
+      - Keep the same research context/location if mentioned (e.g. "Guagua Pampanga"), but expand the scope
+      - Do NOT copy the title verbatim — evolve it meaningfully with new direction
+      - Make titles specific, research-ready, and publishable
+      `
+          : `
+      No existing theses found for this course. Generate 5 original thesis suggestions.
+      `
       }
-    ]
+
+      Course: ${course}
+      ${chatPrompt ? `User Instruction (apply this to ALL suggestions): "${chatPrompt}"` : ""}
+
+      For each evolved thesis provide:
+      - "original_title": the exact source thesis title from the database (or "New" if none existed)
+      - "title": the new evolved thesis title
+      - "summary": 2–3 sentence summary of the evolved thesis
+      - "new_features": array of 2–3 short strings — what is NEW or added vs the original
+      - "tags": 3 short keyword tags
+
+      Return ONLY a JSON array, no markdown, no explanation:
+      [
+        {
+          "original_title": "",
+          "title": "",
+          "summary": "",
+          "new_features": ["", "", ""],
+          "tags": ["", "", ""]
+        }
+      ]
     `;
 
     const result = await groq.chat.completions.create({
@@ -66,7 +107,7 @@ export async function RecommendedAI(req: Request, res: Response) {
         {
           role: "system",
           content:
-            "You are an academic advisor. Return only valid JSON.",
+            "You are an academic advisor. You evolve existing thesis titles into improved research proposals. Return only valid JSON.",
         },
         {
           role: "user",
@@ -87,22 +128,27 @@ export async function RecommendedAI(req: Request, res: Response) {
       });
     }
 
-    const { error } = await supabase.from("thesisRecommendation").insert([
-      {
-        user_id: user_id,
-        topic,
-        course,
-        chatPrompt,
-        response: parsed,
-      },
-    ]);
+    const { error: insertError } = await supabase
+      .from("thesisRecommendation")
+      .insert([
+        {
+          user_id,
+          course,
+          chatPrompt,
+          response: parsed,
+        },
+      ]);
 
-    if (error) {
-      return res.status(500).json({ message: "Failed to insert response", error });
+    if (insertError) {
+      return res.status(500).json({ message: "Failed to insert response", error: insertError });
     }
 
-    return res.status(200).json({ recommendations: parsed });
+    return res.status(200).json({
+      recommendations: parsed,
+      based_on_existing: hasExisting,
+    });
   } catch (error: any) {
+    console.log(error)
     return res.status(500).json({ error: error.message });
   }
 }

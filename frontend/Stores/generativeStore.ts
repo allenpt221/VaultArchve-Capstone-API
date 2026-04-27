@@ -4,7 +4,6 @@ import { create } from 'zustand';
 
 
 interface RecommendedProps{
-    topic: string;
     course: string;
     chatPrompt: string;
 }
@@ -24,12 +23,11 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     loading: false,
     message: "",
 
-    RecommendedAI: async({topic, course, chatPrompt} : RecommendedProps ): Promise<void> => {
+    RecommendedAI: async({ chatPrompt, course } : RecommendedProps ): Promise<void> => {
         try {
             set({ loading: true, message: "" });
 
             const res = await axios.post('/ai/recommendation', {
-                topic,
                 course,
                 chatPrompt
             });
