@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { repoStores } from '@/Stores/repoStores';
 import axios from '@/lib/axios';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -41,6 +41,9 @@ function Browse() {
   const [isLoading, setIsLoading] = useState(true);
   const [isClickable, setIsClickable] = useState(true);
 
+  // Stabilize FilteredThesis reference to prevent infinite re-renders
+  const stableFilteredThesis = useCallback(FilteredThesis, []);
+
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
@@ -48,8 +51,8 @@ function Browse() {
 
   useEffect(() => {
     const { sort: sortCol, order } = sortMap[sort];
-    FilteredThesis(year, dept, sortCol, order);
-  }, [year, dept, sort, FilteredThesis]);
+    stableFilteredThesis(search, year, dept, sortCol, order);
+  }, [search, year, dept, sort, stableFilteredThesis]);
 
   useEffect(() => {
     setCurrentPage(1);

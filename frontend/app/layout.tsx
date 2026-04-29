@@ -30,6 +30,12 @@ export default function RootLayout({
       lang="en"
       className={`${poppins.className }  h-full antialiased`}
     >
+      <head>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet"
+      />
+    </head>
       <body className="min-h-full flex flex-col">
         <LoadingScreen />
         <Provider />
