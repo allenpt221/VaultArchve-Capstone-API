@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Users,
 } from "lucide-react";
 
 import DataAnalytics from "@/components/AdminComponents/DataAnalytics";
@@ -42,7 +43,7 @@ function Admin() {
   const menuItems = [
     { id: "data-analytics", label: "Analytics Dashboard", icon: LayoutDashboard },
     { id: "submit-thesis", label: "Publish Thesis", icon: FileText },
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "users-management", label: "User Management", icon: Users  },
   ];
 
   return (
@@ -152,7 +153,7 @@ function Admin() {
         </div>
       </main>
 
-
+      {/* mobile screen */}
       <div
         className={`fixed inset-0 z-60 lg:hidden transition-all duration-300 ${
           mobileOpen ? "visible" : "invisible"

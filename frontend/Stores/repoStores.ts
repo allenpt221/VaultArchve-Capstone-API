@@ -35,7 +35,7 @@ interface productState {
 
     getRandomRepository: () => void;
     getPageRepository: (page: number, limit: number) => void;
-    FilteredThesis: (year: string, department: string, sort: string, order: string) => void;
+    FilteredThesis: (search: string, year: string, department: string, sort: string, order: string) => void;
     ThesisById: (id: string) => void;
     incrementDownloads: () => void;
     incrementViews: () => void;
@@ -97,18 +97,22 @@ export const repoStores = create<productState>((set, get) => ({
         }
     },
 
-    FilteredThesis: async (year: string, department: string, sort: string, order: string): Promise<void> => {
+    FilteredThesis: async (search: string, year: string, department: string, sort: string, order: string): Promise<void> => {
         try {
             set({ loading: true });
 
-            const params = new URLSearchParams();
-            params.append("year", year);
-            params.append("department", department);
-            params.append("sort", sort);
-            params.append("order", order);
+            const params = new URLSearchParams({
+                ...(search && { search }),
+                ...(year !== "all" && { year }),
+                ...(department !== "all" && { department }),
+                sort,
+                order,
+            });
 
             const res = await axios.get(`/repository/sort?${params.toString()}`);
-            set({ repository: res.data, loading: false });
+
+            const data = Array.isArray(res.data) ? res.data : res.data.data ?? [];
+            set({ repository: data, loading: false });
 
         } catch (error) {
             console.error("Failed to filter thesis:", error);

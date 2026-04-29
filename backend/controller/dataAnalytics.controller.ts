@@ -119,33 +119,50 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
 
 export async function getFilteredThesis(req: Request, res: Response) {
   try {
-    const { year, department, sort = "issue_date", order = "desc" 
-    } = req.query as { year?: string; department?: string; sort?: string; order?: "asc" | "desc"; };
+    const {
+      search,
+      year,
+      department,
+      sort = "issue_date",
+      order = "desc",
+      page = "1",
+      per_page = "10",
+    } = req.query as {
+      search?: string;
+      year?: string;
+      department?: string;
+      sort?: string;
+      order?: "asc" | "desc";
+      page?: string;
+      per_page?: string;
+    };
 
-    let query = supabase.from("Thesis").select("*");
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    const perPage     = Math.min(100, Math.max(1, parseInt(per_page, 10) || 10));
 
-    // Filter by year
-    if (year && year !== "all") {
-      const start = `${year}-01-01`;
-      const end = `${Number(year) + 1}-01-01`;
-
-      query = query
-        .gte("issue_date", start)
-        .lt("issue_date", end);
-    }
-
-    // Filter by department
-    if (department && department !== "all") {
-      query = query.eq("course", department);
-    }
-
-    // Safe sorting
     const allowedSortColumns = ["issue_date", "title", "author", "views"];
     const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
 
-    query = query.order(sortColumn, {
-      ascending: order === "asc",
-    });
+    // Fetch ALL matching rows first — no .range() — so search works across every page
+    let query = supabase
+      .from("Thesis")
+      .select("*")
+      .order(sortColumn, { ascending: order === "asc" });
+
+    // Search across ALL records before paginating
+    if (search && search.trim() !== "") {
+      query = query.or(`title.ilike.%${search.trim()}%,author.ilike.%${search.trim()}%`);
+    }
+
+    if (year && year !== "all") {
+      query = query
+        .gte("issue_date", `${year}-01-01`)
+        .lt("issue_date",  `${Number(year) + 1}-01-01`);
+    }
+
+    if (department && department !== "all") {
+      query = query.eq("course", department);
+    }
 
     const { data, error } = await query;
 
@@ -153,8 +170,21 @@ export async function getFilteredThesis(req: Request, res: Response) {
       return res.status(500).json({ error: error.message });
     }
 
-    res.json(data);
+    // Paginate in memory AFTER all filters are applied
+    const total    = data.length;
+    const lastPage = Math.max(1, Math.ceil(total / perPage));
+    const from     = (currentPage - 1) * perPage;
+    const paginated = data.slice(from, from + perPage);
+
+    return res.status(200).json({
+      data:         paginated,
+      total,
+      current_page: currentPage,
+      last_page:    lastPage,
+      per_page:     perPage,
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
   }
 }
