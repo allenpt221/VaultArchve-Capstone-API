@@ -23,9 +23,9 @@ export async function incrementView(req: Request, res: Response) {
 
         // 1️⃣ Get current views
         const { data: thesisData, error: fetchError } = await supabase
-            .from("Thesis")
+            .from("ThesisDataAnalytics")
             .select("views")
-            .eq("id", id)
+            .eq("thesis_id", id)
             .single();
 
         if (fetchError || !thesisData) {
@@ -34,9 +34,9 @@ export async function incrementView(req: Request, res: Response) {
 
         // 2️⃣ Increment views
         const { data: updatedPage, error: updateError } = await supabase
-            .from("Thesis")
+            .from("ThesisDataAnalytics")
             .update({ views: thesisData.views + 1 })
-            .eq("id", id)
+            .eq("thesis_id", id)
             .select()
             .single();
 
@@ -76,9 +76,9 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
         }
 
         const { data: thesisData, error: fetchError } = await supabase
-            .from("Thesis")
+            .from("ThesisDataAnalytics")
             .select("downloads")
-            .eq("id", thesis_id)
+            .eq("thesis_id", thesis_id)
             .single();
 
         if (fetchError || !thesisData) {
@@ -87,15 +87,9 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
 
         // 2️⃣ Increment downloads
         await supabase
-            .from("Thesis")
+            .from("ThesisDataAnalytics")
             .update({ downloads: (thesisData.downloads || 0) + 1 })
-            .eq("id", thesis_id);
-
-        // 3️⃣ Invalidate cache so reload shows updated downloads
-        const keys = await redis.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await redis.del(...keys);
-        }
+            .eq("thesis_id", thesis_id);
 
         // 4️⃣ Generate signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
@@ -146,7 +140,7 @@ export async function getFilteredThesis(req: Request, res: Response) {
     // Fetch ALL matching rows first — no .range() — so search works across every page
     let query = supabase
       .from("Thesis")
-      .select("*")
+      .select('*, ThesisDataAnalytics(views, downloads)', { count: 'exact' })
       .order(sortColumn, { ascending: order === "asc" });
 
     // Search across ALL records before paginating

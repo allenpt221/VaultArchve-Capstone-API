@@ -57,7 +57,6 @@ export async function SumbitThesis(req: Request, res: Response) {
             return;
         }
 
-        // ✅ Save only the storage path, not the full public URL
         const thesis_file_url = uploadData.path;
 
         const { data: thesis, error: thesisError } = await supabase
@@ -73,20 +72,26 @@ export async function SumbitThesis(req: Request, res: Response) {
                 discussion,
                 references,
                 issue_date: issueDate,
-                thesis_file_url,           // ← clean storage path
+                thesis_file_url,
                 thesis_file_name: thesis_file.originalname,
             }])
             .select();
 
+        // ✅ Error check FIRST before analytics insert
         if (thesisError || !thesis?.[0]) {
             console.error("Failed to insert thesis:", thesisError);
-
-            // Rollback: remove uploaded file if DB insert fails
             await supabase.storage.from("thesis-files").remove([fileName]);
-
             return res.status(500).json({ error: "Failed to create thesis" });
         }
 
+        // ✅ Analytics insert AFTER error check with default values
+        await supabase.from('ThesisDataAnalytics').insert([{
+            thesis_id: thesis[0].id,
+            views: 0,
+            downloads: 0
+        }]);
+
+        // ✅ Invalidate cache so new thesis appears immediately
         const keys = await redis.keys("thesis:page:*");
         if (keys.length > 0) {
             await redis.del(...keys);
@@ -128,21 +133,19 @@ export async function getThesis(req: Request, res: Response) {
         });
     }
 
-    // const cacheKey = `thesis:page:${page}:limit:${limit}`;
+    const cacheKey = `thesis:page:${page}:limit:${limit}`;
 
-    // const cached = await redis.get(cacheKey);
-    // if (cached) {
-    //   return res.status(200).json({ success: true, thesis: cached }); // ⚡ fast
-    // }
-
-
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return res.status(200).json({ success: true, thesis: cached });
+    }
 
     const from = (Number(page) - 1) * Number(limit);
     const to = from + Number(limit) - 1;
 
     const { data: thesis, error, count } = await supabase  
       .from('Thesis')
-      .select('*', { count: 'exact' })
+      .select('*, ThesisDataAnalytics(views, downloads)', { count: 'exact' })
       .range(from, to);
 
     if (error) throw error;  
@@ -154,7 +157,7 @@ export async function getThesis(req: Request, res: Response) {
       totalPages: Math.ceil(count! / Number(limit)),
     };
 
-    // await redis.set(cacheKey, responseData, { ex: 3600 });
+    await redis.set(cacheKey, responseData, { ex: 3600 });
 
     return res.status(200).json({
       success: true,
@@ -168,14 +171,12 @@ export async function getThesis(req: Request, res: Response) {
 
 
 export async function getRandomThesis(req: Request, res: Response){
-    try {
-        
+    try {  
         const { data, error } = await supabase
         .from("Thesis")
-        .select("*")
+        .select("*, ThesisDataAnalytics(views, downloads)")
         .order("created_at", { ascending: Math.random() < 0.5 })
         .limit(4);
-
 
         if (error) {
            console.error("Failed to fetch thesis:", error);
@@ -199,7 +200,7 @@ export async function getRepoById(req: Request, res: Response){
         
         const { data, error } = await supabase
             .from('Thesis')
-            .select('*')
+            .select('*, ThesisDataAnalytics(views, downloads)')
             .eq('id', id)
             .single();
 
@@ -219,6 +220,25 @@ export async function getRepoById(req: Request, res: Response){
     }
 }
 
+export async function getRepoViewAndDownloads(req: Request, res: Response) {
+    try {
+        const { data, error } = await supabase
+            .from("ThesisDataAnalytics")
+            .select("*");
+
+        if (error) {
+            console.error("Failed to fetch analytics:", error);
+            return res.status(500).json({ status: false, error: "Failed to fetch analytics" });
+        }
+
+        return res.status(200).json({ status: true, data });
+
+    } catch (error) {
+        console.error('Server error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
 
 export async function deleteId(req: Request, res: Response) {
     try {
@@ -228,7 +248,6 @@ export async function deleteId(req: Request, res: Response) {
             return res.status(400).json({ error: "ID is required" });
         }
 
-        // 1️⃣ Get thesis to retrieve the file path for storage deletion
         const { data: thesis, error: fetchError } = await supabase
             .from("Thesis")
             .select("thesis_file_url")
@@ -239,7 +258,6 @@ export async function deleteId(req: Request, res: Response) {
             return res.status(404).json({ error: "Thesis not found" });
         }
 
-        // 2️⃣ Delete file from Supabase storage
         if (thesis.thesis_file_url) {
             const { error: storageError } = await supabase.storage
                 .from("thesis-files")
@@ -250,7 +268,9 @@ export async function deleteId(req: Request, res: Response) {
             }
         }
 
-        // 3️⃣ Delete thesis record from database
+        // ✅ Delete analytics first (foreign key dependency)
+        await supabase.from('ThesisDataAnalytics').delete().eq('thesis_id', id);
+
         const { error: deleteError } = await supabase
             .from("Thesis")
             .delete()
@@ -260,7 +280,6 @@ export async function deleteId(req: Request, res: Response) {
             return res.status(500).json({ error: "Failed to delete thesis" });
         }
 
-        // 4️⃣ Invalidate redis cache so deleted thesis disappears immediately
         const keys = await redis.keys("thesis:page:*");
         if (keys.length > 0) {
             await redis.del(...keys);
