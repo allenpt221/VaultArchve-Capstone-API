@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { deleteId, getRandomThesis, getRepoById, getRepoViewAndDownloads, getThesis, SumbitThesis } from '../controller/repository.controller';
+import { deleteId, getRandomThesis, getRepoById, getRepoViewAndDownloads, getThesis, SumbitThesis, UpdateThesis } from '../controller/repository.controller';
 import { adminOnly, verifyToken } from '../middleware/middware';
 import { downloadThesis, getFilteredThesis, incrementView } from '../controller/dataAnalytics.controller';
 
@@ -13,6 +13,8 @@ router.get('/getthesis', getThesis)
 router.get('/sort', getFilteredThesis);
 router.get('/getbyid/:id', getRepoById);
 router.delete('/thesis/delete/:id', deleteId);
+router.put('/thesis/update/:id', verifyToken, adminOnly, upload.any(), UpdateThesis);
+
 
 
 
