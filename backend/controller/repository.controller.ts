@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
 import redis from "../lib/ioredis";
+import { sign } from "node:crypto";
 
 interface ThesisProps {
     title: string;
@@ -114,6 +115,83 @@ export async function SumbitThesis(req: Request, res: Response) {
             }
         });
 
+    } catch (error: any) {
+        console.error('Server error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+        return;
+    }
+}
+
+export async function UpdateThesis(req: Request, res: Response) {
+    try {
+        const { id } = req.params;
+        const { title, author, course, issueDate, abstract, introduction, discussion, references, conclusion }: ThesisProps = req.body;
+
+        const files = req.files as Express.Multer.File[];
+        const thesis_file = files?.[0];
+
+        let thesis_file_url: string | undefined;
+        let thesis_file_name: string | undefined;
+
+        if (thesis_file) {
+            const allowedTypes = [
+                "application/pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ];
+
+            if (!allowedTypes.includes(thesis_file.mimetype)) {
+                res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
+                return;
+            }
+
+            const fileName = `${id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("thesis-files")
+                .upload(fileName, thesis_file.buffer, {
+                    contentType: thesis_file.mimetype,
+                    upsert: true,
+                });
+
+            if (uploadError) {
+                console.error("Storage upload error:", uploadError);
+                res.status(500).json({ status: false, error: "Failed to upload file" });
+                return;
+            }
+
+            thesis_file_url = uploadData.path;
+            thesis_file_name = thesis_file.originalname;
+        }
+
+        const { error } = await supabase
+            .from("Thesis")
+            .update({
+                title,
+                author,
+                course,
+                issue_date: issueDate,
+                abstract,
+                introduction,
+                discussion,
+                references,
+                conclusion,
+                ...(thesis_file_url && { thesis_file_url }),
+                ...(thesis_file_name && { thesis_file_name }),
+            })
+            .eq('id', id);
+
+        if (error) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+
+        // Invalidate cache
+        const keys = await redis.keys("thesis:page:*");
+        if (keys.length > 0) {
+            await redis.del(...keys);
+        }
+
+        res.status(200).json({ message: 'Thesis updated successfully' });
     } catch (error: any) {
         console.error('Server error:', error);
         res.status(500).json({ error: 'Internal server error' });
