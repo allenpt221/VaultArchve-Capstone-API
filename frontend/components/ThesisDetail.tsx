@@ -119,12 +119,12 @@ function ThesisDetail({ id }: { id: string }) {
           <span className="text-gray-300">·</span>
           <span className="flex items-center gap-1">
             <Eye className="w-4 h-4" />
-            {thesisData.views} views
+            {thesisData.ThesisDataAnalytics?.[0]?.views ?? 0} views
           </span>
           <span className="text-gray-300">·</span>
           <span className="flex items-center gap-1">
             <Download className="w-4 h-4" />
-            {thesisData.downloads ?? 0} downloads
+            {thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0} downloads
           </span>
         </div>
 
@@ -152,8 +152,8 @@ function ThesisDetail({ id }: { id: string }) {
                   { label: 'Department', value: thesisData.course },
                   { label: 'Year', value: new Date(thesisData.issue_date).getFullYear() },
                   { label: 'Publish date', value: new Date(thesisData.issue_date).toLocaleDateString() },
-                  { label: 'Views', value: thesisData.views },
-                  { label: 'Downloads', value: thesisData.downloads ?? 0 },
+                  { label: 'Views', value: thesisData.ThesisDataAnalytics?.[0]?.views },
+                  { label: 'Downloads', value: thesisData.ThesisDataAnalytics?.[0]?.downloads},
                   { label: 'Created', value: new Date(thesisData.created_at).toLocaleDateString() },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex flex-col gap-0.5">

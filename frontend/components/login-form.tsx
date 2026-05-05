@@ -24,12 +24,11 @@ export function LoginForm({
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState('');
-   const [retryAfter, setRetryAfter] = useState<string | null>(null);
-   const [countdown, setCountdown] = useState<number | null>(null);
+  const [retryAfter, setRetryAfter] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   
 
 
@@ -46,7 +45,6 @@ export function LoginForm({
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setError('');
-      setSuccess(false);
       setFailed(false);
       setRetryAfter(null);
 
@@ -65,7 +63,6 @@ export function LoginForm({
           setCountdown(parseRetryAfter(result.retryAfter));
           setFailed(true);
         } else {
-          setSuccess(true);
           setPassword('');
           setEmail('');
         }
@@ -77,15 +74,14 @@ export function LoginForm({
     };
 
   useEffect(() => {
-    if (!success && !failed) return;
+    if (!failed) return;
     const timer = setTimeout(() => {
-      setSuccess(false);
       setFailed(false);
       setRetryAfter(null);
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [success, failed]);
+  }, [failed]);
 
 
     useEffect(() => {
@@ -192,25 +188,6 @@ export function LoginForm({
         and <a href="#">Privacy Policy</a>.
       </FieldDescription>
 
-      {success && (
-      <Alert
-        variant="default"
-        className={`fixed top-6 left-1/2 -translate-x-1/2 z-100 w-[90%] max-w-md px-6 py-4 shadow-lg rounded-xl border border-green-500 bg-green-100`}
-      >
-        <div className="flex items-start gap-3">
-          <CircleCheckBig className="text-green-500" />
-          <div>
-            <AlertTitle
-              className='text-green-600 font-semibold'>
-              Login successful
-            </AlertTitle>
-            <AlertDescription className="text-green-600 text-xs">
-              Welcome back! You’re now signed in.
-            </AlertDescription>
-          </div>
-        </div>
-      </Alert>
-      )}
 
       {failed && (
         <Alert

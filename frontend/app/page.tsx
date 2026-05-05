@@ -16,12 +16,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function Home() {
 
-    const { randomRepository, repository, incrementViews } = repoStores();
-    const [isLoading, setIsLoading] = useState(true);
+    const { randomRepository, repository, incrementViews, dataAnalytics } = repoStores();
     const [showAlert, setShowAlert] = useState(false);
     const [isClickable, setIsClickable] = useState(true);
-    const totalViews = repository.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
-    const totalDownloads = repository.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
+    const totalViews = dataAnalytics.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
+    const totalDownloads = dataAnalytics.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
 
 
     
@@ -44,32 +43,24 @@ export default function Home() {
     ];
 
 
-    const handleCountView = async (id: string) => {
-      try {
-        await axios.put(`repository/views/${id}`);
-        incrementViews();
+  const handleCountView = async (id: string) => {
+    try {
+      await axios.put(`repository/views/${id}`);
+      incrementViews(id);
 
-      } catch (error:any) {
-        console.error(error); 
-      }
+    } catch (error:any) {
+      console.error(error); 
+    }
   };
 
 
-
-    useEffect(() => {
-      const timer = setTimeout(() => 
-        setIsLoading(false), 
-      1000);
-      return () => clearTimeout(timer);
-    }, []);
-
-    const triggerAlert = () => {
-      setShowAlert(true);
-      setIsClickable(false);
-      setTimeout(() => { 
-        setShowAlert(false)
-        setIsClickable(true)
-      }, 3000);
+  const triggerAlert = () => {
+    setShowAlert(true);
+    setIsClickable(false);
+    setTimeout(() => { 
+      setShowAlert(false)
+      setIsClickable(true)
+    }, 3000);
   };
   
 
@@ -123,33 +114,13 @@ export default function Home() {
             Explore recent and highly-viewed academic works from our community of scholars.
           </p>
         </div>
-        {isLoading ? (
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {randomRepository.map((item, index) => (
+            <ThesisCard id={item.id} isClickable={isClickable} onAuthFail={triggerAlert} onView={() => handleCountView(item.id)} key={index} views={item.ThesisDataAnalytics?.[0]?.views ?? 0} course={item.course} title={item.title} author={item.author} issue_date={item.issue_date} abstract={item.abstract} />
+          ))}
+        </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-3 animate-pulse">
-                <div className="flex justify-between">
-                  <div className="h-5 w-28 bg-gray-200 rounded-full" />
-                  <div className="h-4 w-8 bg-gray-200 rounded" />
-                </div>
-                <div className="h-4 w-3/4 bg-gray-200 rounded" />
-                <div className="h-4 w-1/2 bg-gray-200 rounded" />
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-gray-200 rounded" />
-                  <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                  <div className="h-3 w-4/6 bg-gray-200 rounded" />
-                </div>
-                <div className="h-3 w-20 bg-gray-200 rounded" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {randomRepository.map((item, index) => (
-              <ThesisCard id={item.id} isClickable={isClickable} onAuthFail={triggerAlert} onView={() => handleCountView(item.id)} key={index} views={item.views} course={item.course} title={item.title} author={item.author} issue_date={item.issue_date} abstract={item.abstract} />
-            ))}
-          </div>
-        )}
         <div className="text-center mt-10">
           <Link href="/browse">
             <Button variant="outline" className="hover:bg-amber-400 font-semibold py-5 border-amber-400 text-amber-400 px-8">

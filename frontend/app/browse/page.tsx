@@ -37,17 +37,14 @@ function Browse() {
 
   const { repository, FilteredThesis, incrementViews } = repoStores();
 
+
+
   const [showAlert, setShowAlert] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isClickable, setIsClickable] = useState(true);
 
   // Stabilize FilteredThesis reference to prevent infinite re-renders
   const stableFilteredThesis = useCallback(FilteredThesis, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     const { sort: sortCol, order } = sortMap[sort];
@@ -61,7 +58,7 @@ function Browse() {
   const handleCountView = async (id: string) => {
     try {
       await axios.put(`repository/views/${id}`);
-      incrementViews();
+      incrementViews(id);
     } catch (error: any) {
       console.error(error);
     }
@@ -91,7 +88,7 @@ function Browse() {
   );
 
   return (
-    <div className="sm:px-20 px-5 py-12">
+    <div className="sm:px-20 px-3 py-12">
       {/* Header */}
       <div className="mb-10">
         <h1 className="font-display text-4xl font-bold text-foreground mb-2">Browse Thesis</h1>
@@ -152,50 +149,24 @@ function Browse() {
         </Select>
       </div>
 
-      {isLoading ? (
-        <>
-          <div className="w-32 border rounded-full p-2 animate-pulse mb-4">
-            <span className="block h-5 w-full bg-gray-200 rounded-full"></span>
-          </div>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-3 animate-pulse">
-                <div className="flex justify-between">
-                  <div className="h-5 w-28 bg-gray-200 rounded-full" />
-                  <div className="h-4 w-8 bg-gray-200 rounded" />
-                </div>
-                <div className="h-4 w-3/4 bg-gray-200 rounded" />
-                <div className="h-4 w-1/2 bg-gray-200 rounded" />
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-gray-200 rounded" />
-                  <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                  <div className="h-3 w-4/6 bg-gray-200 rounded" />
-                </div>
-                <div className="h-3 w-20 bg-gray-200 rounded" />
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <span className='text-black/70 text-sm'>Showing {displayed.length} results</span>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
-            {paginated.map((item, index) => (
-              <ThesisCard
-                key={index}
-                id={item.id}
-                isClickable={isClickable}
-                onAuthFail={triggerAlert}
-                onView={() => handleCountView(item.id)}
-                course={item.course}
-                title={item.title}
-                author={item.author}
-                issue_date={item.issue_date}
-                abstract={item.abstract}
-                views={item.views}
-              />
-            ))}
-          </div>
+      <span className='text-black/70 text-sm'>Showing {displayed.length} results</span>
+      <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
+        {paginated.map((item, index) => (
+          <ThesisCard
+            key={index}
+            id={item.id}
+            isClickable={isClickable}
+            onAuthFail={triggerAlert}
+            onView={() => handleCountView(item.id)}
+            course={item.course}
+            title={item.title}
+            author={item.author}
+            issue_date={item.issue_date}
+            abstract={item.abstract}
+            views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
+          />
+        ))}
+      </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -221,8 +192,6 @@ function Browse() {
               </button>
             </div>
           )}
-        </>
-      )}
 
       {showAlert && (
         <Alert

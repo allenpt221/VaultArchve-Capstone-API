@@ -23,7 +23,7 @@ export default function LoadingScreen() {
 
   return (
     // ✅ fixed + inset-0 + z-50 + bg-white to cover everything
-    <div className="fixed inset-0 z-60 bg-white flex flex-col items-center justify-center gap-4">
+    <div className="fixed inset-0 z-70 bg-white flex flex-col items-center justify-center gap-4">
       <div className="w-9 h-9 rounded-full border-[3px] border-amber-100 border-t-amber-500 animate-spin" />
       <div className="flex flex-col items-center gap-1">
         <span className="text-sm font-medium">VaultArchive</span>
