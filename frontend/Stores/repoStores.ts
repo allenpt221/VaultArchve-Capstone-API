@@ -17,8 +17,7 @@ interface Thesis {
   admin_id: string;
   thesis_file_name: string;
   thesis_file_url: string;
-  views: number;
-  downloads: number;
+  ThesisDataAnalytics: { views: number; downloads: number }[];
 }
 
 
@@ -28,17 +27,19 @@ interface productState {
     randomRepository: any[];
     loading: boolean;
     notFound: boolean;
+    dataAnalytics: any[];
 
     totalCount: number;
     currentPage: number;
     totalPages: number;
 
     getRandomRepository: () => void;
+    viewsDownloads: () => void;
     getPageRepository: (page: number, limit: number) => void;
     FilteredThesis: (search: string, year: string, department: string, sort: string, order: string) => void;
     ThesisById: (id: string) => void;
     incrementDownloads: () => void;
-    incrementViews: () => void;
+    incrementViews: (id: string) => void;
     submitThesis: (
         course: string,
         title: string,      // ✅ fixed order
@@ -57,6 +58,7 @@ interface productState {
 
 export const repoStores = create<productState>((set, get) => ({
     randomRepository: [],
+    dataAnalytics: [],
     thesisData: null,
     repository: [],
     loading: false,
@@ -125,7 +127,6 @@ export const repoStores = create<productState>((set, get) => ({
         try {
             const res = await axios.get(`repository/getbyId/${id}`);
             set({ thesisData: res.data, loading: false });
-            console.log(res.data);
         } catch (error: any) {
             if (error.response?.status === 404) {
                 set({ notFound: true, loading: false });
@@ -183,35 +184,85 @@ export const repoStores = create<productState>((set, get) => ({
     },
 
 
-    incrementViews: () => set((state) => ({
-        thesisData: state.thesisData
-            ? { ...state.thesisData, views: (state.thesisData.views ?? 0) + 1 }
-            : null,
-        randomRepository: state.randomRepository.map((thesis) =>
-            thesis.id === state.thesisData?.id
-                ? { ...thesis, views: (thesis.views ?? 0) + 1 }
-                : thesis
-        ),
+    viewsDownloads: async(): Promise<void> => {
+            set({ loading: true});
+        try {
+            const res = await axios.get('repository/viewsdownloads');
+
+            set({ dataAnalytics: res.data.data });;
+        } catch (error) {
+            console.error("Failed to fetch analytics:", error);
+            set({ loading: false });
+        }
+    },
+
+
+    incrementViews: (id: string) => set((state) => ({
+        thesisData: state.thesisData?.id === id
+            ? {
+                ...state.thesisData,
+                ThesisDataAnalytics: [{
+                    ...state.thesisData.ThesisDataAnalytics?.[0],
+                    views: (state.thesisData.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
+                }]
+            }
+            : state.thesisData,
         repository: state.repository.map((thesis) =>
-            thesis.id === state.thesisData?.id
-                ? { ...thesis, views: (thesis.views ?? 0) + 1 }
+            thesis.id === id
+                ? {
+                    ...thesis,
+                    ThesisDataAnalytics: [{
+                        ...thesis.ThesisDataAnalytics?.[0],
+                        views: (thesis.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
+                    }]
+                }
                 : thesis
         ),
+        
+        randomRepository: state.randomRepository.map((thesis) =>
+        thesis.id === id
+            ? {
+                ...thesis,
+                ThesisDataAnalytics: [{
+                    ...thesis.ThesisDataAnalytics?.[0],
+                    views: (thesis.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
+                }]
+            }
+            : thesis
+    ),
+
+    dataAnalytics: state.dataAnalytics.map((analytic) =>
+        analytic.thesis_id === id
+            ? { ...analytic, views: (Number(analytic.views) || 0) + 1 }
+            : analytic
+    ),
     })),
 
     incrementDownloads: () => set((state) => ({
         thesisData: state.thesisData
-            ? { ...state.thesisData, downloads: (state.thesisData.downloads ?? 0) + 1 }
+            ? {
+                ...state.thesisData,
+                ThesisDataAnalytics: [{
+                    ...state.thesisData.ThesisDataAnalytics?.[0],
+                    downloads: (state.thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1
+                }]
+            }
             : null,
-        randomRepository: state.randomRepository.map((thesis) =>
-            thesis.id === state.thesisData?.id
-                ? { ...thesis, downloads: (thesis.downloads ?? 0) + 1 }
-                : thesis
-        ),
         repository: state.repository.map((thesis) =>
             thesis.id === state.thesisData?.id
-                ? { ...thesis, downloads: (thesis.downloads ?? 0) + 1 }
+                ? {
+                    ...thesis,
+                    ThesisDataAnalytics: [{
+                        ...thesis.ThesisDataAnalytics?.[0],
+                        downloads: (thesis.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1
+                    }]
+                }
                 : thesis
+        ),
+        dataAnalytics: state.dataAnalytics.map((analytic) =>
+            analytic.thesis_id === state.thesisData?.id
+                ? { ...analytic, downloads: (Number(analytic.downloads) || 0) + 1 }
+                : analytic
         ),
     })),
 }))

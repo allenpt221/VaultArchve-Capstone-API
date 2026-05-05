@@ -9,8 +9,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Search,
-  Pencil,
-  Trash2,
 } from 'lucide-react'
 import { TableActions } from '../Usabletable'
 import { useEffect, useState } from 'react'
@@ -21,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import ThesisEditModal from '../Modal/ThesisEditModal'
 
 function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const {
@@ -28,15 +27,19 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     currentPage,
     totalPages,
     getPageRepository,
+    dataAnalytics,
+    viewsDownloads
   } = repoStores()
 
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedThesis, setSelectedThesis] = useState<typeof repository[0] | null>(null)
 
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
-      await getPageRepository(1, 10)
+      getPageRepository(1, 10)
+      viewsDownloads()
       setIsLoading(false)
     }
     load()
@@ -44,30 +47,25 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
 
   async function handlePageChange(page: number) {
     setIsLoading(true)
-    await getPageRepository(page, 10)
+    getPageRepository(page, 10)
     setIsLoading(false)
   }
 
-  const totalViews = repository.reduce(
-    (sum, repo) => sum + (Number(repo.views) || 0),
-    0
-  )
-  const totalDownloads = repository.reduce(
-    (sum, repo) => sum + (Number(repo.downloads) || 0),
-    0
-  )
-  const mostViewed =
-    repository.length > 0
-      ? repository.reduce((top, repo) =>
-          (Number(repo.views) || 0) > (Number(top.views) || 0) ? repo : top
-        )
-      : null
+  const totalViews = dataAnalytics?.reduce((sum, item) => sum + (Number(item.views) || 0), 0) ?? 0
+  const totalDownloads = dataAnalytics?.reduce((sum, item) => sum + (Number(item.downloads) || 0), 0) ?? 0
+
+  const mostViewedAnalytic = dataAnalytics?.reduce((top, item) =>
+    (Number(item.views) || 0) > (Number(top?.views) || 0) ? item : top
+  , dataAnalytics[0]) ?? null
+
+  const mostViewed = repository.find(r => r.id === mostViewedAnalytic?.thesis_id) ?? null
+  const mostViewedCount = mostViewedAnalytic?.views ?? 0
 
   const stats = [
     {
       icon: <BookOpen className="w-4 h-4" style={{ color: '#185FA5' }} />,
       iconBg: '#E6F1FB',
-      value: repository.length,
+      value: dataAnalytics.length,
       label: 'Total thesis',
       badge: 'Repository',
       badgeBg: '#E6F1FB',
@@ -94,7 +92,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     {
       icon: <TrendingUp className="w-4 h-4" style={{ color: '#BA7517' }} />,
       iconBg: '#FAEEDA',
-      value: mostViewed?.views?.toLocaleString() ?? '0',
+      value: mostViewedCount?.toLocaleString() ?? '0',
       label: mostViewed?.title ?? '—',
       badge: 'Most viewed',
       badgeBg: '#FAEEDA',
@@ -111,15 +109,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
       String(item.id)?.toLowerCase().includes(q)
     )
   })
-
-  function getInitials(name: string) {
-    return name
-      ?.split(' ')
-      .map((p) => p[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() ?? '?'
-  }
 
   const courseColorMap: Record<string, { bg: string; color: string }> = {
     CS:     { bg: '#E6F1FB', color: '#0C447C' },
@@ -145,26 +134,20 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
       className="p-5 space-y-5"
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
-      {/* Google Fonts import — add to your _document or layout if not already present */}
-      <style>{``}</style>
-
       {/* ── Header ── */}
       <div className="flex items-center gap-3">
         <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: '#FAEEDA' }}
         >
           <ChartNoAxesCombined className="w-4 h-4" style={{ color: '#BA7517' }} />
         </div>
         <div>
-          <h1
-            className="text-2xl font-normal leading-tight"
-            style={{ fontFamily: "'Instrument Serif', serif" }}
-          >
+          <h1 className="text-2xl font-bold leading-tight">
             Data Analytics
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Track thesis submissions, views, and trends across the repository.
+            Every view, download, and submission — tracked and organized in one place.
           </p>
         </div>
       </div>
@@ -181,17 +164,8 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
             className="border rounded-xl p-4 flex flex-col gap-2.5 bg-white dark:bg-background"
             style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           >
-            {isLoading ? (
-              <>
-                <div className="w-9 h-9 rounded-lg bg-muted animate-pulse" />
-                <div className="h-7 w-16 bg-muted rounded animate-pulse" />
-                <div className="h-3.5 w-28 bg-muted rounded animate-pulse" />
-                <div className="h-5 w-20 bg-muted rounded-full animate-pulse" />
-              </>
-            ) : (
-              <>
                 <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: stat.iconBg }}
                 >
                   {stat.icon}
@@ -220,8 +194,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                 >
                   {stat.badge}
                 </span>
-              </>
-            )}
           </div>
         ))}
       </div>
@@ -245,9 +217,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
             style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
           >
             <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none"
-              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search thesis..."
@@ -265,19 +235,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
           </div>
 
           {/* Table */}
-          {isLoading ? (
-            <div className="p-3 space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex gap-3 px-2 py-3 border-b last:border-0 animate-pulse">
-                  <div className="h-4 w-16 bg-muted rounded" />
-                  <div className="h-4 flex-1 bg-muted rounded" />
-                  <div className="h-4 w-28 bg-muted rounded" />
-                  <div className="h-4 w-20 bg-muted rounded" />
-                  <div className="h-4 w-16 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -288,6 +245,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                     {[
                       'Thesis ID',
                       'Title',
+                      'Abstract',
                       'Author',
                       'Date',
                       'Course',
@@ -295,7 +253,8 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                       'Discussion',
                       'Conclusion',
                       'References',
-                      'Actions',
+                      'filename',
+                      'Actions'
                     ].map((h) => (
                       <TableHead
                         key={h}
@@ -322,9 +281,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                       </td>
                     </tr>
                   ) : (
-                    filteredRepository.map((item) => {
-                      const cs = getCourseStyle(item.course)
-                      return (
+                    filteredRepository.map((item) => (
                         <TableActions
                           key={item.id}
                           id={item.id}
@@ -337,15 +294,14 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                           discussion={item.discussion}
                           conclusion={item.conclusion}
                           references={item.references}
-                          /* Pass extras as data-* or via your TableActions props if supported */
+                          filename={item.thesis_file_name}
+                          isOpen={() => setSelectedThesis(item)}
                         />
-                      )
-                    })
+                    ))
                   )}
                 </TableBody>
               </Table>
             </div>
-          )}
 
           {/* Pagination */}
           {!isLoading && totalPages > 1 && (
@@ -392,6 +348,24 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
           )}
         </div>
       </div>
+
+      {selectedThesis && (
+        <ThesisEditModal
+          isOpen={!!selectedThesis}
+          onClose={() => setSelectedThesis(null)}
+          id={selectedThesis.id}
+          title={selectedThesis.title}
+          author={selectedThesis.author}
+          issue_date={selectedThesis.issue_date}
+          course={selectedThesis.course}
+          abstract={selectedThesis.abstract}
+          introduction={selectedThesis.introduction}
+          discussion={selectedThesis.discussion}
+          conclusion={selectedThesis.conclusion}
+          references={selectedThesis.references}
+          file_url={selectedThesis.thesis_file_name}
+        />
+      )}
     </div>
   )
 }

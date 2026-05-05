@@ -9,7 +9,7 @@ export const ITEMS_PER_PAGE = 4;
 
 
 export default function Provider() {
-  const { getRandomRepository, getPageRepository } = repoStores();
+  const { getRandomRepository, getPageRepository, viewsDownloads } = repoStores();
   const { checkAuth, user } = authUserStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -17,9 +17,10 @@ export default function Provider() {
 
   useEffect(() => {
     getRandomRepository();
+    viewsDownloads();
     getPageRepository(1, ITEMS_PER_PAGE);
     checkAuth();
-  }, [getRandomRepository, getPageRepository, checkAuth]);
+  }, [getRandomRepository, getPageRepository, checkAuth, viewsDownloads]);
 
 useEffect(() => {
   if (user && pathname === '/login') {

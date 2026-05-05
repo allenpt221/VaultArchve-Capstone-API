@@ -24,6 +24,8 @@ interface TableActionsProps {
   discussion: string;
   conclusion: string;
   references: string;
+  filename: string;
+  isOpen?: () => void; // ← callback from parent
 }
 
 export function TableActions({
@@ -37,6 +39,8 @@ export function TableActions({
   discussion,
   conclusion,
   references,
+  filename,
+  isOpen, // ← no local useState
 }: TableActionsProps) {
 
   function shortId(id: string) {
@@ -58,15 +62,19 @@ export function TableActions({
     <TableRow>
       <TableCell>
         <span
-          className="inline-block max-w-[80px] truncate rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+          className="inline-block max-w-20 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
           title={id}
         >
           {shortId(id)}
         </span>
       </TableCell>
 
-      <TableCell className="max-w-[210px] truncate font-medium" title={title}>
+      <TableCell className="max-w-30 truncate font-medium" title={title}>
         {title}
+      </TableCell>
+
+      <TableCell className="max-w-30 truncate font-medium">
+        {abstract}
       </TableCell>
 
       <TableCell className="text-left">
@@ -79,7 +87,7 @@ export function TableActions({
       </TableCell>
 
       <TableCell className="text-left text-xs text-muted-foreground">
-        {issue_date}
+        {new Date(issue_date).getFullYear()}
       </TableCell>
 
       <TableCell className="text-left">
@@ -96,7 +104,7 @@ export function TableActions({
             </span>
           ) : (
             <span
-              className="inline-block max-w-[100px] truncate text-xs text-muted-foreground"
+              className="inline-block max-w-25 truncate text-xs text-muted-foreground"
               title={val}
             >
               {val}
@@ -104,6 +112,12 @@ export function TableActions({
           )}
         </TableCell>
       ))}
+
+      <TableCell className="text-left">
+        <span className="inline-block rounded-full truncate max-w-15 bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+          {filename}
+        </span>
+      </TableCell>
 
       <TableCell className="text-left">
         <DropdownMenu>
@@ -114,10 +128,15 @@ export function TableActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit</DropdownMenuItem>
-            <DropdownMenuItem>Duplicate</DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer py-2"
+              onClick={isOpen} // ← calls parent's setSelectedThesis(item)
+            >
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer py-2">Duplicate</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" className="cursor-pointer py-2">Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>

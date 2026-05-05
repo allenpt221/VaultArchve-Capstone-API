@@ -24,10 +24,10 @@ function Admin() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const activePage = searchParams.get("page") ?? "data-analytics";
+  const activePage = searchParams.get("dashboard") ?? "data-analytics";
 
   const setActivePage = (page: string) => {
-    router.push(`/admin?page=${page}`);
+    router.push(`/admin?dashboard=${page}`);
   };
 
   useEffect(() => {
@@ -70,7 +70,7 @@ function Admin() {
 
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-md hover:bg-gray-100 transition-all"
+            className="p-1.5 rounded-md hover:bg-gray-100 transition-all cursor-pointer"
           >
             <ChevronRight
               size={20}
@@ -91,7 +91,7 @@ function Admin() {
               <button
                 key={item.id}
                 onClick={() => setActivePage(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-300
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-300 cursor-pointer
                 ${isActive
                   ? "bg-black/10 text-black font-medium shadow-sm"
                   : "text-gray-700 hover:bg-gray-100 hover:scale-[1.02]"
