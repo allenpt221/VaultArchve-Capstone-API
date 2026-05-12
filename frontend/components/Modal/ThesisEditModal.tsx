@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Button } from '../ui/button';
 import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
+import { repoStores } from '@/Stores/repoStores';
 
 interface ThesisEditModalProps {
   isOpen?: boolean;
@@ -44,12 +45,49 @@ function ThesisEditModal({
   file_url,
 }: ThesisEditModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { updateThesis, loading } = repoStores();
+
+  const [formData, setFormData] = useState({
+    title: title ?? '',
+    author: author ?? '',
+    course: course ?? '',
+    abstract: abstract ?? '',
+    introduction: introduction === 'N/A' ? '' : (introduction ?? ''),
+    discussion: discussion === 'N/A' ? '' : (discussion ?? ''),
+    conclusion: conclusion === 'N/A' ? '' : (conclusion ?? ''),
+    references: references === 'N/A' ? '' : (references ?? ''),
+  });
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     issue_date ? new Date(issue_date) : undefined
   );
 
   if (!isOpen) return null;
+
+  const handleChange = (field: keyof typeof formData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setFormData(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleSave = async () => {
+    if (!id) return;
+
+    await updateThesis(
+      id,
+      formData.course,
+      formData.title,
+      formData.abstract,
+      formData.author,
+      selectedDate ? format(selectedDate, 'yyyy-MM-dd') : (issue_date ?? ''),
+      formData.introduction,
+      formData.discussion,
+      formData.conclusion,
+      formData.references,
+      selectedFile
+    );
+
+    onClose?.();
+  };
 
   return (
     <div className="fixed bg-black/50 inset-0 flex justify-center items-center backdrop-blur-sm z-50">
@@ -73,18 +111,21 @@ function ThesisEditModal({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="title">Title</Label>
-            <Input id="title" defaultValue={title} />
+            <Input id="title" value={formData.title} onChange={handleChange('title')} />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="author">Author</Label>
-            <Input id="author" defaultValue={author} />
+            <Input id="author" value={formData.author} onChange={handleChange('author')} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="course">Course</Label>
-              <Select defaultValue={course}>
+              <Select
+                value={formData.course}
+                onValueChange={(val) => setFormData(prev => ({ ...prev, course: val }))}
+              >
                 <SelectTrigger id="course" className="w-full">
                   <SelectValue placeholder="Select course" />
                 </SelectTrigger>
@@ -101,10 +142,7 @@ function ThesisEditModal({
               <Label htmlFor="date">Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start font-normal"
-                  >
+                  <Button variant="outline" className="w-full justify-start font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                     {selectedDate ? format(selectedDate, 'PPP') : 'Select date'}
                   </Button>
@@ -127,7 +165,8 @@ function ThesisEditModal({
               id="abstract"
               className="resize-none overflow-hidden"
               style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-              defaultValue={abstract}
+              value={formData.abstract}
+              onChange={handleChange('abstract')}
             />
           </div>
 
@@ -137,7 +176,8 @@ function ThesisEditModal({
               id="introduction"
               className="resize-none overflow-hidden"
               style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-              defaultValue={introduction === 'N/A' ? '' : introduction}
+              value={formData.introduction}
+              onChange={handleChange('introduction')}
               placeholder={introduction === 'N/A' ? 'N/A' : ''}
             />
           </div>
@@ -148,7 +188,8 @@ function ThesisEditModal({
               id="discussion"
               className="resize-none overflow-hidden"
               style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-              defaultValue={discussion === 'N/A' ? '' : discussion}
+              value={formData.discussion}
+              onChange={handleChange('discussion')}
               placeholder={discussion === 'N/A' ? 'N/A' : ''}
             />
           </div>
@@ -159,7 +200,8 @@ function ThesisEditModal({
               id="conclusion"
               className="resize-none overflow-hidden"
               style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-              defaultValue={conclusion === 'N/A' ? '' : conclusion}
+              value={formData.conclusion}
+              onChange={handleChange('conclusion')}
               placeholder={conclusion === 'N/A' ? 'N/A' : ''}
             />
           </div>
@@ -170,7 +212,8 @@ function ThesisEditModal({
               id="references"
               className="resize-none overflow-hidden"
               style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-              defaultValue={references === 'N/A' ? '' : references}
+              value={formData.references}
+              onChange={handleChange('references')}
               placeholder={references === 'N/A' ? 'N/A' : ''}
             />
           </div>
@@ -179,7 +222,6 @@ function ThesisEditModal({
           <div className="flex flex-col gap-1.5">
             <Label>Thesis PDF</Label>
 
-            {/* Current file */}
             {file_url && !selectedFile && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/40 text-sm">
                 <FileText className="w-4 h-4 text-blue-600 shrink-0" />
@@ -189,7 +231,6 @@ function ThesisEditModal({
               </div>
             )}
 
-            {/* New file selected */}
             {selectedFile && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-blue-50 text-sm">
                 <FileText className="w-4 h-4 text-blue-600 shrink-0" />
@@ -204,14 +245,13 @@ function ThesisEditModal({
               </div>
             )}
 
-            {/* Upload button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-2 px-3 py-2 rounded-md border border-dashed border-border hover:border-blue-400 hover:bg-blue-50 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
             >
               <Paperclip className="w-4 h-4" />
-              {selectedFile ? 'Replace PDF' : file_url ? 'Replace PDF' : 'Upload PDF'}
+              {selectedFile || file_url ? 'Replace PDF' : 'Upload PDF'}
             </button>
 
             <input
@@ -220,8 +260,8 @@ function ThesisEditModal({
               accept=".pdf"
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) setSelectedFile(file)
+                const file = e.target.files?.[0];
+                if (file) setSelectedFile(file);
               }}
             />
           </div>
@@ -232,14 +272,17 @@ function ThesisEditModal({
         <div className="flex justify-end gap-2 px-6 py-4 border-t shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-md text-sm border border-border hover:bg-muted transition-colors cursor-pointer"
+            disabled={loading}
+            className="px-4 py-2 rounded-md text-sm border border-border hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            className="px-4 py-2 rounded-md text-sm bg-amber-600 text-white hover:bg-amber-700 transition-colors cursor-pointer"
+            onClick={handleSave}
+            disabled={loading}
+            className="px-4 py-2 rounded-md text-sm bg-amber-600 text-white hover:bg-amber-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Changes
+            {loading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
 

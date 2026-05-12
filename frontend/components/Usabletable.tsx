@@ -25,7 +25,7 @@ interface TableActionsProps {
   conclusion: string;
   references: string;
   filename: string;
-  isOpen?: () => void; // ← callback from parent
+  isOpen?: () => void;
 }
 
 export function TableActions({
@@ -40,14 +40,18 @@ export function TableActions({
   conclusion,
   references,
   filename,
-  isOpen, // ← no local useState
+  isOpen,
 }: TableActionsProps) {
 
+  // FIX: guard against undefined id (e.g. API returns _id instead of id)
   function shortId(id: string) {
+    if (!id) return '—'
     return id.slice(0, 8) + "…";
   }
 
+  // FIX: guard against undefined/empty author
   function initials(name: string) {
+    if (!name) return '?'
     return name
       .split(/[\s,]+/)
       .filter(Boolean)
@@ -82,23 +86,24 @@ export function TableActions({
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[9px] font-medium text-blue-700">
             {initials(author)}
           </span>
-          <span className="text-xs text-muted-foreground">{author}</span>
+          <span className="text-xs text-muted-foreground truncate max-w-8">{author}</span>
         </span>
       </TableCell>
 
       <TableCell className="text-left text-xs text-muted-foreground">
-        {new Date(issue_date).getFullYear()}
+        {/* FIX: guard against invalid date */}
+        {issue_date ? new Date(issue_date).getFullYear() : '—'}
       </TableCell>
 
       <TableCell className="text-left">
-        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+        <span className="inline-block rounded-full truncate max-w-30 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
           {course}
         </span>
       </TableCell>
 
       {contentFields.map((val, i) => (
         <TableCell key={i} className="text-left">
-          {val === "N/A" ? (
+          {!val || val === "N/A" ? (
             <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               N/A
             </span>
@@ -114,7 +119,7 @@ export function TableActions({
       ))}
 
       <TableCell className="text-left">
-        <span className="inline-block rounded-full truncate max-w-15 bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+        <span className="inline-block rounded-full truncate max-w-15 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
           {filename}
         </span>
       </TableCell>
@@ -130,7 +135,7 @@ export function TableActions({
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               className="cursor-pointer py-2"
-              onClick={isOpen} // ← calls parent's setSelectedThesis(item)
+              onClick={isOpen}
             >
               Edit
             </DropdownMenuItem>

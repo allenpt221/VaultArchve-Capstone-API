@@ -49,8 +49,9 @@ function ThesisSubmit() {
 
   // Validation helper
   const isFieldRequired = (field: string) => {
+    if (field === 'file') return touched['file'] && !file
     const value = {
-      title, author, course, issueDate, abstract, 
+      title, author, course, issueDate, abstract,
       introduction, discussion, conclusion, references
     }[field]
     return touched[field] && !value
@@ -76,15 +77,17 @@ function ThesisSubmit() {
     setError('')
     setSuccess(false)
 
-    // Mark all fields as touched
+    // Mark ALL fields as touched, including file
     const allFields = {
-      title, author, course, issueDate, abstract, 
+      title, author, course, issueDate, abstract,
       introduction, discussion, conclusion, references
     }
     const newTouched = Object.keys(allFields).reduce((acc, key) => {
       acc[key] = true
       return acc
     }, {} as Record<string, boolean>)
+    // FIX: also mark file as touched so its error message shows
+    newTouched['file'] = true
     setTouched(newTouched)
 
     if (!title || !author || !course || !issueDate || !abstract ||
@@ -98,12 +101,17 @@ function ThesisSubmit() {
       return
     }
 
+    // FIX: fallback to file extension check for browsers that return empty file.type (e.g. DOCX on some Windows browsers)
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ]
+    const isValidType =
+      allowedTypes.includes(file.type) ||
+      file.name.toLowerCase().endsWith('.pdf') ||
+      file.name.toLowerCase().endsWith('.docx')
 
-    if (!allowedTypes.includes(file.type)) {
+    if (!isValidType) {
       setError('Only PDF and DOCX files are allowed. Please convert your file and try again.')
       return
     }
@@ -116,8 +124,7 @@ function ThesisSubmit() {
 
       setSuccess(true)
       resetForm()
-      
-      // Auto-scroll to success message
+
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
       setError('Failed to submit thesis. Please check your connection and try again.')
@@ -153,7 +160,7 @@ function ThesisSubmit() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50 text-red-800">
             <AlertCircle className="h-4 w-4" />
@@ -162,7 +169,7 @@ function ThesisSubmit() {
         )}
 
         {/* MAIN FORM */}
-        <Card className="shadow border-0 overflow-hidden px-3 py-4">          
+        <Card className="shadow border-0 overflow-hidden px-3 py-4">
           <CardHeader className="bg-white border-b pb-6">
             <CardTitle className="text-2xl flex items-center gap-2">
               <FileText className="h-6 w-6 text-amber-600" />
@@ -178,7 +185,7 @@ function ThesisSubmit() {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-6 bg-amber-500 rounded-full" />
-                Basic Information
+                Thesis Information
               </h3>
               <div className="space-y-4">
                 <div>
@@ -241,8 +248,8 @@ function ThesisSubmit() {
                   </label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className={`w-full justify-start focus:ring-amber-500 h-[2.4rem] ${isFieldRequired('issueDate') ? 'border-red-300' : ''}`}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -374,17 +381,17 @@ function ThesisSubmit() {
                 <div className="w-1 h-6 bg-amber-500 rounded-full" />
                 Document Upload
               </h3>
-              
+
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 bg-white
-                  ${file 
-                    ? 'border-amber-300 bg-amber-50 hover:bg-amber-100' 
+                  ${file
+                    ? 'border-amber-300 bg-amber-50 hover:bg-amber-100'
                     : 'border-gray-300 hover:border-amber-400 hover:bg-amber-50/50'
                   }`}
               >
                 <UploadCloud className={`mx-auto h-12 w-12 mb-3 ${file ? 'text-amber-600' : 'text-gray-400'}`} />
-                
+
                 <p className="text-base font-medium text-gray-700">
                   {file ? 'File selected' : 'Click to upload your thesis document'}
                 </p>
@@ -400,7 +407,11 @@ function ThesisSubmit() {
                   type="file"
                   accept=".pdf,.docx"
                   className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null)
+                    // FIX: clear the file touched error as soon as a file is chosen
+                    setTouched(prev => ({ ...prev, file: false }))
+                  }}
                 />
 
                 {file && (
@@ -409,7 +420,8 @@ function ThesisSubmit() {
                   </Badge>
                 )}
               </div>
-              {!file && touched.file && (
+              {/* FIX: use isFieldRequired('file') for consistency */}
+              {isFieldRequired('file') && (
                 <p className="text-xs text-red-500 mt-2">Please upload your thesis file</p>
               )}
             </div>

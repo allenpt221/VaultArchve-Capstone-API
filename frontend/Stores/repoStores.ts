@@ -52,6 +52,19 @@ interface productState {
         references: string,
         file: File
     ) => void;
+    updateThesis: (
+        id: string,
+        course: string,
+        title: string,      
+        abstract: string,
+        author: string,
+        issueDate: string,  
+        introduction: string,
+        discussion: string,
+        conclusion: string,
+        references: string,
+        file: File | null,
+    ) => void;
 }
 
 
@@ -183,6 +196,71 @@ export const repoStores = create<productState>((set, get) => ({
         }
     },
 
+updateThesis: async (id, course, title, abstract, author, issueDate, introduction, discussion, conclusion, references, file) => {
+    try {
+        set({ loading: true });
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('author', author);
+        formData.append('course', course);
+        formData.append('issueDate', issueDate);
+        formData.append('abstract', abstract);
+        formData.append('introduction', introduction);
+        formData.append('discussion', discussion);
+        formData.append('conclusion', conclusion);
+        formData.append('references', references);
+        if (file) {
+            formData.append('thesis_file', file);
+        }
+
+        const res = await axios.put(`/repository/thesis/update/${id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const updatedFields = {
+            title,
+            author,
+            course,
+            abstract,
+            introduction,
+            discussion,
+            conclusion,
+            references,
+            issue_date: issueDate,
+            // Use server response if available, otherwise fall back to local file name
+            ...(res.data?.data?.thesis_file_url
+                ? {
+                    thesis_file_url: res.data.data.thesis_file_url,
+                    thesis_file_name: res.data.data.thesis_file_name,
+                }
+                : file && {
+                    // Temporary local reference so UI doesn't go stale
+                    thesis_file_name: file.name,
+                }
+            ),
+        };
+
+        set((state) => ({
+            repository: state.repository.map((thesis) =>
+                thesis.id === id ? { ...thesis, ...updatedFields } : thesis
+            ),
+            randomRepository: state.randomRepository.map((thesis) =>
+                thesis.id === id ? { ...thesis, ...updatedFields } : thesis
+            ),
+            thesisData: state.thesisData?.id === id
+                ? { ...state.thesisData, ...updatedFields }
+                : state.thesisData,
+        }));
+
+    } catch (error: any) {
+        console.error('Failed to update thesis:', error.message);
+        throw error;
+    } finally {
+        set({ loading: false });
+    }
+},
+
 
     viewsDownloads: async(): Promise<void> => {
             set({ loading: true});
@@ -195,6 +273,8 @@ export const repoStores = create<productState>((set, get) => ({
             set({ loading: false });
         }
     },
+
+
 
 
     incrementViews: (id: string) => set((state) => ({

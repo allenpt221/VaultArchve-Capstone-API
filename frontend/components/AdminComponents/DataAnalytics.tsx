@@ -281,9 +281,9 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                       </td>
                     </tr>
                   ) : (
-                    filteredRepository.map((item) => (
+                    filteredRepository.map((item, index) => (
                         <TableActions
-                          key={item.id}
+                          key={index}
                           id={item.id}
                           title={item.title}
                           author={item.author}

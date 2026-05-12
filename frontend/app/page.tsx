@@ -1,5 +1,5 @@
 'use client'
-import { BookOpen, CircleAlert, GraduationCap, Search, TrendingUp, Users } from "lucide-react";
+import { BookOpen, Bot, CircleAlert, GraduationCap, Search, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,7 @@ export default function Home() {
               </Link>
               <Link href="/recommendation">
                 <Button variant="outline" className="font-semibold cursor-pointer border-primary-foreground/30 text-black hover:text-white hover:bg-primary-foreground/10  px-8 py-6 text-base">
+                  <Bot className="mr-2 h-8 w-8" />
                   Recommend Thesis
                 </Button>
               </Link>
