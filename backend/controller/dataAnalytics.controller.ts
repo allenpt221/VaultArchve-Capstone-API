@@ -137,13 +137,17 @@ export async function getFilteredThesis(req: Request, res: Response) {
     const allowedSortColumns = ["issue_date", "title", "author", "views"];
     const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
 
-    // Fetch ALL matching rows first — no .range() — so search works across every page
+    const isRelatedSort = ["views", "downloads"].includes(sortColumn);
+
     let query = supabase
       .from("Thesis")
-      .select('*, ThesisDataAnalytics(views, downloads)', { count: 'exact' })
-      .order(sortColumn, { ascending: order === "asc" });
+      .select('*, ThesisDataAnalytics(views, downloads)', { count: 'exact' });
 
-    // Search across ALL records before paginating
+    // Only sort at DB level if the column belongs to Thesis
+    if (!isRelatedSort) {
+      query = query.order(sortColumn, { ascending: order === "asc" });
+    }
+
     if (search && search.trim() !== "") {
       query = query.or(`title.ilike.%${search.trim()}%,author.ilike.%${search.trim()}%`);
     }
@@ -164,11 +168,26 @@ export async function getFilteredThesis(req: Request, res: Response) {
       return res.status(500).json({ error: error.message });
     }
 
-    // Paginate in memory AFTER all filters are applied
-    const total    = data.length;
+    let sorted = [...data];
+    if (isRelatedSort) {
+      sorted.sort((a, b) => {
+        const aVal = Array.isArray(a.ThesisDataAnalytics)
+          ? (a.ThesisDataAnalytics[0]?.[sortColumn] ?? 0)
+          : (a.ThesisDataAnalytics?.[sortColumn] ?? 0);
+
+        const bVal = Array.isArray(b.ThesisDataAnalytics)
+          ? (b.ThesisDataAnalytics[0]?.[sortColumn] ?? 0)
+          : (b.ThesisDataAnalytics?.[sortColumn] ?? 0);
+
+        return order === "asc" ? aVal - bVal : bVal - aVal;
+      });
+    }
+
+    // Paginate in memory AFTER all filters and sorting are applied
+    const total    = sorted.length;
     const lastPage = Math.max(1, Math.ceil(total / perPage));
     const from     = (currentPage - 1) * perPage;
-    const paginated = data.slice(from, from + perPage);
+    const paginated = sorted.slice(from, from + perPage);
 
     return res.status(200).json({
       data:         paginated,
