@@ -36,7 +36,7 @@ export default function Home() {
 
 
     const stats = [
-      { icon: BookOpen, label: "Total Theses", value: "1,240+" },
+      { icon: BookOpen, label: "Total Theses", value: dataAnalytics.length },
       { icon: Users, label: "Contributors", value: formatViews(totalDownloads)},
       { icon: GraduationCap, label: "Courses", value: "4" },
       { icon: TrendingUp, label: "Total Views", value: formatViews(totalViews)},

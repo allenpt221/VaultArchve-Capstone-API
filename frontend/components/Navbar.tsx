@@ -99,7 +99,7 @@ function Navbar() {
           <div className='w-px h-5 bg-white/10 mx-2' />
 
           {/* User menu or Login */}
-          {user ? (
+          {user && (
             <div className='relative' ref={dropdownRef}>
               <button
                 onClick={() => setOpenUserMenu(!openUserMenu)}
@@ -137,13 +137,6 @@ function Navbar() {
                 </div>
               )}
             </div>
-          ) : (
-            <Link
-              href="/login"
-              className='font-semibold text-sm px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black transition-all duration-200 shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/30'
-            >
-              Log In
-            </Link>
           )}
         </div>
 
@@ -238,7 +231,7 @@ function Navbar() {
           {/* Divider */}
           <div className='h-px bg-white/10 my-2' />
 
-          {user ? (
+          {user && (
             <button
               onClick={() => { handleLogOut(); setOpenMenu(false); }}
               className='flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors'
@@ -246,14 +239,6 @@ function Navbar() {
               <LogOut size={14} />
               Sign Out
             </button>
-          ) : (
-            <Link
-              href="/login"
-              onClick={() => setOpenMenu(false)}
-              className='font-semibold text-sm px-4 py-3 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-center transition-colors shadow-lg shadow-yellow-500/20'
-            >
-              Log In
-            </Link>
           )}
         </nav>
 

@@ -5,13 +5,19 @@ import { useRouter, usePathname } from "next/navigation";
 import { repoStores } from "@/Stores/repoStores";
 import { authUserStore } from "@/Stores/authStores";
 
-export const ITEMS_PER_PAGE = 4;
+export const ITEMS_PER_PAGE = 10;
 
 export default function Provider() {
   const { getRandomRepository, getPageRepository, viewsDownloads } = repoStores();
-  const { checkAuth, user } = authUserStore();
+  const { checkAuth, user, checkingAuth } = authUserStore();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) {
+      sessionStorage.setItem("lastPath", pathname);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     checkAuth();
@@ -21,6 +27,14 @@ export default function Provider() {
   }, []);
 
   useEffect(() => {
+    if (checkingAuth) return;
+
+    const lastPath = sessionStorage.getItem("lastPath");
+
+    if (user && lastPath && lastPath !== "/login") {
+      router.replace(lastPath);
+      return;
+    }
 
     if (user?.role === "admin" && pathname === "/login") {
       router.replace("/admin");
@@ -29,8 +43,10 @@ export default function Provider() {
 
     if (user && pathname === "/login") {
       router.replace("/");
+      return;
     }
-  }, [user, pathname, router]);
+
+  }, [user, checkingAuth, pathname, router]);
 
   return null;
 }

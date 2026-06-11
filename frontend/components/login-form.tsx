@@ -27,12 +27,12 @@ export function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState('');
-  const [retryAfter, setRetryAfter] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   
 
 
-  const { logIn, loading } = authUserStore();
+  const { logIn, loading, user } = authUserStore();
+
 
     const parseRetryAfter = (retryAfter?: string): number | null => {
       if (!retryAfter) return null;
@@ -46,7 +46,6 @@ export function LoginForm({
       e.preventDefault();
       setError('');
       setFailed(false);
-      setRetryAfter(null);
 
       if (!email.trim() || !password.trim()) {
         setError('All fields are required.');
@@ -59,7 +58,6 @@ export function LoginForm({
 
         if (!result.success) {
           setError(result.message || 'Invalid credentials.');
-          setRetryAfter(result.retryAfter ?? null);
           setCountdown(parseRetryAfter(result.retryAfter));
           setFailed(true);
         } else {
@@ -77,7 +75,6 @@ export function LoginForm({
     if (!failed) return;
     const timer = setTimeout(() => {
       setFailed(false);
-      setRetryAfter(null);
     }, 5000);
 
     return () => clearTimeout(timer);

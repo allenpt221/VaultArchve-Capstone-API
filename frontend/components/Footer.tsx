@@ -25,7 +25,6 @@ function Footer(){
             <div>
             <h4 className="font-display font-semibold text-primary-foreground mb-3">Contact</h4>
             <p className="text-sm">Guagua Community College</p>
-            <p className="text-sm">Guagua, Pampanga, Philippines</p>
             <p className="text-sm mt-1">library@gcc.edu.ph</p>
             </div>
         </div>

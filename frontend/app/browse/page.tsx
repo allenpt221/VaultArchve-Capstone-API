@@ -1,5 +1,5 @@
 'use client'
-import { CircleAlert, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CircleAlert, Search, ChevronLeft, ChevronRight, FileSearch } from 'lucide-react';
 
 import {
   Select,
@@ -148,24 +148,44 @@ function Browse() {
           </SelectContent>
         </Select>
       </div>
-
+      
       <span className='text-black/70 text-sm'>Showing {displayed.length} results</span>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
-        {paginated.map((item, index) => (
-          <ThesisCard
-            key={index}
-            id={item.id}
-            isClickable={isClickable}
-            onAuthFail={triggerAlert}
-            onView={() => handleCountView(item.id)}
-            course={item.course}
-            title={item.title}
-            author={item.author}
-            issue_date={item.issue_date}
-            abstract={item.abstract}
-            views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
-          />
-        ))}
+        {paginated.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+              <FileSearch className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <p className="text-lg font-medium text-foreground mb-2">No results found</p>
+            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mb-6">
+              We couldn't find any thesis matching your search. Try adjusting your filters or using different keywords.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <button
+                onClick={() => { setSearch(""); setDept("all"); setYear("all"); setSort("newest"); }}
+                className="text-xs px-3 py-1.5 rounded-md border border-border bg-muted hover:bg-yellow-500 hover:text-black hover:border-yellow-500 transition-colors text-muted-foreground"
+              >
+                Clear all filters
+              </button>
+            </div>
+          </div>
+              ) : (
+              paginated.map((item, index) => (
+                <ThesisCard
+                  key={index}
+                  id={item.id}
+                  isClickable={isClickable}
+                  onAuthFail={triggerAlert}
+                  onView={() => handleCountView(item.id)}
+                  course={item.course}
+                  title={item.title}
+                  author={item.author}
+                  issue_date={item.issue_date}
+                  abstract={item.abstract}
+                  views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
+                />
+              ))
+        )}
       </div>
 
           {/* Pagination */}

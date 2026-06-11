@@ -3,16 +3,21 @@
 import { usePathname } from 'next/navigation'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import ProtectedRoute from './ProtectedRoute'
 
 export default function ConditionalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isAdmin = pathname.startsWith('/admin')
+  const hideShell = pathname.startsWith('/admin') || pathname.startsWith('/login')
+
+  if (hideShell) {
+    return <>{children}</>
+  }
 
   return (
-    <>
-      {!isAdmin && <Navbar />}
+    <ProtectedRoute>
+      <Navbar />
       {children}
-      {!isAdmin && <Footer />}
-    </>
+      <Footer />
+    </ProtectedRoute>
   )
 }
