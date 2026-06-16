@@ -23,32 +23,46 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     loading: false,
     message: "",
 
-    RecommendedAI: async({ chatPrompt, course } : RecommendedProps ): Promise<void> => {
-        try {
-            set({ loading: true, message: "" });
+RecommendedAI: async ({ chatPrompt, course }: RecommendedProps): Promise<void> => {
+  try {
+    set({ loading: true, message: "" });
 
-            const res = await axios.post('/ai/recommendation', {
-                course,
-                chatPrompt
-            });
+    const res = await axios.post('/ai/recommendation', {
+      course,
+      chatPrompt,
+    });
 
-            set({result: res.data.recommendations, loading:false,  message: "AI recommendations generated successfully!" })
-            
-        } catch (error: any) {
-            set({ loading: false });
+    set({
+      result: res.data.recommendations,
+      loading: false,
+      message: "AI recommendations generated successfully!",
+    });
 
-            if (error.response?.status === 401) {
-            set({ message: "Unauthorized Access. Please log in" });
-            return;
-            }
+  } catch (error: any) {
+    set({ loading: false });
 
+    const status = error.response?.status;
+    const data = error.response?.data;
 
-            // General error
-            console.error("AI Recommendation Error:", error);
-            set({ message: error });
-
-        }
+    if (status === 401) {
+      set({ message: data?.message || "Unauthorized Access. Please log in" });
+      return;
     }
+
+    if (status === 400) {
+      set({ message: data?.message || "Invalid request. Please check your input." });
+      return;
+    }
+
+    if (status === 500) {
+      set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
+      return;
+    }
+
+    console.error("AI Recommendation Error:", error);
+    set({ message: error.message || "An unexpected error occurred." });
+  }
+},
 
     
      

@@ -33,10 +33,74 @@ export async function RecommendedAI(req: Request, res: Response) {
       return res.status(400).json({ message: "Course is required." });
     }
 
+    const promptText = (chatPrompt || "").trim().toLowerCase();
+
+    if (promptText.length > 0 && promptText.length < 5) {
+      return res.status(400).json({
+        error: "Input too short",
+        message: "Please enter a meaningful prompt.",
+      });
+    }
+
+    const isGibberish = (text: string): boolean => {
+      if (!text || text.trim().length === 0) return false;
+
+      const words = text.trim().split(/\s+/);
+
+      const gibberishWordCount = words.filter((word) => {
+        if (word.length <= 2) return false;
+        if (/(.)\1{3,}/.test(word)) return true;
+
+        const vowels = (word.match(/[aeiou]/g) || []).length;
+        const vowelRatio = vowels / word.length;
+
+        if (word.length >= 4 && vowelRatio < 0.1) return true;
+        if (/^([qwerty]{4,}|[asdfgh]{4,}|[zxcvbn]{4,}|[yuiop]{4,})$/i.test(word)) return true;
+        if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(word)) return true;
+
+        return false;
+      }).length;
+
+      return gibberishWordCount / words.length > 0.5;
+    };
+
+    if (promptText.length > 0 && isGibberish(promptText)) {
+      return res.status(400).json({
+        error: "Meaningless input",
+        message: "Your input appears to be random or meaningless. Please enter a valid prompt.",
+      });
+    }
+
+    const isImageRequest =
+      /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i.test(
+        promptText
+      );
+
+    if (isImageRequest) {
+      return res.status(400).json({
+        error: "Unsupported request",
+        message:
+          "Sorry, I can only generate thesis title recommendations. I'm not able to create images, photos, or any visual content. Please enter a thesis-related instruction instead.",
+      });
+    }
+
+    const isOffTopicRequest =
+  /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
+  /(literature\s+review|related\s+literature|related\s+studies|research\s+paper|study\s+guide|essay\s+writing|content\s+writing|thesis\s+writing|chapter\s+[1-5])/i.test(promptText) ||
+  /\b(rrl|rrls|r\.r\.l|related\s+research\s+literature|review\s+of\s+related\s+literature|review\s+of\s+related\s+studies|rrs)\b/i.test(promptText);
+
+    if (isOffTopicRequest) {
+      return res.status(400).json({
+        error: "Unsupported request",
+        message:
+          "I can only generate thesis title recommendations and their features. Writing literature reviews, abstracts, introductions, or any thesis content is not supported here.",
+      });
+    }
+
     const { data: existingTheses, error: fetchError } = await supabase
-      .from("Thesis")             
+      .from("Thesis")
       .select("id, title, introduction")
-      .ilike("course", `%${course}%`)        
+      .ilike("course", `%${course}%`)
       .limit(10);
 
     if (fetchError) {
@@ -73,9 +137,11 @@ export async function RecommendedAI(req: Request, res: Response) {
       - Keep the same research context/location if mentioned (e.g. "Guagua Pampanga"), but expand the scope
       - Do NOT copy the title verbatim — evolve it meaningfully with new direction
       - Make titles specific, research-ready, and publishable
+      - ONLY return thesis titles, summaries, new features, and tags — do NOT write literature reviews, abstracts, or any thesis content
       `
           : `
-      No existing theses found for this course. Generate 5 original thesis suggestions.
+      No existing theses found for this course. Generate 5 original thesis title suggestions.
+      ONLY return thesis titles, summaries, new features, and tags — do NOT write literature reviews, abstracts, or any thesis content.
       `
       }
 
@@ -107,7 +173,7 @@ export async function RecommendedAI(req: Request, res: Response) {
         {
           role: "system",
           content:
-            "You are an academic advisor. You evolve existing thesis titles into improved research proposals. Return only valid JSON.",
+            "You are an academic advisor. You ONLY generate thesis title recommendations, summaries, new features, and tags. You do NOT write literature reviews, abstracts, introductions, essays, or any thesis content. Return only valid JSON.",
         },
         {
           role: "user",
@@ -130,14 +196,7 @@ export async function RecommendedAI(req: Request, res: Response) {
 
     const { error: insertError } = await supabase
       .from("thesisRecommendation")
-      .insert([
-        {
-          user_id,
-          course,
-          chatPrompt,
-          response: parsed,
-        },
-      ]);
+      .insert([{ user_id, course, chatPrompt, response: parsed }]);
 
     if (insertError) {
       return res.status(500).json({ message: "Failed to insert response", error: insertError });
@@ -148,7 +207,7 @@ export async function RecommendedAI(req: Request, res: Response) {
       based_on_existing: hasExisting,
     });
   } catch (error: any) {
-    console.log(error)
+    console.log(error);
     return res.status(500).json({ error: error.message });
   }
 }
