@@ -28,12 +28,18 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     totalPages,
     getPageRepository,
     dataAnalytics,
-    viewsDownloads
+    viewsDownloads,
+    deleteThesis
   } = repoStores()
 
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedThesis, setSelectedThesis] = useState<typeof repository[0] | null>(null)
+
+
+  const handleDelete = (id: string) => {
+    return deleteThesis(id); 
+};
 
   useEffect(() => {
     const load = async () => {
@@ -296,6 +302,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                           references={item.references}
                           filename={item.thesis_file_name}
                           isOpen={() => setSelectedThesis(item)}
+                          DeleteThesis={handleDelete}
                         />
                     ))
                   )}

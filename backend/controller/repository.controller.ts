@@ -346,7 +346,7 @@ export async function deleteId(req: Request, res: Response) {
             }
         }
 
-        // ✅ Delete analytics first (foreign key dependency)
+        // Delete analytics first (foreign key dependency)
         await supabase.from('ThesisDataAnalytics').delete().eq('thesis_id', id);
 
         const { error: deleteError } = await supabase

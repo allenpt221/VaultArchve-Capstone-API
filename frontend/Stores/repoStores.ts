@@ -65,6 +65,7 @@ interface productState {
         references: string,
         file: File | null,
     ) => void;
+    deleteThesis: (id: string) => void;
 }
 
 
@@ -258,6 +259,21 @@ export const repoStores = create<productState>((set, get) => ({
             throw error;
         } finally {
             set({ loading: false });
+        }
+    },
+
+    deleteThesis: async (id: string): Promise<void> => {
+        try {
+            await axios.delete(`repository/thesis/delete/${id}`);
+            set((state) => ({
+                repository: state.repository.filter((thesis) => thesis.id !== id),
+                randomRepository: state.randomRepository.filter((thesis) => thesis.id !== id),
+                dataAnalytics: state.dataAnalytics.filter((analytic) => analytic.thesis_id !== id),
+                thesisData: state.thesisData?.id === id ? null : state.thesisData,
+            }));
+        } catch (error: any) {
+            console.error(`Failed to delete thesis ${id}:`, error);
+            throw error;
         }
     },
 

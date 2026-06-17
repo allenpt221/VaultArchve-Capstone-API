@@ -26,6 +26,7 @@ interface TableActionsProps {
   references: string;
   filename: string;
   isOpen?: () => void;
+  DeleteThesis: (id: string) => void;
 }
 
 export function TableActions({
@@ -41,6 +42,7 @@ export function TableActions({
   references,
   filename,
   isOpen,
+  DeleteThesis
 }: TableActionsProps) {
 
   // FIX: guard against undefined id (e.g. API returns _id instead of id)
@@ -141,7 +143,9 @@ export function TableActions({
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer py-2">Duplicate</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" className="cursor-pointer py-2">Delete</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" className="cursor-pointer py-2"
+            onClick={() => DeleteThesis(id)}
+            >Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
