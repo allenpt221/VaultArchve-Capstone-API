@@ -244,3 +244,36 @@ export async function getProfile(req: Request, res: Response){
     return;
   }
 }
+
+export async function deleteUser(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "ID is required" });
+    }
+
+    const { data, error } = await supabase
+      .from("Authentication")
+      .delete()
+      .eq("id", id)
+      .select(); // optional: returns deleted row(s)
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "User deleted successfully",
+      deleted: data,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      error: error.message || "Internal server error",
+    });
+  }
+}
