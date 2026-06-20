@@ -60,9 +60,6 @@ export function LoginForm({
           setError(result.message || 'Invalid credentials.');
           setCountdown(parseRetryAfter(result.retryAfter));
           setFailed(true);
-        } else {
-          setPassword('');
-          setEmail('');
         }
       } catch (error: any) {
         console.error(error);

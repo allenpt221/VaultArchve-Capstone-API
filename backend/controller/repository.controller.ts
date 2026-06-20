@@ -247,7 +247,6 @@ export async function getThesis(req: Request, res: Response) {
   }
 }
 
-
 export async function getRandomThesis(req: Request, res: Response){
     try {  
         const { data, error } = await supabase
@@ -316,7 +315,6 @@ export async function getRepoViewAndDownloads(req: Request, res: Response) {
         return res.status(500).json({ error: 'Internal server error' });
     }
 }
-
 
 export async function deleteId(req: Request, res: Response) {
     try {

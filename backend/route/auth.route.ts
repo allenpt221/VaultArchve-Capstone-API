@@ -1,5 +1,5 @@
 import express from 'express';
-import { deleteUser, getProfile, getUsers, Login, Logout, Signup } from '../controller/auth.controller';
+import { deleteUser, getProfile, getUsers, Login, Logout, Signup, toggleStudentStatus } from '../controller/auth.controller';
 import { adminOnly, verifyToken } from '../middleware/middware';
 import { loginLimiter } from '../lib/ratelimit';
 
@@ -13,6 +13,8 @@ route.post('/logout', verifyToken, Logout);
 route.get('/profile', verifyToken, getProfile);
 
 route.delete('/delete/:id', verifyToken, adminOnly, deleteUser);
+route.put('/disable/:id', verifyToken, adminOnly, toggleStudentStatus);
+
 
 
 

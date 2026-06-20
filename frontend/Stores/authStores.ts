@@ -41,32 +41,32 @@ export const authUserStore = create<authProps>((set, get) => ({
     justLoggedIn: false,
     checkingAuth: true,
 
-logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
-  try {
-    set({ loading: true });
+  logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
+    try {
+      set({ loading: true });
 
-    const res = await axios.post('/auth/login', { email, password });
+      const res = await axios.post('/auth/login', { email, password });
 
-    set({
-      user: res.data.user,
-      loading: false,
-      justLoggedIn: true,
-    });
+      set({
+        user: res.data.user,
+        loading: false,
+        justLoggedIn: true,
+      });
 
-    return { success: true };
+      return { success: true };
 
-  } catch (error: any) {
-    set({ loading: false });
+    } catch (error: any) {
+      set({ loading: false });
 
-    const data = error.response?.data;
+      const data = error.response?.data;
 
-    return {
-      success: false,
-      message: data?.message || 'Something went wrong.',
-      retryAfter: data?.retryAfter,
-    };
-  }
-},  
+      return {
+        success: false,
+        message: data?.message || 'Something went wrong.',
+        retryAfter: data?.retryAfter,
+      };
+    }
+  },  
 
   checkAuth: async (): Promise<void> => {
     set({ checkingAuth: true });
@@ -86,6 +86,8 @@ logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
       console.error('logout failed:', error);    
     }
   },
+
+  
 
 
 }));

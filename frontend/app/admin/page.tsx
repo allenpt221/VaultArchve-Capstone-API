@@ -15,6 +15,7 @@ import {
 import DataAnalytics from "@/components/AdminComponents/DataAnalytics";
 import ThesisSubmit from "@/components/AdminComponents/ThesisSubmit";
 import Link from "next/link";
+import UserManagement from "@/components/AdminComponents/UserManagement";
 
 function Admin() {
   const router = useRouter();
@@ -134,14 +135,16 @@ function Admin() {
           <Menu size={24} />
         </button>
 
-        <span className="font-semibold text-base tracking-wide">
-          VaultArchive
+        <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
+          Vault<span className="text-yellow-400">Archve</span>
         </span>
       </div>
 
         <div className="">
           {activePage === "data-analytics" && <DataAnalytics isCollapsed={collapsed} />}
           {activePage === "submit-thesis" && <ThesisSubmit />}
+          {activePage === "users-management" && <UserManagement />}
+
           {activePage === "settings" && (
             <div className="bg-white rounded-lg shadow p-6 transition-all duration-300">
               <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
@@ -173,7 +176,9 @@ function Admin() {
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <div className="p-4 flex justify-between items-center border-b">
-            <span className="font-bold">ValtArche</span>
+            <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
+              Vault<span className="text-yellow-400">Archve</span>
+            </span>
             <button onClick={() => setMobileOpen(false)}>
               <X size={20} />
             </button>

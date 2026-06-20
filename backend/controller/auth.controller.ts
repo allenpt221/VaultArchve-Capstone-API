@@ -14,6 +14,7 @@ interface User {
     lastname: string;
     password: string;
     role: string;
+    status:string;
 }
 
 
@@ -203,18 +204,30 @@ export async function Logout(req: Request, res: Response) {
 
 export async function getUsers(req: Request, res: Response) {
   try {
+    const { page, limit } = req.query as { page: string; limit: string };
 
-      const cacheKey = "users:all";
+    if (!page || !limit) {
+      return res.status(400).json({
+        success: false,
+        message: 'page and limit are required'
+      });
+    }
+
+    const cacheKey = `users:page:${page}:limit:${limit}`;
 
     const cached = await redis.get(cacheKey);
-      if (cached) {
-        return res.status(200).json({ users: cached }); // ⚡ fast, skip supabase
-      }
+    if (cached) {
+      return res.status(200).json({ success: true, users: cached }); 
+    }
 
-    const { data, error } = await supabase
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    const { data, error, count } = await supabase
       .from("Authentication")
-      .select("*")
-      .order("created_at", { ascending: true });
+      .select("id, email, firstname, lastname, role, status, created_at", { count: "exact" })
+      .order("created_at", { ascending: true })
+      .range(from, to);
 
     if (error) {
       console.error("Supabase error:", error);
@@ -225,10 +238,19 @@ export async function getUsers(req: Request, res: Response) {
       return res.status(404).json({ message: "No users found" });
     }
 
-    await redis.set(cacheKey, data, { ex: 3600 });
+    const responseData = {
+      users: data,
+      totalCount: count,
+      currentPage: Number(page),
+      totalPages: Math.ceil(count! / Number(limit)),
+    };
 
-    // Return all users
-    return res.status(200).json({ users: data });
+    await redis.set(cacheKey, responseData, { ex: 3600 });
+
+    return res.status(200).json({
+      success: true,
+      users: responseData,
+    });
   } catch (error: any) {
     console.error("Server error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -257,7 +279,7 @@ export async function deleteUser(req: Request, res: Response) {
       .from("Authentication")
       .delete()
       .eq("id", id)
-      .select(); // optional: returns deleted row(s)
+      .select(); 
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -267,11 +289,74 @@ export async function deleteUser(req: Request, res: Response) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Invalidate cached user pages so the deletion shows up immediately,
+    // instead of waiting out the 1-hour TTL on the stale page.
+    const staleKeys = await redis.keys("users:page:*");
+    if (staleKeys.length > 0) {
+      await redis.del(...staleKeys);
+    }
+
     return res.status(200).json({
       message: "User deleted successfully",
       deleted: data,
     });
   } catch (error: any) {
+    return res.status(500).json({
+      error: error.message || "Internal server error",
+    });
+  }
+}
+
+export async function toggleStudentStatus(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "ID is required" });
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("Authentication")
+      .select("status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const nextStatus = existing.status === "disabled" ? "active" : "disabled";
+
+    const { data, error } = await supabase
+      .from("Authentication")
+      .update({ status: nextStatus })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: "Failed to update status" });
+    }
+
+    if (!data) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Invalidate cached user pages so the new status shows up immediately,
+    // instead of waiting out the 1-hour TTL on the stale page.
+    const staleKeys = await redis.keys("users:page:*");
+    if (staleKeys.length > 0) {
+      await redis.del(...staleKeys);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Student ${nextStatus} successfully`,
+      user: data,
+    });
+  } catch (error: any) {
+    console.error("Server error:", error);
     return res.status(500).json({
       error: error.message || "Internal server error",
     });

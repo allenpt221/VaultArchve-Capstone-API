@@ -10,7 +10,7 @@ import {
   ChevronLeft,
   Search,
 } from 'lucide-react'
-import { TableActions } from '../Usabletable'
+import { TableActions } from '../ThesisTable'
 import { useEffect, useState } from 'react'
 import {
   Table,
