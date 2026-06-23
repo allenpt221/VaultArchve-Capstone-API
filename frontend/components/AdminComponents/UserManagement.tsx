@@ -9,6 +9,9 @@ import {
   BadgeCheck,
   ShieldMinus,
   UserPlus,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { UserTableActions } from '../UserTable'
@@ -20,6 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import RegisterModal from '../Modal/RegisterModal'
+
+type SortField = 'name' | 'email' | 'role' | null
+type SortDirection = 'asc' | 'desc'
 
 function UserManagement() {
   const {
@@ -36,6 +43,8 @@ function UserManagement() {
 
   const [search, setSearch] = useState('')
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+  const [sortField, setSortField] = useState<SortField>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
 
 
@@ -55,6 +64,26 @@ function UserManagement() {
     fetchUsers(page, 10)
   }
 
+  function handleSort(field: 'name' | 'email' | 'role') {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  function SortIcon({ field }: { field: 'name' | 'email' | 'role' }) {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 opacity-40" />
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="w-3 h-3" style={{ color: '#BA7517' }} />
+    ) : (
+      <ArrowDown className="w-3 h-3" style={{ color: '#BA7517' }} />
+    )
+  }
+
   const filteredUsers = users.filter((u) => {
     const term = search.toLowerCase()
     return (
@@ -65,14 +94,37 @@ function UserManagement() {
     )
   })
 
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (!sortField) return 0
+
+    let valA = ''
+    let valB = ''
+
+    if (sortField === 'name') {
+      valA = `${a.firstname ?? ''} ${a.lastname ?? ''}`.trim().toLowerCase()
+      valB = `${b.firstname ?? ''} ${b.lastname ?? ''}`.trim().toLowerCase()
+    } else if (sortField === 'email') {
+      valA = (a.email ?? '').toLowerCase()
+      valB = (b.email ?? '').toLowerCase()
+    } else {
+      valA = (a.role ?? '').toLowerCase()
+      valB = (b.role ?? '').toLowerCase()
+    }
+
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
+
   const activeAccounts = users.filter((u: any) => u.status?.toLowerCase() === 'active').length
   const disabledAccounts = users.filter((u: any) => u.status?.toLowerCase() === 'disabled').length
+  const studentUsers = users.filter((u: any) => u.role?.toLowerCase() !== 'admin')
 
   const stats = [
     {
       icon: <User className="w-4 h-4" style={{ color: '#185FA5' }} />,
       iconBg: '#E6F1FB',
-      value: totalCount,
+      value: studentUsers.length,
       label: 'Total Students',
       badge: 'Student',
       badgeBg: '#E6F1FB',
@@ -218,16 +270,18 @@ function UserManagement() {
                   className="hover:bg-transparent"
                   style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
                 >
-                  {[
-                    'User ID',
-                    'Student',
-                    'Email',
-                    'Role',
-                    'Status',
-                    'Actions',
-                  ].map((h) => (
+                  {(
+                    [
+                      { key: 'id', label: 'User ID', sortable: false },
+                      { key: 'name', label: 'Student', sortable: true },
+                      { key: 'email', label: 'Email', sortable: true },
+                      { key: 'role', label: 'Role', sortable: true },
+                      { key: 'status', label: 'Status', sortable: false },
+                      { key: 'actions', label: 'Actions', sortable: false },
+                    ] as const
+                  ).map((col) => (
                     <TableHead
-                      key={h}
+                      key={col.key}
                       className="text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
                       style={{
                         letterSpacing: '0.05em',
@@ -235,13 +289,24 @@ function UserManagement() {
                         background: 'rgba(0,0,0,0.02)',
                       }}
                     >
-                      {h}
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.key as 'name' | 'email' | 'role')}
+                          className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+                        >
+                          {col.label}
+                          <SortIcon field={col.key as 'name' | 'email' | 'role'} />
+                        </button>
+                      ) : (
+                        col.label
+                      )}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.length === 0 ? (
+                {sortedUsers.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -251,7 +316,7 @@ function UserManagement() {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((item: any) => (
+                  sortedUsers.map((item: any) => (
                     <UserTableActions
                       key={item.id}
                       id={item.id}
@@ -315,6 +380,11 @@ function UserManagement() {
           )}
         </div>
       </div>
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+      />
+
     </div>
   )
 }

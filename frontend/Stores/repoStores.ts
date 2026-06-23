@@ -1,364 +1,368 @@
 import axios from '@/lib/axios';
 import { create } from 'zustand';
 
-
-interface Thesis {
-  id: string;
-  created_at: string;
+type BasePayload = {
+  course: string;
   title: string;
   author: string;
-  course: string;
-  abstract: string;
-  introduction: string;
-  discussion: string;
-  conclusion: string;
-  references: string;
-  issue_date: string;
-  admin_id: string;
-  thesis_file_name: string;
-  thesis_file_url: string;
-  ThesisDataAnalytics: { views: number; downloads: number }[];
-}
+  issueDate: string;
+  file: File;
+};
 
+type StandardThesisPayload = BasePayload & {
+  type: "standard";
+  thesis_abstract: string;
+  thesis_introduction: string;
+  thesis_discussion: string;
+  thesis_conclusion: string;
+  thesis_references: string;
+};
+
+type EntrepThesisPayload = BasePayload & {
+  type: "entrepreneurship";
+  entrep_intro: string;
+  entrep_action_plan: string;
+  entrep_market_product_description: string;
+  entrep_survey_result: string;
+  entrep_target_market: string;
+  entrep_product: string;
+  entrep_production: string;
+};
+
+export type ThesisPayload =
+  | StandardThesisPayload
+  | EntrepThesisPayload;
+
+type Thesis = any;
 
 interface productState {
-    repository: any[];
-    thesisData: Thesis | null;
-    randomRepository: any[];
-    loading: boolean;
-    notFound: boolean;
-    dataAnalytics: any[];
+  repository: Thesis[];
+  randomRepository: Thesis[];
+  thesisData: Thesis | null;
+  loading: boolean;
+  notFound: boolean;
+  dataAnalytics: any[];
 
-    totalCount: number;
-    currentPage: number;
-    totalPages: number;
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
 
-    getRandomRepository: () => void;
-    viewsDownloads: () => void;
-    getPageRepository: (page: number, limit: number) => void;
-    FilteredThesis: (search: string, year: string, department: string, sort: string, order: string) => void;
-    ThesisById: (id: string) => void;
-    incrementDownloads: () => void;
-    incrementViews: (id: string) => void;
-    submitThesis: (
-        course: string,
-        title: string,      // ✅ fixed order
-        abstract: string,
-        author: string,
-        issueDate: string,  // ✅ fixed order
-        introduction: string,
-        discussion: string,
-        conclusion: string,
-        references: string,
-        file: File
-    ) => void;
-    updateThesis: (
-        id: string,
-        course: string,
-        title: string,      
-        abstract: string,
-        author: string,
-        issueDate: string,  
-        introduction: string,
-        discussion: string,
-        conclusion: string,
-        references: string,
-        file: File | null,
-    ) => void;
-    deleteThesis: (id: string) => void;
+  getRandomRepository: () => void;
+  viewsDownloads: () => void;
+  getPageRepository: (page: number, limit: number) => void;
+  FilteredThesis: (
+    search: string,
+    year: string,
+    department: string,
+    sort: string,
+    order: string
+  ) => void;
+
+  ThesisById: (id: string) => void;
+
+  submitThesis: (data: ThesisPayload) => Promise<any>;
+  updateThesis: (data: ThesisPayload & { id: string }) => Promise<any>;
+  deleteThesis: (id: string) => void;
+
+  incrementDownloads: () => void;
+  incrementViews: (id: string) => void;
 }
 
-
-
 export const repoStores = create<productState>((set, get) => ({
-    randomRepository: [],
-    dataAnalytics: [],
-    thesisData: null,
-    repository: [],
-    loading: false,
-    notFound: false,
+  randomRepository: [],
+  repository: [],
+  thesisData: null,
+  dataAnalytics: [],
+  loading: false,
+  notFound: false,
 
-    totalCount: 0,
-    currentPage: 1,
-    totalPages: 1,
+  totalCount: 0,
+  currentPage: 1,
+  totalPages: 1,
 
+  getRandomRepository: async () => {
+    try {
+      set({ loading: true, randomRepository: [] });
+      const res = await axios.get('/repository/features');
+      set({ randomRepository: res.data.data, loading: false });
+    } catch (error) {
+      console.error(error);
+      set({ loading: false });
+    }
+  },
 
-    getRandomRepository: async (): Promise<void> => {
-        try {
-            set({ loading: true, randomRepository: [] }); // ✅ fixed: was setting repository
-            const res = await axios.get('/repository/features');
-            set({ randomRepository: res.data.data, loading: false }); // ✅ fixed: was setting repository
-        } catch (error: any) {
-            console.error('Failed fetching data:', error);
-            set({ loading: false });
-        }
-    },
+  getPageRepository: async (page: number, limit: number) => {
+    try {
+      set({ loading: true, repository: [] });
+      const res = await axios.get(`/repository/getthesis?page=${page}&limit=${limit}`);
+      const { thesis, totalCount, currentPage, totalPages } = res.data.thesis;
 
-    getPageRepository: async (page: number, limit: number): Promise<void> => {
-        set({ loading: true, repository: [] });
-        try {
-            const res = await axios.get(`/repository/getthesis?page=${page}&limit=${limit}`);
-            const { thesis, totalCount, currentPage, totalPages } = res.data.thesis;
+      set({
+        repository: thesis,
+        totalCount,
+        currentPage,
+        totalPages,
+        loading: false,
+      });
+    } catch (error) {
+      console.error(error);
+      set({ loading: false });
+    }
+  },
 
-            set({
-                repository: thesis,
-                totalCount,
-                currentPage,
-                totalPages,
-                loading: false
-            });
-        } catch (error: any) {
-            console.error('Failed fetching data:', error);
-            set({ loading: false });
-        }
-    },
+  FilteredThesis: async (search, year, department, sort, order) => {
+    try {
+      set({ loading: true });
 
-    FilteredThesis: async (search: string, year: string, department: string, sort: string, order: string): Promise<void> => {
-        try {
-            set({ loading: true });
+      const params = new URLSearchParams({
+        ...(search && { search }),
+        ...(year !== "all" && { year }),
+        ...(department !== "all" && { department }),
+        sort,
+        order,
+      });
 
-            const params = new URLSearchParams({
-                ...(search && { search }),
-                ...(year !== "all" && { year }),
-                ...(department !== "all" && { department }),
-                sort,
-                order,
-            });
+      const res = await axios.get(`/repository/sort?${params.toString()}`);
 
-            const res = await axios.get(`/repository/sort?${params.toString()}`);
+      const data = Array.isArray(res.data) ? res.data : res.data.data ?? [];
+      set({ repository: data, loading: false });
+    } catch (error) {
+      console.error(error);
+      set({ loading: false });
+    }
+  },
 
-            const data = Array.isArray(res.data) ? res.data : res.data.data ?? [];
-            set({ repository: data, loading: false });
+  ThesisById: async (id: string) => {
+    set({ loading: true, notFound: false, thesisData: null });
 
-        } catch (error) {
-            console.error("Failed to filter thesis:", error);
-            set({ loading: false });
-        }
-    },
+    try {
+      const res = await axios.get(`repository/getbyId/${id}`);
+      set({ thesisData: res.data, loading: false });
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        set({ notFound: true, loading: false });
+      }
+    }
+  },
 
-    ThesisById: async (id: string): Promise<void> => {
-        set({ loading: true, notFound: false, thesisData: null });
-        try {
-            const res = await axios.get(`repository/getbyId/${id}`);
-            set({ thesisData: res.data, loading: false });
-        } catch (error: any) {
-            if (error.response?.status === 404) {
-                set({ notFound: true, loading: false });
-            }
-        }
-    },
+  submitThesis: async (payload: ThesisPayload) => {
+    try {
+      set({ loading: true });
 
-    submitThesis: async (
-        course: string,
-        title: string,
-        abstract: string,
-        author: string,
-        issueDate: string,
-        introduction: string,
-        discussion: string,
-        conclusion: string,
-        references: string,
-        file: File
-    ): Promise<void> => {
-        try {
-            set({ loading: true });
+      const formData = new FormData();
 
-            const formData = new FormData();
-            formData.append('title', title);
-            formData.append('author', author);
-            formData.append('course', course);
-            formData.append('issueDate', issueDate);
-            formData.append('abstract', abstract);
-            formData.append('introduction', introduction);
-            formData.append('discussion', discussion);
-            formData.append('conclusion', conclusion);
-            formData.append('references', references);
-            formData.append('thesis_file', file);
+      formData.append("title", payload.title);
+      formData.append("author", payload.author);
+      formData.append("course", payload.course);
+      formData.append("issueDate", payload.issueDate);
+      formData.append("thesis_file", payload.file);
 
-            const res = await axios.post('/repository/create', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+      if (payload.type === "entrepreneurship") {
+        formData.append("entrep_intro", payload.entrep_intro);
+        formData.append("entrep_action_plan", payload.entrep_action_plan);
+        formData.append("entrep_market_product_description", payload.entrep_market_product_description);
+        formData.append("entrep_survey_result", payload.entrep_survey_result);
+        formData.append("entrep_target_market", payload.entrep_target_market);
+        formData.append("entrep_product", payload.entrep_product);
+        formData.append("entrep_production", payload.entrep_production);
+      }
 
-            const newThesis = res.data?.data;
+      if (payload.type === "standard") {
+        formData.append("thesis_abstract", payload.thesis_abstract);
+        formData.append("thesis_introduction", payload.thesis_introduction);
+        formData.append("thesis_discussion", payload.thesis_discussion);
+        formData.append("thesis_conclusion", payload.thesis_conclusion);
+        formData.append("thesis_references", payload.thesis_references);
+      }
 
-            if (newThesis) {
-                set((state) => ({
-                    repository: [{ ...newThesis, issue_date: issueDate }, ...state.repository],
-                    randomRepository: [{ ...newThesis, issue_date: issueDate }, ...state.randomRepository], // ✅ fixed: now updates both
-                }));
-            }
+      const res = await axios.post("/repository/create", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-            set({ loading: false });
-        } catch (error: any) {
-            console.error('Failed to submit thesis:', error.message);
-            set({ loading: false });
-        }
-    },
+      const newThesis = res.data?.data;
 
-    updateThesis: async (id, course, title, abstract, author, issueDate, introduction, discussion, conclusion, references, file) => {
-        try {
-            set({ loading: true });
+      if (newThesis) {
+        set((state) => ({
+          repository: [newThesis, ...state.repository],
+          randomRepository: [newThesis, ...state.randomRepository],
+        }));
+      }
+    } finally {
+      set({ loading: false });
+    }
+  },
 
-            const formData = new FormData();
-            formData.append('title', title);
-            formData.append('author', author);
-            formData.append('course', course);
-            formData.append('issueDate', issueDate);
-            formData.append('abstract', abstract);
-            formData.append('introduction', introduction);
-            formData.append('discussion', discussion);
-            formData.append('conclusion', conclusion);
-            formData.append('references', references);
-            if (file) {
-                formData.append('thesis_file', file);
-            }
+  updateThesis: async (payload: ThesisPayload & { id: string }) => {
+    try {
+      set({ loading: true });
 
-            const res = await axios.put(`/repository/thesis/update/${id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+      const formData = new FormData();
 
-            const updatedFields = {
-                title,
-                author,
-                course,
-                abstract,
-                introduction,
-                discussion,
-                conclusion,
-                references,
-                issue_date: issueDate,
-                // Use server response if available, otherwise fall back to local file name
-                ...(res.data?.data?.thesis_file_url
-                    ? {
-                        thesis_file_url: res.data.data.thesis_file_url,
-                        thesis_file_name: res.data.data.thesis_file_name,
-                    }
-                    : file && {
-                        // Temporary local reference so UI doesn't go stale
-                        thesis_file_name: file.name,
-                    }
-                ),
-            };
+      formData.append("title", payload.title);
+      formData.append("author", payload.author);
+      formData.append("course", payload.course);
+      formData.append("issueDate", payload.issueDate);
 
-            set((state) => ({
-                repository: state.repository.map((thesis) =>
-                    thesis.id === id ? { ...thesis, ...updatedFields } : thesis
-                ),
-                randomRepository: state.randomRepository.map((thesis) =>
-                    thesis.id === id ? { ...thesis, ...updatedFields } : thesis
-                ),
-                thesisData: state.thesisData?.id === id
-                    ? { ...state.thesisData, ...updatedFields }
-                    : state.thesisData,
-            }));
+      if (payload.file) {
+        formData.append("thesis_file", payload.file);
+      }
 
-        } catch (error: any) {
-            console.error('Failed to update thesis:', error.message);
-            throw error;
-        } finally {
-            set({ loading: false });
-        }
-    },
+      if (payload.type === "entrepreneurship") {
+        formData.append("entrep_intro", payload.entrep_intro);
+        formData.append("entrep_action_plan", payload.entrep_action_plan);
+        formData.append("entrep_market_product_description", payload.entrep_market_product_description);
+        formData.append("entrep_survey_result", payload.entrep_survey_result);
+        formData.append("entrep_target_market", payload.entrep_target_market);
+        formData.append("entrep_product", payload.entrep_product);
+        formData.append("entrep_production", payload.entrep_production);
+      }
 
-    deleteThesis: async (id: string): Promise<void> => {
-        try {
-            await axios.delete(`repository/thesis/delete/${id}`);
-            set((state) => ({
-                repository: state.repository.filter((thesis) => thesis.id !== id),
-                randomRepository: state.randomRepository.filter((thesis) => thesis.id !== id),
-                dataAnalytics: state.dataAnalytics.filter((analytic) => analytic.thesis_id !== id),
-                thesisData: state.thesisData?.id === id ? null : state.thesisData,
-            }));
-        } catch (error: any) {
-            console.error(`Failed to delete thesis ${id}:`, error);
-            throw error;
-        }
-    },
+      if (payload.type === "standard") {
+        formData.append("thesis_abstract", payload.thesis_abstract);
+        formData.append("thesis_introduction", payload.thesis_introduction);
+        formData.append("thesis_discussion", payload.thesis_discussion);
+        formData.append("thesis_conclusion", payload.thesis_conclusion);
+        formData.append("thesis_references", payload.thesis_references);
+      }
 
+      const res = await axios.put(
+        `/repository/thesis/update/${payload.id}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
-    viewsDownloads: async(): Promise<void> => {
-            set({ loading: true});
-        try {
-            const res = await axios.get('repository/viewsdownloads');
+      const updated = res.data?.data;
 
-            set({ dataAnalytics: res.data.data });;
-        } catch (error) {
-            console.error("Failed to fetch analytics:", error);
-            set({ loading: false });
-        }
-    },
-
-
-
-
-    incrementViews: (id: string) => set((state) => ({
-        thesisData: state.thesisData?.id === id
-            ? {
-                ...state.thesisData,
-                ThesisDataAnalytics: [{
-                    ...state.thesisData.ThesisDataAnalytics?.[0],
-                    views: (state.thesisData.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
-                }]
-            }
+      set((state) => ({
+        repository: state.repository.map((t) =>
+          t.id === payload.id ? { ...t, ...updated } : t
+        ),
+        randomRepository: state.randomRepository.map((t) =>
+          t.id === payload.id ? { ...t, ...updated } : t
+        ),
+        thesisData:
+          state.thesisData?.id === payload.id
+            ? { ...state.thesisData, ...updated }
             : state.thesisData,
-        repository: state.repository.map((thesis) =>
-            thesis.id === id
-                ? {
-                    ...thesis,
-                    ThesisDataAnalytics: [{
-                        ...thesis.ThesisDataAnalytics?.[0],
-                        views: (thesis.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
-                    }]
-                }
-                : thesis
-        ),
-        
-        randomRepository: state.randomRepository.map((thesis) =>
-        thesis.id === id
-            ? {
-                ...thesis,
-                ThesisDataAnalytics: [{
-                    ...thesis.ThesisDataAnalytics?.[0],
-                    views: (thesis.ThesisDataAnalytics?.[0]?.views ?? 0) + 1
-                }]
-            }
-            : thesis
-    ),
+      }));
+    } finally {
+      set({ loading: false });
+    }
+  },
 
-    dataAnalytics: state.dataAnalytics.map((analytic) =>
-        analytic.thesis_id === id
-            ? { ...analytic, views: (Number(analytic.views) || 0) + 1 }
-            : analytic
-    ),
+  deleteThesis: async (id: string) => {
+    try {
+      await axios.delete(`repository/thesis/delete/${id}`);
+
+      set((state) => ({
+        repository: state.repository.filter((t) => t.id !== id),
+        randomRepository: state.randomRepository.filter((t) => t.id !== id),
+        dataAnalytics: state.dataAnalytics.filter((a) => a.thesis_id !== id),
+        thesisData: state.thesisData?.id === id ? null : state.thesisData,
+      }));
+    } catch (error) {
+      console.error(error);
+    }
+  },
+
+  viewsDownloads: async () => {
+    try {
+      set({ loading: true });
+      const res = await axios.get('repository/viewsdownloads');
+      set({ dataAnalytics: res.data.data });
+    } catch (error) {
+      console.error(error);
+      set({ loading: false });
+    }
+  },
+
+  incrementViews: (id: string) =>
+    set((state) => ({
+      thesisData:
+        state.thesisData?.id === id
+          ? {
+              ...state.thesisData,
+              ThesisDataAnalytics: [
+                {
+                  ...state.thesisData.ThesisDataAnalytics?.[0],
+                  views:
+                    (state.thesisData.ThesisDataAnalytics?.[0]?.views ?? 0) +
+                    1,
+                },
+              ],
+            }
+          : state.thesisData,
+
+      repository: state.repository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  views: (t.ThesisDataAnalytics?.[0]?.views ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      randomRepository: state.randomRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  views: (t.ThesisDataAnalytics?.[0]?.views ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      dataAnalytics: state.dataAnalytics.map((a) =>
+        a.thesis_id === id
+          ? { ...a, views: (Number(a.views) || 0) + 1 }
+          : a
+      ),
     })),
 
-    incrementDownloads: () => set((state) => ({
-        thesisData: state.thesisData
-            ? {
-                ...state.thesisData,
-                ThesisDataAnalytics: [{
-                    ...state.thesisData.ThesisDataAnalytics?.[0],
-                    downloads: (state.thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1
-                }]
+  incrementDownloads: () =>
+    set((state) => ({
+      thesisData: state.thesisData
+        ? {
+            ...state.thesisData,
+            ThesisDataAnalytics: [
+              {
+                ...state.thesisData.ThesisDataAnalytics?.[0],
+                downloads:
+                  (state.thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0) +
+                  1,
+              },
+            ],
+          }
+        : null,
+
+      repository: state.repository.map((t) =>
+        t.id === state.thesisData?.id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  downloads:
+                    (t.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1,
+                },
+              ],
             }
-            : null,
-        repository: state.repository.map((thesis) =>
-            thesis.id === state.thesisData?.id
-                ? {
-                    ...thesis,
-                    ThesisDataAnalytics: [{
-                        ...thesis.ThesisDataAnalytics?.[0],
-                        downloads: (thesis.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1
-                    }]
-                }
-                : thesis
-        ),
-        dataAnalytics: state.dataAnalytics.map((analytic) =>
-            analytic.thesis_id === state.thesisData?.id
-                ? { ...analytic, downloads: (Number(analytic.downloads) || 0) + 1 }
-                : analytic
-        ),
+          : t
+      ),
+
+      dataAnalytics: state.dataAnalytics.map((a) =>
+        a.thesis_id === state.thesisData?.id
+          ? { ...a, downloads: (Number(a.downloads) || 0) + 1 }
+          : a
+      ),
     })),
-}))
+}));

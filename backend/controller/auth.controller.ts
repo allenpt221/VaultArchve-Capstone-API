@@ -18,15 +18,13 @@ interface User {
 }
 
 
-export async function  Signup(req:Request, res:Response) {
+export async function Signup(req: Request, res: Response) {
     try {
         const { email, firstname, lastname, password, role }: User = req.body;
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-
         const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
-
 
         if (!gmailRegex.test(email)) {
           return res.status(400).json({
@@ -34,7 +32,6 @@ export async function  Signup(req:Request, res:Response) {
             success: false
           });
         }
-
 
         const { data: ExistingUser, error: findError } = await supabase
         .from("Authentication")
@@ -45,8 +42,8 @@ export async function  Signup(req:Request, res:Response) {
         return res.status(500).json({ error: "Database error" });
         }
 
-        if(password.length < 8){
-          return res.status(400).json({ message: 'Password must be at least 8 characters', success: false});
+        if (password.length < 8) {
+          return res.status(400).json({ message: 'Password must be at least 8 characters', success: false });
         }
 
         if (ExistingUser && ExistingUser.length > 0) {
@@ -55,7 +52,7 @@ export async function  Signup(req:Request, res:Response) {
         });
         }
 
-        const { error } = await supabase
+        const { data: insertedUser, error } = await supabase
         .from('Authentication')
         .insert([
             {
@@ -65,7 +62,9 @@ export async function  Signup(req:Request, res:Response) {
                 password: hashedPassword,
                 role: "student"
             }
-        ]);
+        ])
+        .select("id, email, firstname, lastname, role, status") // exclude password
+        .single();
 
         if (error) {
               console.error('Supabase error:', error);
@@ -73,14 +72,15 @@ export async function  Signup(req:Request, res:Response) {
               return
         }
 
+        // invalidate cached user pages so the new user shows up immediately
+        const keys = await redis.keys("users:page:*");
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+
         res.status(201).json({
               message: 'User created successfully',
-              user: {
-                  email,
-                  firstname,
-                  lastname,
-                  role
-              }
+              user: insertedUser 
           });
 
     } catch (error: any) {

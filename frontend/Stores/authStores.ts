@@ -8,7 +8,6 @@ interface userProps{
     email: string;
     firstname: string;
     lastname: string;
-    middle: string;
     role: string;
 }
 

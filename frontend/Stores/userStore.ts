@@ -7,7 +7,6 @@ interface userProps{
     email: string;
     firstname: string;
     lastname: string;
-    middle: string;
     role: string;
 }
 
@@ -16,7 +15,6 @@ interface CreateUserProps{
     password: string;
     firstname: string;
     lastname: string;
-    middle: string;
     role: string;
 }
 

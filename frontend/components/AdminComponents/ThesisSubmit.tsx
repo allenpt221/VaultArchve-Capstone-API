@@ -32,14 +32,25 @@ function ThesisSubmit() {
 
   const [course, setCourse] = useState('')
   const [title, setTitle] = useState('')
-  const [abstract, setAbstract] = useState('')
   const [author, setAuthor] = useState('')
   const [issueDate, setIssueDate] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+
+  // Standard format fields
+  const [abstract, setAbstract] = useState('')
   const [introduction, setIntroduction] = useState('')
   const [discussion, setDiscussion] = useState('')
   const [conclusion, setConclusion] = useState('')
   const [references, setReferences] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+
+  // Entrepreneurship format fields
+  const [entrepIntro, setEntrepIntro] = useState('')
+  const [actionPlan, setActionPlan] = useState('')
+  const [marketProductDescription, setMarketProductDescription] = useState('')
+  const [surveyResult, setSurveyResult] = useState('')
+  const [targetMarket, setTargetMarket] = useState('')
+  const [product, setProduct] = useState('')
+  const [production, setProduction] = useState('')
 
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -47,27 +58,51 @@ function ThesisSubmit() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const isEntrep = course === 'Entrepreneurship'
+
   // Validation helper
   const isFieldRequired = (field: string) => {
     if (field === 'file') return touched['file'] && !file
-    const value = {
-      title, author, course, issueDate, abstract,
-      introduction, discussion, conclusion, references
-    }[field]
+
+    const commonValues: Record<string, string> = { title, author, course, issueDate }
+
+    const standardValues: Record<string, string> = {
+      abstract, introduction, discussion, conclusion, references,
+    }
+
+    const entrepValues: Record<string, string> = {
+      entrepIntro, actionPlan, marketProductDescription,
+      surveyResult, targetMarket, product, production,
+    }
+
+    const value =
+      commonValues[field] ??
+      (isEntrep ? entrepValues[field] : standardValues[field])
+
     return touched[field] && !value
   }
 
   const resetForm = () => {
     setCourse('')
     setTitle('')
-    setAbstract('')
     setAuthor('')
     setIssueDate('')
+    setFile(null)
+
+    setAbstract('')
     setIntroduction('')
     setDiscussion('')
     setConclusion('')
     setReferences('')
-    setFile(null)
+
+    setEntrepIntro('')
+    setActionPlan('')
+    setMarketProductDescription('')
+    setSurveyResult('')
+    setTargetMarket('')
+    setProduct('')
+    setProduction('')
+
     setTouched({})
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -77,21 +112,26 @@ function ThesisSubmit() {
     setError('')
     setSuccess(false)
 
-    // Mark ALL fields as touched, including file
-    const allFields = {
-      title, author, course, issueDate, abstract,
-      introduction, discussion, conclusion, references
-    }
+    const commonFields = { title, author, course, issueDate }
+
+    const contentFields = isEntrep
+      ? {
+          entrepIntro, actionPlan, marketProductDescription,
+          surveyResult, targetMarket, product, production,
+        }
+      : { abstract, introduction, discussion, conclusion, references }
+
+    const allFields = { ...commonFields, ...contentFields }
+
     const newTouched = Object.keys(allFields).reduce((acc, key) => {
       acc[key] = true
       return acc
     }, {} as Record<string, boolean>)
-    // FIX: also mark file as touched so its error message shows
     newTouched['file'] = true
     setTouched(newTouched)
 
-    if (!title || !author || !course || !issueDate || !abstract ||
-        !introduction || !discussion || !conclusion || !references) {
+    const hasMissingField = Object.values(allFields).some((v) => !v)
+    if (hasMissingField) {
       setError('Please fill in all required fields.')
       return
     }
@@ -101,7 +141,6 @@ function ThesisSubmit() {
       return
     }
 
-    // FIX: fallback to file extension check for browsers that return empty file.type (e.g. DOCX on some Windows browsers)
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -117,10 +156,41 @@ function ThesisSubmit() {
     }
 
     try {
-      await submitThesis(
-        course, title, abstract, author, issueDate,
-        introduction, discussion, conclusion, references, file
-      )
+
+      const payload =
+        isEntrep
+          ? {
+              type: "entrepreneurship" as const,
+              course,
+              title,
+              author,
+              issueDate,
+              file,
+
+              entrep_intro: entrepIntro,
+              entrep_action_plan: actionPlan,
+              entrep_market_product_description: marketProductDescription,
+              entrep_survey_result: surveyResult,
+              entrep_target_market: targetMarket,
+              entrep_product: product,
+              entrep_production: production,
+            }
+          : {
+              type: "standard" as const,
+              course,
+              title,
+              author,
+              issueDate,
+              file,
+
+              thesis_abstract: abstract,
+              thesis_introduction: introduction,
+              thesis_discussion: discussion,
+              thesis_conclusion: conclusion,
+              thesis_references: references,
+            };
+
+      await submitThesis(payload);
 
       setSuccess(true)
       resetForm()
@@ -147,7 +217,7 @@ function ThesisSubmit() {
             Submit Thesis
           </h1>
           <p className="text-amber-700/70 mt-3 text-lg">
-            Share your research with the academic community
+            Publish research with the academic community
           </p>
         </div>
 
@@ -279,99 +349,231 @@ function ThesisSubmit() {
 
             <Separator />
 
-            {/* THESIS CONTENT SECTION */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <div className="w-1 h-6 bg-amber-500 rounded-full" />
-                Thesis Content
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Abstract <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="Summarize your research objectives, methods, and key findings (150-300 words)"
-                    value={abstract}
-                    onChange={(e) => setAbstract(e.target.value)}
-                    onBlur={() => handleFieldBlur('abstract')}
-                    rows={4}
-                    className={`focus-visible:ring-amber-500 ${isFieldRequired('abstract') ? 'border-red-300' : ''}`}
-                  />
-                  {isFieldRequired('abstract') && (
-                    <p className="text-xs text-red-500 mt-1">Abstract is required</p>
-                  )}
-                </div>
+            {/* THESIS CONTENT SECTION — format depends on selected course */}
+            {isEntrep ? (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-amber-500 rounded-full" />
+                  Thesis Content
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                    Entrepreneurship Format
+                  </Badge>
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Introduction <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Introduce the business concept and its purpose"
+                      value={entrepIntro}
+                      onChange={(e) => setEntrepIntro(e.target.value)}
+                      onBlur={() => handleFieldBlur('entrepIntro')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('entrepIntro') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('entrepIntro') && (
+                      <p className="text-xs text-red-500 mt-1">Introduction is required</p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Introduction <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="Introduce your research problem, objectives, and scope"
-                    value={introduction}
-                    onChange={(e) => setIntroduction(e.target.value)}
-                    onBlur={() => handleFieldBlur('introduction')}
-                    rows={5}
-                    className={`focus-visible:ring-amber-500 ${isFieldRequired('introduction') ? 'border-red-300' : ''}`}
-                  />
-                  {isFieldRequired('introduction') && (
-                    <p className="text-xs text-red-500 mt-1">Introduction is required</p>
-                  )}
-                </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Action Plan <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Outline the steps and timeline for launching the business"
+                      value={actionPlan}
+                      onChange={(e) => setActionPlan(e.target.value)}
+                      onBlur={() => handleFieldBlur('actionPlan')}
+                      rows={5}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('actionPlan') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('actionPlan') && (
+                      <p className="text-xs text-red-500 mt-1">Action plan is required</p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Discussion <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="Present your methodology, results, and analysis"
-                    value={discussion}
-                    onChange={(e) => setDiscussion(e.target.value)}
-                    onBlur={() => handleFieldBlur('discussion')}
-                    rows={6}
-                    className={`focus-visible:ring-amber-500 ${isFieldRequired('discussion') ? 'border-red-300' : ''}`}
-                  />
-                  {isFieldRequired('discussion') && (
-                    <p className="text-xs text-red-500 mt-1">Discussion is required</p>
-                  )}
-                </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Market / Product Description <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Describe the market opportunity and the product or service offered"
+                      value={marketProductDescription}
+                      onChange={(e) => setMarketProductDescription(e.target.value)}
+                      onBlur={() => handleFieldBlur('marketProductDescription')}
+                      rows={5}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('marketProductDescription') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('marketProductDescription') && (
+                      <p className="text-xs text-red-500 mt-1">Market/product description is required</p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
-                    Conclusion <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="Summarize findings, implications, and future work"
-                    value={conclusion}
-                    onChange={(e) => setConclusion(e.target.value)}
-                    onBlur={() => handleFieldBlur('conclusion')}
-                    rows={4}
-                    className={`focus-visible:ring-amber-500 ${isFieldRequired('conclusion') ? 'border-red-300' : ''}`}
-                  />
-                  {isFieldRequired('conclusion') && (
-                    <p className="text-xs text-red-500 mt-1">Conclusion is required</p>
-                  )}
-                </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Survey Result <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Summarize the findings from your market survey"
+                      value={surveyResult}
+                      onChange={(e) => setSurveyResult(e.target.value)}
+                      onBlur={() => handleFieldBlur('surveyResult')}
+                      rows={5}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('surveyResult') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('surveyResult') && (
+                      <p className="text-xs text-red-500 mt-1">Survey result is required</p>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
-                    References <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="List your citations in your preferred format (APA, MLA, Chicago, etc.)"
-                    value={references}
-                    onChange={(e) => setReferences(e.target.value)}
-                    onBlur={() => handleFieldBlur('references')}
-                    rows={4}
-                    className={`focus-visible:ring-amber-500 ${isFieldRequired('references') ? 'border-red-300' : ''}`}
-                  />
-                  {isFieldRequired('references') && (
-                    <p className="text-xs text-red-500 mt-1">References are required</p>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Target Market <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Define your target customers and their characteristics"
+                      value={targetMarket}
+                      onChange={(e) => setTargetMarket(e.target.value)}
+                      onBlur={() => handleFieldBlur('targetMarket')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('targetMarket') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('targetMarket') && (
+                      <p className="text-xs text-red-500 mt-1">Target market is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Product <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Detail the product/service specifications and features"
+                      value={product}
+                      onChange={(e) => setProduct(e.target.value)}
+                      onBlur={() => handleFieldBlur('product')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('product') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('product') && (
+                      <p className="text-xs text-red-500 mt-1">Product is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Production <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Explain the production process, resources, and supply chain"
+                      value={production}
+                      onChange={(e) => setProduction(e.target.value)}
+                      onBlur={() => handleFieldBlur('production')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('production') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('production') && (
+                      <p className="text-xs text-red-500 mt-1">Production is required</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-amber-500 rounded-full" />
+                  Thesis Content
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Abstract <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Summarize your research objectives, methods, and key findings (150-300 words)"
+                      value={abstract}
+                      onChange={(e) => setAbstract(e.target.value)}
+                      onBlur={() => handleFieldBlur('abstract')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('abstract') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('abstract') && (
+                      <p className="text-xs text-red-500 mt-1">Abstract is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Introduction <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Introduce your research problem, objectives, and scope"
+                      value={introduction}
+                      onChange={(e) => setIntroduction(e.target.value)}
+                      onBlur={() => handleFieldBlur('introduction')}
+                      rows={5}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('introduction') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('introduction') && (
+                      <p className="text-xs text-red-500 mt-1">Introduction is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Discussion <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Present your methodology, results, and analysis"
+                      value={discussion}
+                      onChange={(e) => setDiscussion(e.target.value)}
+                      onBlur={() => handleFieldBlur('discussion')}
+                      rows={6}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('discussion') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('discussion') && (
+                      <p className="text-xs text-red-500 mt-1">Discussion is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Conclusion <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="Summarize findings, implications, and future work"
+                      value={conclusion}
+                      onChange={(e) => setConclusion(e.target.value)}
+                      onBlur={() => handleFieldBlur('conclusion')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('conclusion') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('conclusion') && (
+                      <p className="text-xs text-red-500 mt-1">Conclusion is required</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      References <span className="text-red-500">*</span>
+                    </label>
+                    <Textarea
+                      placeholder="List your citations in your preferred format (APA, MLA, Chicago, etc.)"
+                      value={references}
+                      onChange={(e) => setReferences(e.target.value)}
+                      onBlur={() => handleFieldBlur('references')}
+                      rows={4}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('references') ? 'border-red-300' : ''}`}
+                    />
+                    {isFieldRequired('references') && (
+                      <p className="text-xs text-red-500 mt-1">References are required</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Separator />
 
@@ -409,7 +611,6 @@ function ThesisSubmit() {
                   className="hidden"
                   onChange={(e) => {
                     setFile(e.target.files?.[0] ?? null)
-                    // FIX: clear the file touched error as soon as a file is chosen
                     setTouched(prev => ({ ...prev, file: false }))
                   }}
                 />
@@ -420,7 +621,6 @@ function ThesisSubmit() {
                   </Badge>
                 )}
               </div>
-              {/* FIX: use isFieldRequired('file') for consistency */}
               {isFieldRequired('file') && (
                 <p className="text-xs text-red-500 mt-2">Please upload your thesis file</p>
               )}

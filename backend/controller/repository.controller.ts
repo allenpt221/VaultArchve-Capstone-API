@@ -18,14 +18,36 @@ interface ThesisProps {
 export async function SumbitThesis(req: Request, res: Response) {
     try {
         const user_id = req.user?.id;
-        const { title, author, course, issueDate, abstract, introduction, conclusion, discussion, references }: ThesisProps = req.body;
+
+        const {
+            title,
+            author,
+            course,
+            issueDate,
+            thesis_abstract,
+            thesis_introduction,
+            thesis_conclusion,
+            thesis_discussion,
+            thesis_references,
+
+            // ENTRE FIELDS
+            entrep_intro,
+            entrep_action_plan,
+            entrep_market_product_description,
+            entrep_survey_result,
+            entrep_target_market,
+            entrep_product,
+            entrep_production,
+        } = req.body;
 
         const files = req.files as Express.Multer.File[];
         const thesis_file = files?.[0];
 
-        if (!title || !author || !issueDate || !course || !abstract || !conclusion || !introduction || !discussion || !references) {
-            res.status(400).json({ status: false, message: "All fields are required" });
-            return;
+        const isEntrep = course?.toLowerCase().includes("entrepreneurship");
+
+        // FILE VALIDATION
+        if (!thesis_file) {
+            return res.status(400).json({ status: false, message: "PDF or DOCX file is required" });
         }
 
         const allowedTypes = [
@@ -33,17 +55,49 @@ export async function SumbitThesis(req: Request, res: Response) {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ];
 
-        if (!thesis_file) {
-            res.status(400).json({ status: false, message: "PDF or DOCX file is required" });
-            return;
-        }
-
         if (!allowedTypes.includes(thesis_file.mimetype)) {
-            res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
-            return;
+            return res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
         }
 
-        const fileName = `${user_id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
+        // COMMON VALIDATION
+        if (!title || !author || !issueDate || !course) {
+            return res.status(400).json({ status: false, message: "Missing basic thesis info" });
+        }
+
+        // CONDITIONAL VALIDATION
+        if (isEntrep) {
+            if (
+                !entrep_intro ||
+                !entrep_action_plan ||
+                !entrep_market_product_description ||
+                !entrep_survey_result ||
+                !entrep_target_market ||
+                !entrep_product ||
+                !entrep_production
+            ) {
+                return res.status(400).json({
+                    status: false,
+                    message: "All entrepreneurship fields are required",
+                });
+            }
+        } else {
+            if (
+                !thesis_abstract ||
+                !thesis_introduction ||
+                !thesis_conclusion ||
+                !thesis_discussion ||
+                !thesis_references
+            ) {
+                return res.status(400).json({
+                    status: false,
+                    message: "All thesis fields are required",
+                });
+            }
+        }
+
+        // UPLOAD FILE
+        const userIdSafe = user_id ?? "unknown";
+        const fileName = `${userIdSafe}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from("thesis-files")
@@ -54,78 +108,99 @@ export async function SumbitThesis(req: Request, res: Response) {
 
         if (uploadError) {
             console.error("Storage upload error:", uploadError);
-            res.status(500).json({ status: false, error: "Failed to upload file" });
-            return;
+            return res.status(500).json({ status: false, error: "Failed to upload file" });
         }
 
         const thesis_file_url = uploadData.path;
 
+        // INSERT DATA
         const { data: thesis, error: thesisError } = await supabase
             .from("Thesis")
-            .insert([{
-                admin_id: user_id,
-                title,
-                author,
-                course,
-                abstract,
-                introduction,
-                conclusion,
-                discussion,
-                references,
-                issue_date: issueDate,
-                thesis_file_url,
-                thesis_file_name: thesis_file.originalname,
-            }])
+            .insert([
+                {
+                    admin_id: user_id,
+                    title,
+                    author,
+                    course,
+                    thesis_abstract,
+                    thesis_introduction,
+                    thesis_conclusion,
+                    thesis_discussion,
+                    thesis_references,
+                    issue_date: issueDate,
+                    thesis_file_url,
+                    thesis_file_name: thesis_file.originalname,
+
+                    ...(isEntrep && {
+                        entrep_intro,
+                        entrep_action_plan,
+                        entrep_market_product_description,
+                        entrep_survey_result,
+                        entrep_target_market,
+                        entrep_product,
+                        entrep_production,
+                    }),
+                },
+            ])
             .select();
 
-        // ✅ Error check FIRST before analytics insert
         if (thesisError || !thesis?.[0]) {
             console.error("Failed to insert thesis:", thesisError);
             await supabase.storage.from("thesis-files").remove([fileName]);
             return res.status(500).json({ error: "Failed to create thesis" });
         }
 
-        // ✅ Analytics insert AFTER error check with default values
-        await supabase.from('ThesisDataAnalytics').insert([{
-            thesis_id: thesis[0].id,
-            views: 0,
-            downloads: 0
-        }]);
+        // ANALYTICS
+        await supabase.from("ThesisDataAnalytics").insert([
+            {
+                thesis_id: thesis[0].id,
+                views: 0,
+                downloads: 0,
+            },
+        ]);
 
-        // ✅ Invalidate cache so new thesis appears immediately
+        // CACHE CLEAR
         const keys = await redis.keys("thesis:page:*");
         if (keys.length > 0) {
             await redis.del(...keys);
         }
 
-        res.status(200).json({
+        return res.status(200).json({
             status: true,
             message: "Thesis created successfully",
-            data: {
-                title,
-                author,
-                course,
-                abstract,
-                introduction,
-                issueDate,
-                discussion,
-                references,
-                thesis_file_url,
-                thesis_file_name: thesis_file.originalname,
-            }
+            data: thesis[0],
         });
 
     } catch (error: any) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-        return;
+        console.error("Server error:", error);
+        return res.status(500).json({ error: "Internal server error" });
     }
 }
 
 export async function UpdateThesis(req: Request, res: Response) {
     try {
         const { id } = req.params;
-        const { title, author, course, issueDate, abstract, introduction, discussion, references, conclusion }: ThesisProps = req.body;
+
+        const {
+            title,
+            author,
+            course,
+            issueDate,
+            thesis_abstract,
+            thesis_introduction,
+            thesis_discussion,
+            thesis_references,
+            thesis_conclusion,
+
+            // ENTRE FIELDS
+            entrep_intro,
+            entrep_action_plan,
+            entrep_market_product_description,
+            entrep_survey_result,
+            entrep_target_market,
+            entrep_product,
+            entrep_production,
+        } = req.body;
 
         const files = req.files as Express.Multer.File[];
         const thesis_file = files?.[0];
@@ -140,8 +215,7 @@ export async function UpdateThesis(req: Request, res: Response) {
             ];
 
             if (!allowedTypes.includes(thesis_file.mimetype)) {
-                res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
-                return;
+                return res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
             }
 
             const fileName = `${id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
@@ -155,13 +229,14 @@ export async function UpdateThesis(req: Request, res: Response) {
 
             if (uploadError) {
                 console.error("Storage upload error:", uploadError);
-                res.status(500).json({ status: false, error: "Failed to upload file" });
-                return;
+                return res.status(500).json({ status: false, error: "Failed to upload file" });
             }
 
             thesis_file_url = uploadData.path;
             thesis_file_name = thesis_file.originalname;
         }
+
+        const isEntrep = course?.toLowerCase().includes("entrep");
 
         const { error } = await supabase
             .from("Thesis")
@@ -170,32 +245,41 @@ export async function UpdateThesis(req: Request, res: Response) {
                 author,
                 course,
                 issue_date: issueDate,
-                abstract,
-                introduction,
-                discussion,
-                references,
-                conclusion,
+                thesis_abstract,
+                thesis_introduction,
+                thesis_discussion,
+                thesis_references,
+                thesis_conclusion,
+
                 ...(thesis_file_url && { thesis_file_url }),
                 ...(thesis_file_name && { thesis_file_name }),
+
+                // ✅ ONLY UPDATE IF ENTRE COURSE
+                ...(isEntrep && {
+                    entrep_intro,
+                    entrep_action_plan,
+                    entrep_market_product_description,
+                    entrep_survey_result,
+                    entrep_target_market,
+                    entrep_product,
+                    entrep_production,
+                }),
             })
-            .eq('id', id);
+            .eq("id", id);
 
         if (error) {
-            res.status(400).json({ error: error.message });
-            return;
+            return res.status(400).json({ error: error.message });
         }
 
-        // Invalidate cache
         const keys = await redis.keys("thesis:page:*");
         if (keys.length > 0) {
             await redis.del(...keys);
         }
 
-        res.status(200).json({ message: 'Thesis updated successfully' });
+        return res.status(200).json({ message: "Thesis updated successfully" });
     } catch (error: any) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-        return;
+        console.error("Server error:", error);
+        return res.status(500).json({ error: "Internal server error" });
     }
 }
 
