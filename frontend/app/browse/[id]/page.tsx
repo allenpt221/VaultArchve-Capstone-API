@@ -11,35 +11,52 @@ async function getThesisById(id: string) {
       return null;
     }
 
-    throw error; 
+    throw error;
   }
 }
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
   const { id } = await params;
   const thesis = await getThesisById(id);
 
-    if (!thesis) {
+  if (!thesis) {
     return {
-      title: "Thesis Not Found",
-      description: "The requested thesis does not exist.",
+      title: 'Thesis Not Found',
+      description: 'The requested thesis does not exist.',
     };
   }
 
+  const isEntrep =
+    thesis.course?.toLowerCase().includes('entrepreneurship');
+
+  const description = isEntrep
+    ? thesis.entrep_intro ??
+      thesis.entrep_market_product_description ??
+      'Entrepreneurship thesis'
+    : thesis.abstract ?? 'Thesis document';
 
   return {
     title: thesis.title,
-    description: thesis.abstract,
+    description,
     authors: [{ name: thesis.author }],
     openGraph: {
       title: thesis.title,
-      description: thesis.abstract,
+      description,
       type: 'article',
       publishedTime: thesis.issue_date,
     },
   };
 }
 
-async function page({ params }: { params: Promise<{ id: string }> }) {
+async function page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   return <ThesisDetail id={id} />;
 }
