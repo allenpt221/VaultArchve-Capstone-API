@@ -1,1 +1,10 @@
 .env
+
+node_modules/
+dist/
+.env
+.env.local
+.next/
+frontend/.next/
+frontend/out/
+frontend/node_modules/
