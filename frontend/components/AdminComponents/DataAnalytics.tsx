@@ -39,12 +39,9 @@ import {
 import ThesisEditModal from '../Modal/ThesisEditModal'
 
 const FILTER_TABS = [
-  { key: 'All', label: 'All' },
-  { key: 'Accountancy', label: 'Accountancy' },
-  { key: 'Public Administration', label: 'Public Administration' },
-  { key: 'Accounting Information System', label: 'Accounting Information System' },
-  { key: 'Entrepreneurship', label: 'Entrepreneurship' },
-] as const
+  { key: 'All', label: 'BSA • BSPA • BSAIS' },
+  { key: 'Entrepreneurship', label: 'BSE' },
+] as const;
 
 type FilterKey = typeof FILTER_TABS[number]['key']
 
@@ -73,7 +70,7 @@ const ENTREP_HEADERS = [
   'Course',
   'Introduction',
   'Action Plan',
-  'Market / Product Description',
+  'Market', //  / Product Description
   'Survey Result',
   'Target Market',
   'Product',
@@ -422,13 +419,13 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                           {item.course}
                         </span>
                       </TableCell>
-                      <TableCell>{truncate(item.thesis_introduction)}</TableCell>
-                      <TableCell>{truncate(item.thesis_action_plan)}</TableCell>
-                      <TableCell>{truncate(item.thesis_market_description)}</TableCell>
-                      <TableCell>{truncate(item.thesis_survey_result)}</TableCell>
-                      <TableCell>{truncate(item.thesis_target_market)}</TableCell>
-                      <TableCell>{truncate(item.thesis_product)}</TableCell>
-                      <TableCell>{truncate(item.thesis_production)}</TableCell>
+                      <TableCell>{truncate(item.entrep_intro)}</TableCell>
+                      <TableCell>{truncate(item.entrep_action_plan)}</TableCell>
+                      <TableCell>{truncate(item.entrep_market_product_description)}</TableCell>
+                      <TableCell>{truncate(item.entrep_survey_result)}</TableCell>
+                      <TableCell>{truncate(item.entrep_target_market)}</TableCell>
+                      <TableCell>{truncate(item.entrep_product)}</TableCell>
+                      <TableCell>{truncate(item.entrep_production)}</TableCell>
                       <TableCell>
                         <span
                           className="text-xs px-2 py-0.5 rounded-md font-medium"
@@ -544,12 +541,19 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
           author={selectedThesis.author}
           issue_date={selectedThesis.issue_date}
           course={selectedThesis.course}
-          abstract={selectedThesis.abstract}
-          introduction={selectedThesis.introduction}
-          discussion={selectedThesis.discussion}
-          conclusion={selectedThesis.conclusion}
-          references={selectedThesis.references}
+          abstract={selectedThesis.thesis_abstract}
+          introduction={selectedThesis.thesis_introduction}
+          discussion={selectedThesis.thesis_discussion}
+          conclusion={selectedThesis.thesis_conclusion}
+          references={selectedThesis.thesis_references}
           file_url={selectedThesis.thesis_file_name}
+          entrep_intro={selectedThesis.entrep_intro}
+          entrep_action_plan={selectedThesis.entrep_action_plan}
+          entrep_market_product_description={selectedThesis.entrep_market_product_description}
+          entrep_survey_result={selectedThesis.entrep_survey_result}
+          entrep_target_market={selectedThesis.entrep_target_market}
+          entrep_product={selectedThesis.entrep_product}
+          entrep_production={selectedThesis.entrep_production}
         />
       )}
     </div>

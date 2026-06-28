@@ -192,7 +192,6 @@ export async function UpdateThesis(req: Request, res: Response) {
             thesis_references,
             thesis_conclusion,
 
-            // ENTRE FIELDS
             entrep_intro,
             entrep_action_plan,
             entrep_market_product_description,
@@ -238,7 +237,7 @@ export async function UpdateThesis(req: Request, res: Response) {
 
         const isEntrep = course?.toLowerCase().includes("entrep");
 
-        const { error } = await supabase
+        const { data: updatedRow, error } = await supabase
             .from("Thesis")
             .update({
                 title,
@@ -254,7 +253,6 @@ export async function UpdateThesis(req: Request, res: Response) {
                 ...(thesis_file_url && { thesis_file_url }),
                 ...(thesis_file_name && { thesis_file_name }),
 
-                // ✅ ONLY UPDATE IF ENTRE COURSE
                 ...(isEntrep && {
                     entrep_intro,
                     entrep_action_plan,
@@ -265,7 +263,9 @@ export async function UpdateThesis(req: Request, res: Response) {
                     entrep_production,
                 }),
             })
-            .eq("id", id);
+            .eq("id", id)
+            .select()
+            .single();
 
         if (error) {
             return res.status(400).json({ error: error.message });
@@ -276,7 +276,7 @@ export async function UpdateThesis(req: Request, res: Response) {
             await redis.del(...keys);
         }
 
-        return res.status(200).json({ message: "Thesis updated successfully" });
+        return res.status(200).json({ message: "Thesis updated successfully", data: updatedRow });
     } catch (error: any) {
         console.error("Server error:", error);
         return res.status(500).json({ error: "Internal server error" });

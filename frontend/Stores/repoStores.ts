@@ -6,10 +6,9 @@ type BasePayload = {
   title: string;
   author: string;
   issueDate: string;
-  file: File;
 };
 
-type StandardThesisPayload = BasePayload & {
+type StandardFields = {
   type: "standard";
   thesis_abstract: string;
   thesis_introduction: string;
@@ -18,7 +17,7 @@ type StandardThesisPayload = BasePayload & {
   thesis_references: string;
 };
 
-type EntrepThesisPayload = BasePayload & {
+type EntrepFields = {
   type: "entrepreneurship";
   entrep_intro: string;
   entrep_action_plan: string;
@@ -29,9 +28,11 @@ type EntrepThesisPayload = BasePayload & {
   entrep_production: string;
 };
 
-export type ThesisPayload =
-  | StandardThesisPayload
-  | EntrepThesisPayload;
+// Create: file is always required
+export type ThesisPayload = BasePayload & { file: File } & (StandardFields | EntrepFields);
+
+// Update: file is optional — editing a thesis doesn't require re-uploading the PDF
+export type UpdateThesisPayload = BasePayload & { id: string; file?: File } & (StandardFields | EntrepFields);
 
 type Thesis = any;
 
@@ -61,7 +62,7 @@ interface productState {
   ThesisById: (id: string) => void;
 
   submitThesis: (data: ThesisPayload) => Promise<any>;
-  updateThesis: (data: ThesisPayload & { id: string }) => Promise<any>;
+  updateThesis: (data: UpdateThesisPayload) => Promise<any>;
   deleteThesis: (id: string) => void;
 
   incrementDownloads: () => void;
@@ -192,12 +193,11 @@ export const repoStores = create<productState>((set, get) => ({
     }
   },
 
-  updateThesis: async (payload: ThesisPayload & { id: string }) => {
+  updateThesis: async (payload: UpdateThesisPayload) => {
     try {
       set({ loading: true });
 
       const formData = new FormData();
-
       formData.append("title", payload.title);
       formData.append("author", payload.author);
       formData.append("course", payload.course);
@@ -231,18 +231,46 @@ export const repoStores = create<productState>((set, get) => ({
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      const updated = res.data?.data;
+      const updatedFromServer = res.data?.data;
+
+      // Build the merge from what we know we just sent, so the UI reflects the
+      // edit immediately regardless of the backend's response shape. Server
+      // response (if present) is spread last so it can still win — e.g. a
+      // fresh file URL after replacing the PDF.
+      const localUpdate: Record<string, any> = {
+        title: payload.title,
+        author: payload.author,
+        course: payload.course,
+        issue_date: payload.issueDate,
+        ...(payload.type === "standard" && {
+          thesis_abstract: payload.thesis_abstract,
+          thesis_introduction: payload.thesis_introduction,
+          thesis_discussion: payload.thesis_discussion,
+          thesis_conclusion: payload.thesis_conclusion,
+          thesis_references: payload.thesis_references,
+        }),
+        ...(payload.type === "entrepreneurship" && {
+          entrep_intro: payload.entrep_intro,
+          entrep_action_plan: payload.entrep_action_plan,
+          entrep_market_product_description: payload.entrep_market_product_description,
+          entrep_survey_result: payload.entrep_survey_result,
+          entrep_target_market: payload.entrep_target_market,
+          entrep_product: payload.entrep_product,
+          entrep_production: payload.entrep_production,
+        }),
+        ...updatedFromServer,
+      };
 
       set((state) => ({
         repository: state.repository.map((t) =>
-          t.id === payload.id ? { ...t, ...updated } : t
+          t.id === payload.id ? { ...t, ...localUpdate } : t
         ),
         randomRepository: state.randomRepository.map((t) =>
-          t.id === payload.id ? { ...t, ...updated } : t
+          t.id === payload.id ? { ...t, ...localUpdate } : t
         ),
         thesisData:
           state.thesisData?.id === payload.id
-            ? { ...state.thesisData, ...updated }
+            ? { ...state.thesisData, ...localUpdate }
             : state.thesisData,
       }));
     } finally {
