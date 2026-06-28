@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
+import next from 'next';
 
 import AuthRouter from './route/auth.route';
 import RepoRouter from './route/repository.route';
@@ -10,36 +11,39 @@ import AiRouter from './route/generativeAI.router';
 
 dotenv.config();
 
-const app = express();
-
 const isProd = process.env.NODE_ENV === 'production';
 
-app.use(express.json());
-app.use(cors({
-  origin: isProd ? false : 'http://localhost:3000',
-  credentials: true,
-}));
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+const nextApp = next({
+  dev: !isProd,
+  dir: path.join(__dirname, '../frontend'),
+});
 
-const PORT = process.env.PORT;
+const handle = nextApp.getRequestHandler();
 
-// ── API routes ──
-app.use('/api/auth', AuthRouter);
-app.use('/api/repository', RepoRouter);
-app.use('/api/ai', AiRouter);
+nextApp.prepare().then(() => {
+  const app = express();
 
-// ── Serve Next.js static export in production ──
-if (isProd) {
-  const frontendPath = path.join(__dirname, '../frontend/out');
+  app.use(express.json());
+  app.use(cors({
+    origin: isProd ? false : 'http://localhost:3000',
+    credentials: true,
+  }));
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
 
-  app.use(express.static(frontendPath));
+  const PORT = process.env.PORT || 3000;
 
-  app.get(/^\/(?!api).*/, (_req, res) => {
-    res.sendFile(path.resolve(frontendPath, 'index.html'));
+  // ── API routes ──
+  app.use('/api/auth', AuthRouter);
+  app.use('/api/repository', RepoRouter);
+  app.use('/api/ai', AiRouter);
+
+  // ── Next.js handles all non-API routes ──
+  app.all(/^\/(?!api).*/, (req: any, res: any) => {
+    return handle(req, res);
   });
-}
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
 });
