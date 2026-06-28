@@ -31,7 +31,7 @@ export function LoginForm({
   
 
 
-  const { logIn, loading, user } = authUserStore();
+  const { logIn, loading } = authUserStore();
 
 
     const parseRetryAfter = (retryAfter?: string): number | null => {
