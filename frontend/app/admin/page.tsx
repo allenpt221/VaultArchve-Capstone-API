@@ -1,7 +1,7 @@
 'use client';
 import { authUserStore } from "@/Stores/authStores";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -17,7 +17,7 @@ import ThesisSubmit from "@/components/AdminComponents/ThesisSubmit";
 import Link from "next/link";
 import UserManagement from "@/components/AdminComponents/UserManagement";
 
-function Admin() {
+function AdminContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, checkingAuth } = authUserStore();
@@ -209,6 +209,14 @@ function Admin() {
       </div>
 
     </div>
+  );
+}
+
+function Admin() {
+  return (
+    <Suspense fallback={null}>
+      <AdminContent />
+    </Suspense>
   );
 }
 
