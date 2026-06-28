@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import path from 'path';
-import next from 'next';
 
 import AuthRouter from './route/auth.route';
 import RepoRouter from './route/repository.route';
@@ -13,7 +12,7 @@ dotenv.config();
 
 const isProd = process.env.NODE_ENV === 'production';
 
-const nextApp = next({
+const nextApp = require('next')({
   dev: !isProd,
   dir: path.join(__dirname, '../frontend'),
 });
