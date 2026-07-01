@@ -333,7 +333,11 @@ function ThesisSubmit() {
                         mode="single"
                         selected={issueDate ? new Date(issueDate) : undefined}
                         onSelect={(date) =>
-                          setIssueDate(date ? date.toISOString() : '')
+                            setIssueDate(
+                              date ? 
+                              `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                              : ''
+                        )
                         }
                         className='w-full'
                         captionLayout='dropdown'
@@ -616,7 +620,7 @@ function ThesisSubmit() {
                 />
 
                 {file && (
-                  <Badge variant="secondary" className="mt-4 bg-amber-100 text-amber-700">
+                  <Badge variant="secondary" className="mt-4 bg-amber-100 text-amber-700 max-w-full truncate">
                     ✓ {file.name}
                   </Badge>
                 )}
