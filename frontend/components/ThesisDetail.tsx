@@ -7,6 +7,7 @@ import { PageLoader } from './loading';
 import Link from 'next/link';
 import { Eye, Download, Calendar, ArrowLeft, CircleAlert } from 'lucide-react';
 import { Card } from './ui/card';
+import axios from '@/lib/axios';
 
 function ThesisDetail({ id }: { id: string }) {
   const { ThesisById, thesisData, loading, notFound, incrementDownloads } =
@@ -46,29 +47,29 @@ function ThesisDetail({ id }: { id: string }) {
         { title: 'References', content: thesisData.references },
       ];
 
-  async function handleDownload(id: string, file_url: string) {
+async function handleDownload(id: string, file_url: string) {
     try {
       setIsDownloading(true);
       setDownloadError(null);
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/repository/download/${id}?filename=${file_url}`
+      const res = await axios.get(
+        `/repository/download/${id}?filename=${file_url}`,
+        { validateStatus: () => true }
       );
 
       if (res.status === 429) {
-        const data = await res.json();
         setDownloadError(
-          data.message || 'Too many downloads. Please try again later.'
+          res.data?.message || 'Too many downloads. Please try again later.'
         );
         return;
       }
 
-      if (!res.ok) {
+      if (res.status < 200 || res.status >= 300) {
         setDownloadError('Download failed. Please try again.');
         return;
       }
 
-      const { url } = await res.json();
+      const { url } = res.data;
 
       const fileRes = await fetch(url);
       const blob = await fileRes.blob();
