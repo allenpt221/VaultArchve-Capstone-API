@@ -134,10 +134,11 @@ function AdminContent() {
         >
           <Menu size={24} />
         </button>
-
-        <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
-          Vault<span className="text-yellow-400">Archve</span>
-        </span>
+        <Link href={'/'}>
+          <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
+            Vault<span className="text-yellow-400">Archve</span>
+          </span>
+        </Link>
       </div>
 
         <div className="">
@@ -176,9 +177,11 @@ function AdminContent() {
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <div className="p-4 flex justify-between items-center border-b">
-            <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
-              Vault<span className="text-yellow-400">Archve</span>
-            </span>
+            <Link href={'/'}>
+              <span className="sm:text-lg text-black font-bold tracking-tight leading-tight">
+                Vault<span className="text-yellow-400">Archve</span>
+              </span>
+            </Link>
             <button onClick={() => setMobileOpen(false)}>
               <X size={20} />
             </button>

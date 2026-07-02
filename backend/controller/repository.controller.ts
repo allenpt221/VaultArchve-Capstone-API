@@ -206,6 +206,7 @@ export async function UpdateThesis(req: Request, res: Response) {
 
         let thesis_file_url: string | undefined;
         let thesis_file_name: string | undefined;
+        let oldFilePath: string | undefined;
 
         if (thesis_file) {
             const allowedTypes = [
@@ -215,6 +216,18 @@ export async function UpdateThesis(req: Request, res: Response) {
 
             if (!allowedTypes.includes(thesis_file.mimetype)) {
                 return res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
+            }
+
+            const { data: existingThesis, error: existingFetchError } = await supabase
+                .from("Thesis")
+                .select("thesis_file_url")
+                .eq("id", id)
+                .single();
+
+            if (existingFetchError) {
+                console.error("Failed to fetch existing thesis for file swap:", existingFetchError);
+            } else {
+                oldFilePath = existingThesis?.thesis_file_url;
             }
 
             const fileName = `${id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
@@ -269,6 +282,19 @@ export async function UpdateThesis(req: Request, res: Response) {
 
         if (error) {
             return res.status(400).json({ error: error.message });
+        }
+
+        // Only remove the old file once the row update succeeded, and only if a new file actually replaced it
+        if (oldFilePath && thesis_file_url && oldFilePath !== thesis_file_url) {
+            const { error: oldFileRemoveError, data: oldFileRemoveData } = await supabase.storage
+                .from("thesis-files")
+                .remove([oldFilePath]);
+
+            if (oldFileRemoveError) {
+                console.error("Failed to delete old thesis file from storage:", JSON.stringify(oldFileRemoveError, null, 2));
+            } else {
+                console.log("Old file removed:", oldFileRemoveData);
+            }
         }
 
         const keys = await redis.keys("thesis:page:*");
@@ -419,12 +445,16 @@ export async function deleteId(req: Request, res: Response) {
         }
 
         if (thesis.thesis_file_url) {
-            const { error: storageError } = await supabase.storage
+            const { error: storageError, data: removeData } = await supabase.storage
                 .from("thesis-files")
                 .remove([thesis.thesis_file_url]);
 
             if (storageError) {
-                console.error("Failed to delete file from storage:", storageError);
+                console.error("Failed to delete file from storage:", JSON.stringify(storageError, null, 2));
+            } else if (!removeData || removeData.length === 0) {
+                console.warn("Storage remove returned no deleted objects for path:", thesis.thesis_file_url);
+            } else {
+                console.log("Storage file removed:", removeData);
             }
         }
 

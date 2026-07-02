@@ -52,7 +52,7 @@ function Navbar() {
         <Link href="/" className="flex items-center gap-3 group">
           <div className='relative'>
             <div className='absolute inset-0 bg-yellow-500/30 rounded-full blur-md group-hover:blur-lg transition-all duration-300' />
-            <div className='relative bg-gradient-to-br from-[#0a1a3e] to-[#00014f] rounded-full p-2 border border-white/10'>
+            <div className='relative bg-linear-to-br from-[#0a1a3e] to-[#00014f] rounded-full p-2 border border-white/10'>
               <Image src={gccLogo} alt="GCC Logo" className="sm:h-8 sm:w-8 h-7 w-7 rounded-full" />
             </div>
           </div>
@@ -106,7 +106,7 @@ function Navbar() {
                 className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/8 transition-all duration-200 group'
               >
                 {/* Avatar */}
-                <div className='h-7 w-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-xs shadow-md'>
+                <div className='h-7 w-7 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-xs shadow-md'>
                   {getInitials(user.email)}
                 </div>
                 <span className='text-white/80 text-sm font-medium max-w-28 truncate group-hover:text-white transition-colors'>
@@ -168,7 +168,7 @@ function Navbar() {
         {/* Drawer header */}
         <div className='flex items-center justify-between p-4 border-b border-white/10'>
           <Link href="/" className="flex items-center gap-2.5" onClick={() => setOpenMenu(false)}>
-            <div className='bg-gradient-to-br from-[#0a1a3e] to-[#00014f] rounded-full p-1.5 border border-white/10'>
+            <div className='bg-linear-to-br from-[#0a1a3e] to-[#00014f] rounded-full p-1.5 border border-white/10'>
               <Image src={gccLogo} alt="GCC Logo" className="h-7 w-7 rounded-full" />
             </div>
             <span className="text-white font-bold text-sm">
@@ -186,7 +186,7 @@ function Navbar() {
         {/* User info in drawer */}
         {user && (
           <div className='mx-4 mt-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3'>
-            <div className='h-9 w-9 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm flex-shrink-0'>
+            <div className='h-9 w-9 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm shrink-0'>
               {getInitials(user.email)}
             </div>
             <div className='min-w-0'>
