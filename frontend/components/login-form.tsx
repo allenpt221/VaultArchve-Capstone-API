@@ -17,6 +17,8 @@ import { authUserStore } from "@/Stores/authStores"
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
 import { CircleCheckBig, Eye, EyeOff } from "lucide-react"
 
+const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/
+
 export function LoginForm({
   className,
   ...props
@@ -28,45 +30,46 @@ export function LoginForm({
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState<number | null>(null);
-  
-
 
   const { logIn, loading } = authUserStore();
 
-
-    const parseRetryAfter = (retryAfter?: string): number | null => {
-      if (!retryAfter) return null;
-      const match = retryAfter.match(/\d+/);
-      return match ? parseInt(match[0]) : null;
+  const parseRetryAfter = (retryAfter?: string): number | null => {
+    if (!retryAfter) return null;
+    const match = retryAfter.match(/\d+/);
+    return match ? parseInt(match[0]) : null;
   };
 
-
-
   const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError('');
-      setFailed(false);
+    e.preventDefault();
+    setError('');
+    setFailed(false);
 
-      if (!email.trim() || !password.trim()) {
-        setError('All fields are required.');
+    if (!email.trim() || !password.trim()) {
+      setError('All fields are required.');
+      setFailed(true);
+      return;
+    }
+
+    if (!GMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid Gmail address (e.g. name@gmail.com).');
+      setFailed(true);
+      return;
+    }
+
+    try {
+      const result = await logIn({ email, password });
+
+      if (!result.success) {
+        setError(result.message || 'Invalid credentials.');
+        setCountdown(parseRetryAfter(result.retryAfter));
         setFailed(true);
-        return;
       }
-
-      try {
-        const result = await logIn({ email, password });
-
-        if (!result.success) {
-          setError(result.message || 'Invalid credentials.');
-          setCountdown(parseRetryAfter(result.retryAfter));
-          setFailed(true);
-        }
-      } catch (error: any) {
-        console.error(error);
-        setError('Something went wrong. Please try again.');
-        setFailed(true);
-      }
-    };
+    } catch (error: any) {
+      console.error(error);
+      setError('Something went wrong. Please try again.');
+      setFailed(true);
+    }
+  };
 
   useEffect(() => {
     if (!failed) return;
@@ -77,8 +80,7 @@ export function LoginForm({
     return () => clearTimeout(timer);
   }, [failed]);
 
-
-    useEffect(() => {
+  useEffect(() => {
     if (countdown === null || countdown <= 0) return;
 
     const timer = setInterval(() => {
@@ -93,10 +95,6 @@ export function LoginForm({
 
     return () => clearInterval(timer);
   }, [countdown]);
-
-
-
-
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -115,8 +113,8 @@ export function LoginForm({
                 <Input
                   className={`sm:text-base h-10 text-sm ${failed && !email.trim() ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   id="email"
-                  type="email"
-                  placeholder="me@example.com"
+                  type="text"
+                  placeholder="name@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -125,7 +123,7 @@ export function LoginForm({
                 <div className="flex items-center">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                 </div>
-                  <div className="relative w-full">
+                <div className="relative w-full">
                   <span
                     className="absolute inset-y-0 right-3 flex items-center cursor-pointer"
                     onClick={() => setShowPassword(!showPassword)}
@@ -141,17 +139,17 @@ export function LoginForm({
                     placeholder="Enter password"
                   />
                 </div>
-                </Field>
+              </Field>
                 <a
-                    href="#"
-                    className="ml-auto text-sm underline-offset-2 hover:underline"
-                  >
-                    Forgot your password?
-                </a>
+                href="#"
+                className="ml-auto text-sm underline-offset-2 hover:underline"
+              >
+                Forgot your password?
+              </a>
               <Field>
-                <Button type="submit" 
-                disabled={loading || countdown !== null}
-                className="bg-amber-500 py-5 cursor-pointer text-black hover:bg-amber-500/80 font-semibold">
+                <Button type="submit"
+                  disabled={loading || countdown !== null}
+                  className="bg-amber-500 py-5 cursor-pointer text-black hover:bg-amber-500/80 font-semibold">
                   {loading
                     ? 'Logging in...'
                     : 'Log In'
@@ -169,19 +167,18 @@ export function LoginForm({
           </form>
           <div className="relative hidden md:block">
             <Image
-                src={gccImage}
-                alt="Image"
-                className="absolute inset-0 h-full w-full object-cover"
+              src={gccImage}
+              alt="Image"
+              className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-amber-600/40"></div>
-            </div>
+          </div>
         </CardContent>
       </Card>
       <FieldDescription className="px-6 text-center">
         By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
         and <a href="#">Privacy Policy</a>.
       </FieldDescription>
-
 
       {failed && (
         <Alert

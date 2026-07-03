@@ -14,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { TableActions } from '../ThesisTable'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -39,11 +39,16 @@ import {
 import ThesisEditModal from '../Modal/ThesisEditModal'
 
 const FILTER_TABS = [
-  { key: 'All', label: 'BSA • BSPA • BSAIS' },
-  { key: 'Entrepreneurship', label: 'BSE' },
+  { key: 'All', label: 'All (BSA • BSPA • BSAIS)' },
+  { key: 'Accountancy', label: 'Accountancy' },
+  { key: 'Public Administration', label: 'Public Administration' },
+  { key: 'Accounting Information System', label: 'Accounting Information System' },
+  { key: 'Entrepreneurship', label: 'Entrepreneurship' },
 ] as const;
 
 type FilterKey = typeof FILTER_TABS[number]['key']
+
+const PAGE_SIZE = 10
 
 // Standard (non-entrep) table headers
 const STANDARD_HEADERS = [
@@ -99,9 +104,7 @@ function truncate(text: string | undefined | null, max = 160) {
 function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const {
     repository,
-    currentPage,
-    totalPages,
-    getPageRepository,
+    FilteredThesis,
     dataAnalytics,
     viewsDownloads,
     deleteThesis,
@@ -109,28 +112,39 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
 
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedThesis, setSelectedThesis] = useState<typeof repository[0] | null>(null)
   const [viewMode, setViewMode] = useState<FilterKey>('All')
+  const [page, setPage] = useState(1)
 
   const handleDelete = (id: string) => {
     return deleteThesis(id)
   }
 
+  // Debounce raw search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Stats — load once
+  useEffect(() => {
+    viewsDownloads()
+  }, [])
+
+  // Fetch the full filtered dataset whenever search or course changes
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
-      getPageRepository(1, 10)
-      viewsDownloads()
+      setPage(1) // reset to first page on any new filter/search
+      const department = viewMode === 'All' ? 'all' : viewMode
+      await FilteredThesis(debouncedSearch, 'all', department, 'issue_date', 'desc')
       setIsLoading(false)
     }
     load()
-  }, [])
-
-  async function handlePageChange(page: number) {
-    setIsLoading(true)
-    getPageRepository(page, 10)
-    setIsLoading(false)
-  }
+  }, [debouncedSearch, viewMode])
 
   const totalViews =
     dataAnalytics?.reduce((sum, item) => sum + (Number(item.views) || 0), 0) ?? 0
@@ -187,36 +201,11 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
 
   const isEntrepView = viewMode === 'Entrepreneurship'
 
-  const filteredRepository = repository.filter((item) => {
-    const q = search.toLowerCase()
-    const matchesSearch =
-      item.title?.toLowerCase().includes(q) ||
-      item.author?.toLowerCase().includes(q) ||
-      item.course?.toLowerCase().includes(q) ||
-      String(item.id)?.toLowerCase().includes(q)
-
-    const matchesView =
-      viewMode === 'All'
-        ? item.course !== 'Entrepreneurship'
-        : item.course === viewMode
-
-    return matchesSearch && matchesView
-  })
-
   const courseColorMap: Record<string, { bg: string; color: string }> = {
-    CS:               { bg: '#E6F1FB', color: '#0C447C' },
-    IT:               { bg: '#E6F1FB', color: '#0C447C' },
-    EE:               { bg: '#E6F1FB', color: '#0C447C' },
-    EnvSci:           { bg: '#EAF3DE', color: '#27500A' },
-    Marine:           { bg: '#EAF3DE', color: '#27500A' },
-    Nutr:             { bg: '#EAF3DE', color: '#27500A' },
-    Edu:              { bg: '#EEEDFE', color: '#3C3489' },
-    Law:              { bg: '#EEEDFE', color: '#3C3489' },
-    HRM:              { bg: '#EEEDFE', color: '#3C3489' },
-    PolSci:           { bg: '#FAEEDA', color: '#633806' },
-    Med:              { bg: '#FAEEDA', color: '#633806' },
-    FA:               { bg: '#FAEEDA', color: '#633806' },
-    Entrepreneurship: { bg: '#FAEEDA', color: '#633806' },
+    'Accountancy':                       { bg: '#E6F1FB', color: '#0C447C' },
+    'Public Administration':             { bg: '#EAF3DE', color: '#27500A' },
+    'Accounting Information System':     { bg: '#EEEDFE', color: '#3C3489' },
+    'Entrepreneurship':                  { bg: '#FAEEDA', color: '#633806' },
   }
 
   function getCourseStyle(course: string) {
@@ -224,6 +213,28 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   }
 
   const tableHeaders = isEntrepView ? ENTREP_HEADERS : STANDARD_HEADERS
+
+  // When "All" is selected, exclude Entrepreneurship from the result set —
+  // "All" only ever means BSA • BSPA • BSAIS.
+  const scopedRepository = useMemo(() => {
+    if (viewMode === 'All') {
+      return repository.filter((item) => item.course !== 'Entrepreneurship')
+    }
+    return repository
+  }, [repository, viewMode])
+
+  // repository (scoped) is already the full filtered dataset from FilteredThesis; paginate it client-side
+  const totalPages = Math.max(1, Math.ceil(scopedRepository.length / PAGE_SIZE))
+
+  const visibleRepository = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return scopedRepository.slice(start, start + PAGE_SIZE)
+  }, [scopedRepository, page])
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > totalPages) return
+    setPage(nextPage)
+  }
 
   return (
     <div
@@ -335,11 +346,11 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                     fontFamily: "'DM Sans', sans-serif",
                     fontSize: '13px',
                     borderColor: 'rgba(0,0,0,0.12)',
-                    minWidth: '200px',
+                    minWidth: '220px',
                     background:
-                      viewMode !== 'All' ? '#FAEEDA' : undefined,
+                      viewMode !== 'All' ? getCourseStyle(viewMode).bg : undefined,
                     color:
-                      viewMode !== 'All' ? '#633806' : undefined,
+                      viewMode !== 'All' ? getCourseStyle(viewMode).color : undefined,
                   }}
                 >
                   <SelectValue placeholder="Filter by course" />
@@ -385,7 +396,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRepository.length === 0 ? (
+                {!isLoading && visibleRepository.length === 0 ? (
                   <tr>
                     <td
                       colSpan={tableHeaders.length}
@@ -396,7 +407,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                   </tr>
                 ) : isEntrepView ? (
                   // ── Entrepreneurship rows ──
-                  filteredRepository.map((item, index) => (
+                  visibleRepository.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell className="text-xs font-mono">
                         {String(item.id).slice(0, 8)}...
@@ -463,7 +474,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                   ))
                 ) : (
                   // ── Standard (non-entrep) rows ──
-                  filteredRepository.map((item, index) => (
+                  visibleRepository.map((item, index) => (
                     <TableActions
                       key={index}
                       id={item.id}
@@ -486,15 +497,15 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
             </Table>
           </div>
 
-          {/* Pagination */}
-          {!isLoading && totalPages > 1 && (
+          {/* Pagination — only when there's more than one page of filtered results */}
+          {!isLoading && totalPages > 1 && scopedRepository.length > 0 && (
             <div
               className="flex items-center justify-center gap-4 px-4 py-3"
               style={{ borderTop: '0.5px solid rgba(0,0,0,0.08)' }}
             >
               <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1}
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page <= 1}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg border text-sm font-medium
                            disabled:opacity-35 disabled:cursor-not-allowed
                            hover:bg-amber-50 hover:border-amber-300 hover:text-amber-800
@@ -509,12 +520,12 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
               </button>
 
               <span className="text-xs text-muted-foreground min-w-[80px] text-center">
-                Page {currentPage} of {totalPages}
+                Page {page} of {totalPages}
               </span>
 
               <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg border text-sm font-medium
                            disabled:opacity-35 disabled:cursor-not-allowed
                            hover:bg-amber-50 hover:border-amber-300 hover:text-amber-800
