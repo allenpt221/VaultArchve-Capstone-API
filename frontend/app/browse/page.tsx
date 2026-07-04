@@ -17,7 +17,7 @@ import { ITEMS_PER_PAGE } from '../Provider';
 import ThesisCard from '@/components/ThesisCard';
 
 
-const departments = ['Accountancy', 'Accounting Information System', 'Entrepreneurship', 'Public Administration'];
+const departments = ['Accountancy', 'Accounting Information System', 'Public Administration', 'Entrepreneurship'];
 const years = ["2026", "2025", "2024", "2023", "2022", "2021", "2020"];
 
 const selectItemClass = "cursor-pointer py-2 px-2 hover:bg-yellow-500 hover:text-black focus:bg-yellow-500 focus:text-black";

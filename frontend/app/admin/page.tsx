@@ -11,6 +11,7 @@ import {
   X,
   Users,
   LogOut,
+  Home,
 } from "lucide-react";
 
 import DataAnalytics from "@/components/AdminComponents/DataAnalytics";
@@ -27,8 +28,12 @@ function AdminContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const activePage = searchParams.get("dashboard") ?? "data-analytics";
+  const activePage = searchParams.get("dashboard") ?? "data-analytics"; 
+  const getInitials = (email: string) => email?.charAt(0).toUpperCase() ?? "U";
 
+
+
+ 
   const setActivePage = (page: string) => {
     router.push(`/admin?dashboard=${page}`);
   };
@@ -36,7 +41,7 @@ function AdminContent() {
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-      await logOut();
+      logOut();
       router.replace('/');
     } catch (error) {
       console.error(error);
@@ -96,8 +101,28 @@ function AdminContent() {
           </button>
         </div>
 
+        {/* Home / Back to site */}
+        <div className="px-2 mt-4">
+          <Link
+            href="/"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 hover:scale-[1.02] transition-all duration-300
+            ${collapsed ? "justify-center" : ""}`}
+          >
+            <Home size={20} className="shrink-0" />
+            <span
+              className={`whitespace-nowrap transition-all duration-300 ease-in-out cursor-pointer
+              ${collapsed ? "hidden" : "block"}`}
+            >
+              Back to Home
+            </span>
+          </Link>
+          
+          {/* Divider */}
+          <div className='h-px bg-white/10 my-2' />
+        </div>
+
         {/* Menu */}
-        <nav className="flex-1 mt-8 px-2 space-y-2 overflow-y-auto">
+        <nav className="flex-1 mt-4 px-2 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;
@@ -237,33 +262,30 @@ function AdminContent() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 bg-white/5">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="shrink-0 w-9 h-9 rounded-full bg-amber-400 text-[#0B1C33] font-bold flex items-center justify-center text-sm">
-                {(user?.email?.[0] || user?.email?.[0] || "A").toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {user?.email || "Admin"}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {user?.email}
-                </p>
-              </div>
+        {user && (
+          <div className='mx-4 mt-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3'>
+            <div className='h-9 w-9 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm shrink-0'>
+              {getInitials(user.email)}
             </div>
-
-            <button
-              onClick={() => {
-                setMobileOpen(false);
-                handleLogout();
-              }}
-              disabled={loggingOut}
-              title="Logout"
-              className="shrink-0 p-2 rounded-md text-gray-300 hover:bg-red-500/15 hover:text-red-400 transition disabled:opacity-60"
-            >
-              <LogOut size={18} />
-            </button>
+            <div className='min-w-0'>
+              <p className='text-white/40 text-xs'>Signed in as</p>
+              <p className='text-white text-sm font-medium truncate'>{user.email}</p>
+            </div>
           </div>
+        )}
+
+          {/* Home / Back to site */}
+          <Link
+            href="/"
+            onClick={() => setMobileOpen(false)}
+            className="mx-4 mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 transition text-sm font-medium"
+          >
+            <Home size={18} />
+            Back to Home
+          </Link>
+
+          {/* Divider */}
+          <div className='h-px bg-white/10 my-2' />
 
           <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
             {menuItems.map((item) => {
@@ -289,7 +311,28 @@ function AdminContent() {
               );
             })}
           </nav>
+
+          {user && (
+            <div className='px-4 pb-2'>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className='w-full flex items-center justify-center gap-2 font-medium text-sm px-4 py-2.5 rounded-lg
+                           border border-red-400/20 bg-red-500/10 text-red-400
+                           hover:bg-red-500/15 hover:border-red-400/30 active:scale-[0.98]
+                           disabled:opacity-60 disabled:cursor-not-allowed
+                           transition-all duration-200 cursor-pointer'
+              >
+                <LogOut size={16} className={loggingOut ? 'animate-pulse' : ''} />
+                {loggingOut ? 'Signing out...' : 'Sign Out'}
+              </button>
+            </div>
+          )}
+          <div className='p-4 border-t border-white/10'>
+            <p className='text-white/20 text-xs text-center tracking-wider uppercase'>Guagua Community College</p>
+          </div>
         </aside>
+
       </div>
 
     </div>

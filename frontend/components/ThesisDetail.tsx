@@ -40,11 +40,11 @@ function ThesisDetail({ id }: { id: string }) {
         { title: 'Production', content: thesisData.entrep_production },
       ]
     : [
-        { title: 'Abstract', content: thesisData.abstract },
-        { title: 'Introduction', content: thesisData.introduction },
-        { title: 'Discussion', content: thesisData.discussion },
-        { title: 'Conclusion', content: thesisData.conclusion },
-        { title: 'References', content: thesisData.references },
+        { title: 'Abstract', content: thesisData.thesis_abstract },
+        { title: 'Introduction', content: thesisData.thesis_introduction },
+        { title: 'Discussion', content: thesisData.thesis_discussion },
+        { title: 'Conclusion', content: thesisData.thesis_conclusion },
+        { title: 'References', content: thesisData.thesis_references },
       ];
 
 async function handleDownload(id: string, file_url: string) {
