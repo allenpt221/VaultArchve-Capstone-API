@@ -301,7 +301,7 @@ function ThesisSubmit() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Accountancy">Bachelor of Science in Accountancy</SelectItem>
-                        <SelectItem value="Accounting of Information System">Bachelor of Science in Accounting of Information System</SelectItem>
+                        <SelectItem value="Accounting Information System">Bachelor of Science in Accounting Information System</SelectItem>
                         <SelectItem value="Public Administration">Bachelor of Science in Public Administration</SelectItem>
                         <SelectItem value="Entrepreneurship">Bachelor of Science in Entrepreneurship</SelectItem>
                       </SelectContent>
