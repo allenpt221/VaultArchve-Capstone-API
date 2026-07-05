@@ -39,6 +39,7 @@ type Thesis = any;
 interface productState {
   repository: Thesis[];
   randomRepository: Thesis[];
+  masterRepository: Thesis[];
   thesisData: Thesis | null;
   loading: boolean;
   notFound: boolean;
@@ -50,6 +51,7 @@ interface productState {
 
   getRandomRepository: () => void;
   viewsDownloads: () => void;
+  getMasterRepository: () => void;
   getPageRepository: (page: number, limit: number) => void;
   FilteredThesis: (
     search: string,
@@ -59,7 +61,7 @@ interface productState {
     order: string
   ) => void;
 
-  ThesisById: (id: string) => void;
+  ThesisById: (id: string) => Promise<void>;
 
   submitThesis: (data: ThesisPayload) => Promise<any>;
   updateThesis: (data: UpdateThesisPayload) => Promise<any>;
@@ -72,6 +74,7 @@ interface productState {
 export const repoStores = create<productState>((set, get) => ({
   randomRepository: [],
   repository: [],
+  masterRepository: [],
   thesisData: null,
   dataAnalytics: [],
   loading: false,
@@ -89,6 +92,19 @@ export const repoStores = create<productState>((set, get) => ({
     } catch (error) {
       console.error(error);
       set({ loading: false });
+    }
+  },
+
+
+  getMasterRepository: async () => {
+    try {
+      const res = await axios.get(
+        `/repository/sort?sort=issue_date&order=desc`
+      );
+      const data = Array.isArray(res.data) ? res.data : res.data.data ?? [];
+      set({ masterRepository: data });
+    } catch (error) {
+      console.error(error);
     }
   },
 
@@ -186,6 +202,7 @@ export const repoStores = create<productState>((set, get) => ({
         set((state) => ({
           repository: [newThesis, ...state.repository],
           randomRepository: [newThesis, ...state.randomRepository],
+          masterRepository: [newThesis, ...state.masterRepository],
         }));
       }
     } finally {
@@ -232,11 +249,6 @@ export const repoStores = create<productState>((set, get) => ({
       );
 
       const updatedFromServer = res.data?.data;
-
-      // Build the merge from what we know we just sent, so the UI reflects the
-      // edit immediately regardless of the backend's response shape. Server
-      // response (if present) is spread last so it can still win — e.g. a
-      // fresh file URL after replacing the PDF.
       const localUpdate: Record<string, any> = {
         title: payload.title,
         author: payload.author,
@@ -268,6 +280,9 @@ export const repoStores = create<productState>((set, get) => ({
         randomRepository: state.randomRepository.map((t) =>
           t.id === payload.id ? { ...t, ...localUpdate } : t
         ),
+        masterRepository: state.masterRepository.map((t) =>
+          t.id === payload.id ? { ...t, ...localUpdate } : t
+        ),
         thesisData:
           state.thesisData?.id === payload.id
             ? { ...state.thesisData, ...localUpdate }
@@ -285,6 +300,7 @@ export const repoStores = create<productState>((set, get) => ({
       set((state) => ({
         repository: state.repository.filter((t) => t.id !== id),
         randomRepository: state.randomRepository.filter((t) => t.id !== id),
+        masterRepository: state.masterRepository.filter((t) => t.id !== id),
         dataAnalytics: state.dataAnalytics.filter((a) => a.thesis_id !== id),
         thesisData: state.thesisData?.id === id ? null : state.thesisData,
       }));
@@ -349,6 +365,20 @@ export const repoStores = create<productState>((set, get) => ({
           : t
       ),
 
+      masterRepository: state.masterRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  views: (t.ThesisDataAnalytics?.[0]?.views ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
       dataAnalytics: state.dataAnalytics.map((a) =>
         a.thesis_id === id
           ? { ...a, views: (Number(a.views) || 0) + 1 }
@@ -373,6 +403,21 @@ export const repoStores = create<productState>((set, get) => ({
         : null,
 
       repository: state.repository.map((t) =>
+        t.id === state.thesisData?.id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  downloads:
+                    (t.ThesisDataAnalytics?.[0]?.downloads ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      masterRepository: state.masterRepository.map((t) =>
         t.id === state.thesisData?.id
           ? {
               ...t,

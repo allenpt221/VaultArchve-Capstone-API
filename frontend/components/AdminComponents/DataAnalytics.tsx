@@ -104,9 +104,11 @@ function truncate(text: string | undefined | null, max = 160) {
 function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const {
     repository,
+    masterRepository,
     FilteredThesis,
     dataAnalytics,
     viewsDownloads,
+    getMasterRepository,
     deleteThesis,
   } = repoStores()
 
@@ -129,18 +131,18 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Stats — load once
   useEffect(() => {
     viewsDownloads()
+    getMasterRepository()
   }, [])
 
   // Fetch the full filtered dataset whenever search or course changes
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
-      setPage(1) // reset to first page on any new filter/search
+      setPage(1) 
       const department = viewMode === 'All' ? 'all' : viewMode
-      await FilteredThesis(debouncedSearch, 'all', department, 'issue_date', 'desc')
+      FilteredThesis(debouncedSearch, 'all', department, 'issue_date', 'desc')
       setIsLoading(false)
     }
     load()
@@ -157,7 +159,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
       dataAnalytics[0]
     ) ?? null
 
-  const mostViewed = repository.find((r) => r.id === mostViewedAnalytic?.thesis_id) ?? null
+  const mostViewed = masterRepository.find((r) => r.id === mostViewedAnalytic?.thesis_id) ?? null
   const mostViewedCount = mostViewedAnalytic?.views ?? 0
 
   const stats = [

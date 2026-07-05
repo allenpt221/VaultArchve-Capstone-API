@@ -16,11 +16,23 @@ function ThesisDetail({ id }: { id: string }) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
+
+  const [hasFetched, setHasFetched] = useState(false);
+
   useEffect(() => {
-    ThesisById(id);
+    let cancelled = false;
+    setHasFetched(false);
+
+    ThesisById(id).finally(() => {
+      if (!cancelled) setHasFetched(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  if (loading) return <PageLoader />;
+  if (loading || !hasFetched) return <PageLoader />;
   if (notFound || !thesisData) return <NotFound />;
 
   const isEntrep =
