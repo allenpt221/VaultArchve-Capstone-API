@@ -409,8 +409,6 @@ export async function forgotPassword(req: Request, res: Response) {
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}&id=${user.id}`;
 
-    console.log(process.env.FRONTEND_URL)
-
     await sendResetPasswordEmail(user.email, resetLink);
 
     return res.status(200).json({

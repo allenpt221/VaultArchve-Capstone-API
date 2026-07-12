@@ -1,14 +1,24 @@
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import dns from "dns";
+
+dns.setDefaultResultOrder("ipv4first");
+
 
 export const sendResetPasswordEmail = async (to: string, resetLink: string) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
+    const transportOptions: SMTPTransport.Options & { family?: number } = {
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
-        user: process.env.EMAIL_USER,         // your Gmail address
-        pass: process.env.EMAIL_APP_PASSWORD, // the App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD,
       },
-    });
+      family: 4,
+    };
+
+    const transporter = nodemailer.createTransport(transportOptions);
 
     await transporter.sendMail({
       from: `"VaultArchve" <${process.env.EMAIL_USER}>`,
