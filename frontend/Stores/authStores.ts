@@ -22,15 +22,36 @@ interface LoginResult {
   retryAfter?: string;
 }
 
+interface ForgotPasswordResult {
+  success: boolean;
+  message?: string;
+
+}
+
+interface ResetPasswordResult {
+  success: boolean;
+  message?: string;
+}
+
+
 
 interface authProps{
     user: userProps | null;
     loading: boolean;
     checkingAuth: boolean;
     justLoggedIn: boolean;
+    forgotPasswordLoading: boolean,
+    resetPasswordLoading: boolean;
     logIn: (data: LoginProps) => Promise<LoginResult>;
     logOut: () => void;
+    forgotPassword: (email: string) => Promise<ForgotPasswordResult>;
     checkAuth: () => void;
+    resetPassword: (data: {
+      id: string;
+      token: string;
+      password: string;
+      confirmPassword: string;
+    }) => Promise<ResetPasswordResult>;
 }
 
 
@@ -39,6 +60,8 @@ export const authUserStore = create<authProps>((set, get) => ({
     loading: false,
     justLoggedIn: false,
     checkingAuth: true,
+    forgotPasswordLoading: false,
+    resetPasswordLoading: false,
 
   logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
     try {
@@ -86,7 +109,55 @@ export const authUserStore = create<authProps>((set, get) => ({
     }
   },
 
-  
+  forgotPassword: async (email: string): Promise<ForgotPasswordResult> => {
+    try {
+      set({ forgotPasswordLoading: true });
 
+      const res = await axios.post('/auth/forgot-password', { email });
+
+      set({ forgotPasswordLoading: false });
+
+      return {
+        success: true,
+        message: res.data.message,
+      };
+
+    } catch (error: any) {
+      set({ forgotPasswordLoading: false });
+
+      const data = error.response?.data;
+
+      return {
+        success: false,
+        message: data?.message || 'Something went wrong.',
+      };
+    }
+  },
+
+  resetPassword: async ({ id, token, password, confirmPassword }) => {
+  try {
+    set({ resetPasswordLoading: true });
+
+    const res = await axios.post('/auth/reset-password', {
+      id,
+      token,
+      password,
+      confirmPassword,
+    });
+
+    set({ resetPasswordLoading: false });
+
+    return { success: true, message: res.data.message };
+  } catch (error: any) {
+    set({ resetPasswordLoading: false });
+
+    const data = error.response?.data;
+
+    return {
+      success: false,
+      message: data?.message || 'Something went wrong.',
+    };
+  }
+},
 
 }));

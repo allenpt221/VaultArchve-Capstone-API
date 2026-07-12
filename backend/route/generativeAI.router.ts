@@ -1,6 +1,7 @@
 import express from 'express';
 import { verifyToken } from '../middleware/middware';
-import { ProgressiveIntro, ProgressiveScopeLimitation, ProgressiveTrail, RecommendedAI } from '../controller/generativeAIGroq';
+import { ProgressiveIntro, ProgressiveScopeLimitation, ProgressiveTrail } from '../controller/generativeAIGroq';
+import { RecommendedAI } from '../controller/generativeAI.controller';
 
 
 

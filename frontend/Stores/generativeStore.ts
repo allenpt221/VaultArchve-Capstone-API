@@ -10,9 +10,9 @@ interface RecommendedProps{
 
 interface generativeAiProps {
   RecommendedAI: (data: RecommendedProps) => Promise<void>;
-  result: any[],
-  loading: boolean,
-  message: string,
+  result: any[];
+  loading: boolean;
+  message: string | null;
 
 }
 

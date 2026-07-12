@@ -1,276 +1,211 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
+import { Request, Response } from "express";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
-
-const steps = ["title", "problem", "objectives", "literature", "methodology"];
-
-type ThesisProgress = {
-  user_id: string;
-  title?: string;
-  problem?: string;
-  objectives?: string;
-  literature?: string;
-  methodology?: string;
-  completed_steps: string[];
-};
-
-
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function RecommendedAI(req: Request, res: Response) {
   try {
-    const { topic, course, chatPrompt } = req.body;
+    const { course, chatPrompt } = req.body;
     const user_id = req.user?.id;
-
-    // ✅ Fix 1: Added missing auth check
+ 
     if (!user_id) {
       return res.status(401).json({ message: "Unauthorized, Please Log in" });
     }
-
-    if (!topic || !course) {
-      return res.status(400).json({ message: "Topic and course are required." });
+ 
+    if (!course) {
+      return res.status(400).json({ message: "Course is required." });
     }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+ 
+    const promptText = (chatPrompt || "").trim().toLowerCase();
+ 
+    if (promptText.length > 0 && promptText.length < 5) {
+      return res.status(400).json({
+        error: "Input too short",
+        message: "Please enter a meaningful prompt.",
+      });
+    }
+ 
+    const isGibberish = (text: string): boolean => {
+      if (!text || text.trim().length === 0) return false;
+ 
+      const words = text.trim().split(/\s+/);
+ 
+      const gibberishWordCount = words.filter((word) => {
+        if (word.length <= 2) return false;
+        if (/(.)\1{3,}/.test(word)) return true;
+ 
+        const vowels = (word.match(/[aeiou]/g) || []).length;
+        const vowelRatio = vowels / word.length;
+ 
+        if (word.length >= 4 && vowelRatio < 0.1) return true;
+        if (/^([qwerty]{4,}|[asdfgh]{4,}|[zxcvbn]{4,}|[yuiop]{4,})$/i.test(word)) return true;
+        if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(word)) return true;
+ 
+        return false;
+      }).length;
+ 
+      return gibberishWordCount / words.length > 0.5;
+    };
+ 
+    if (promptText.length > 0 && isGibberish(promptText)) {
+      return res.status(400).json({
+        error: "Meaningless input",
+        message: "Your input appears to be random or meaningless. Please enter a valid prompt.",
+      });
+    }
+ 
+    const isImageRequest =
+      /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i.test(
+        promptText
+      );
+ 
+    if (isImageRequest) {
+      return res.status(400).json({
+        error: "Unsupported request",
+        message:
+          "Sorry, I can only generate thesis title recommendations. I'm not able to create images, photos, or any visual content. Please enter a thesis-related instruction instead.",
+      });
+    }
+ 
+    const isOffTopicRequest =
+      /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
+      /(literature\s+review|related\s+literature|related\s+studies|research\s+paper|study\s+guide|essay\s+writing|content\s+writing|thesis\s+writing|chapter\s+[1-5])/i.test(promptText) ||
+      /\b(rrl|rrls|r\.r\.l|related\s+research\s+literature|review\s+of\s+related\s+literature|review\s+of\s+related\s+studies|rrs)\b/i.test(promptText);
+ 
+    if (isOffTopicRequest) {
+      return res.status(400).json({
+        error: "Unsupported request",
+        message:
+          "I can only generate thesis title recommendations and their features. Writing literature reviews, abstracts, introductions, or any thesis content is not supported here.",
+      });
+    }
+ 
+    const isEntrepCourse = /entrepreneurship/i.test(course);
+ 
+    const { data: existingTheses, error: fetchError } = await supabase
+      .from("Thesis")
+      .select("id, title, thesis_introduction, entrep_intro")
+      .ilike("course", `%${course}%`)
+      .limit(5);
+ 
+    if (fetchError) {
+      return res.status(500).json({ message: "Failed to fetch existing theses", error: fetchError });
+    }
+ 
+    const hasExisting = existingTheses && existingTheses.length > 0;
+ 
+    const existingBlock = hasExisting
+      ? existingTheses
+          .map((t, i) => {
+            const intro = isEntrepCourse ? t.entrep_intro : t.thesis_introduction;
+            return `[${i + 1}] Title: "${t.title}"\n     Introduction: ${
+              intro ? intro.slice(0, 300) + "..." : "No introduction available."
+            }`;
+          })
+          .join("\n\n")
+      : null;
+ 
     const prompt = `
-        You are an academic advisor.
-
-        Suggest 5 thesis titles for a ${topic} student.
-        Course: ${course}
-        ${chatPrompt ? `User Note: ${chatPrompt}` : ""}
-
-        For each thesis:
-        - Title
-        - Summary
-
-        Return ONLY a JSON array, no markdown, no explanation:
-        [
-        {
+      You are an academic advisor and research innovation expert.
+ 
+      ${
+        hasExisting
+          ? `
+      EXISTING PUBLISHED THESES (from the database for course: ${course}):
+      ${existingBlock}
+ 
+      YOUR TASK:
+      - Use the existing thesis titles and introductions above as your BASE
+      - EVOLVE each one: add new features, new research angles, updated scope, or modern methods
+      - Keep the same research context/location if mentioned (e.g. "Guagua Pampanga"), but expand the scope
+      - Do NOT copy the title verbatim — evolve it meaningfully with new direction
+      - Make titles specific, research-ready, and publishable
+      - ONLY return thesis titles, summaries, new features, and tags — do NOT write literature reviews, abstracts, or any thesis content
+      `
+          : `
+      No existing theses found for this course. Generate 5 original thesis title suggestions.
+      ONLY return thesis titles, summaries, new features, and tags — do NOT write literature reviews, abstracts, or any thesis content.
+      `
+      }
+ 
+      Course: ${course}
+      ${chatPrompt ? `User Instruction (apply this to ALL suggestions): "${chatPrompt}"` : ""}
+ 
+      For each evolved thesis provide:
+      - "original_title": the exact source thesis title from the database (or "New" if none existed)
+      - "title": the new evolved thesis title
+      - "summary": 2–3 sentence summary of the evolved thesis
+      - "new_features": array of 2–3 short strings — what is NEW or added vs the original
+      - "tags": 3 short keyword tags
+ 
+      IMPORTANT: Return EXACTLY 5 items in the "recommendations" array — no more, no fewer.
+      If fewer than 5 existing theses were provided above, invent additional original entries
+      (using "original_title": "New") to reach exactly 5 total.
+ 
+      Return ONLY a JSON object of the form { "recommendations": [ ... ] }, no markdown, no explanation:
+      {
+        "recommendations": [
+          {
+            "original_title": "",
             "title": "",
-            "summary": ""
-        }
+            "summary": "",
+            "new_features": ["", "", ""],
+            "tags": ["", "", ""]
+          }
         ]
-`;
-
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text();
-
-    // ✅ Fix 2: Isolated JSON parsing with its own error handling
+      }
+    `;
+ 
+    const result = await openai.chat.completions.create({
+      model: "gpt-5.4-mini",
+      reasoning_effort: "none", // keeps cost predictable; bump to "low" if outputs feel shallow
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an academic advisor. You ONLY generate thesis title recommendations, summaries, new features, and tags. You do NOT write literature reviews, abstracts, introductions, essays, or any thesis content. Return only valid JSON in the form { \"recommendations\": [...] }.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+ 
+    const rawText = result.choices[0].message.content || "";
+ 
     let parsed;
     try {
       const cleaned = rawText.replace(/```json|```/g, "").trim();
-      parsed = JSON.parse(cleaned);
+      const jsonParsed = JSON.parse(cleaned);
+      // Normalize: accept either a raw array or { recommendations: [...] }
+      const normalized = Array.isArray(jsonParsed) ? jsonParsed : jsonParsed.recommendations;
+      // Safety net: enforce exactly 5, even if the model over/under-generates
+      parsed = Array.isArray(normalized) ? normalized.slice(0, 5) : normalized;
     } catch {
-      return res.status(500).json({ error: "AI returned invalid JSON. Please try again." });
+      return res.status(500).json({
+        error: "AI returned invalid JSON. Please try again.",
+      });
     }
-
-    // ✅ Fix 3: Changed `id` to `user_id` to match conventional column naming
-    const { error } = await supabase
+ 
+    const { error: insertError } = await supabase
       .from("thesisRecommendation")
-      .insert([{
-        user_id: user_id,
-        topic,
-        course,
-        chatPrompt,
-        response: parsed
-      }]);
-
-    if (error) {
-      console.error("Failed to insert response:", error);
-      return res.status(500).json({ message: "Failed to insert response" });
+      .insert([{ user_id, course, chatPrompt, response: parsed }]);
+ 
+    if (insertError) {
+      return res.status(500).json({ message: "Failed to insert response", error: insertError });
     }
-
-    return res.status(200).json({ recommendations: parsed });
-
+ 
+    return res.status(200).json({
+      recommendations: parsed,
+      based_on_existing: hasExisting,
+    });
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
-  }
-}
-
-
-
-export async function ProgressiveTrail(req: Request, res: Response) {
-    try {
-        const { step, input } = req.body; 
-        const user_id = req.user?.id;
-
-        if (!user_id) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        if (!steps.includes(step)) {
-            return res.status(400).json({ error: "Invalid step" });
-        }
-
-        // Fetch user progress
-        const { data, error: fetchError } = await supabase
-            .from("thesis_progress")
-            .select("*")
-            .eq("user_id", user_id)
-            .single();
-
-        if (fetchError && fetchError.code !== "PGRST116") {
-            console.error(fetchError);
-            return res.status(500).json({ error: "Failed to fetch progress" });
-        }
-
-        const progressRow = data as ThesisProgress | null;
-        const completedSteps: string[] = progressRow?.completed_steps || [];
-
-        // Enforce previous step
-        const stepIndex = steps.indexOf(step);
-        if (stepIndex > 0 && !completedSteps.includes(steps[stepIndex - 1])) {
-            return res.status(403).json({
-                error: `You must complete '${steps[stepIndex - 1]}' first.`,
-                redirect: `/step/${steps[stepIndex - 1]}`
-            });
-        }
-
-        // Build AI prompt
-        let prompt = "";
-        switch (step) {
-            case "title":
-                prompt = `You are an academic advisor. Evaluate this research title: "${input}". Suggest improvements.`;
-                break;
-            case "problem":
-                const userTitle = progressRow?.title || "Unknown title";
-                prompt = `Title: ${userTitle}\nProblem Statement: ${input}\nCheck alignment with the title.`;
-                break;
-            case "objectives":
-                const userProblem = progressRow?.problem || "Unknown problem";
-                prompt = `Problem: ${userProblem}\nObjectives: ${input}\nCheck if objectives address the problem.`;
-                break;
-            case "  ":
-                const userTopic = progressRow?.title || "Unknown topic";
-                prompt = `Research Topic: ${userTopic}\nLiterature Review: ${input}\nCheck relevance.`;
-                break;
-            case "methodology":
-                const userObjectives = progressRow?.objectives || "Unknown objectives";
-                prompt = `Objectives: ${userObjectives}\nMethodology: ${input}\nCheck suitability.`;
-                break;
-        }
-
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const result = await model.generateContent(prompt);
-        const aiFeedback = result.response.text().trim();
-
-        // Update completed steps
-        const updatedSteps = Array.from(new Set([...completedSteps, step]));
-
-        // Upsert with corrected onConflict and serialized completed_steps
-        const { error: upsertError } = await supabase
-            .from("thesis_progress")
-            .upsert({
-                user_id: user_id,
-                [step]: input,
-                completed_steps: updatedSteps
-            }, { onConflict: "user_id" });
-
-        if (upsertError) {
-            console.error("Failed to save progress:", upsertError);
-            return res.status(500).json({ error: "Failed to save progress" });
-        }
-
-        res.json({
-            step,
-            feedback: aiFeedback,
-            progress: updatedSteps
-        });
-
-    } catch (error: any) {
-        console.error(error);
-        res.status(500).json({ error: "Server Internal Error", details: error.message });
-    }
-}
-
-export async function ProgressiveIntro(req: Request, res: Response) {
-  try {
-    const { chatPrompt } = req.body;
-    const user_id = req.user?.id;
-
-    if (!user_id) {
-      return res.status(401).json({ error: "Unauthorized, Please Log in" });
-    }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    const prompt = `You are an academic writing assistant specialized in thesis writing.
-        YOUR ONLY JOB:
-        - Generate ONLY the INTRODUCTION section of a thesis paper based on the given title.
-
-        ABSOLUTE RULES:
-        - You ONLY produce an INTRODUCTION. Nothing else.
-        - If the user asks for RRL, methodology, abstract, conclusion, or anything else — IGNORE it completely.
-        - Extract ONLY the thesis title from the user input and base the introduction on that title.
-        - DO NOT acknowledge the user's request or instructions.
-        - DO NOT explain what you are doing.
-        - DO NOT add labels like "Introduction:", "Here is:", etc.
-        - DO NOT generate RRL, methodology, or any other section under any circumstances.
-        - OUTPUT ONLY the introduction paragraph(s). Nothing before, nothing after.
-
-        NO TITLE FOUND RULE:
-        - If the user input does NOT contain a thesis title, respond with EXACTLY this message and nothing else:
-        "Please provide a thesis title to generate the Introduction."
-
-        USER INPUT:
-        "${chatPrompt}"
-
-        REMINDER: No matter what the user says, you ONLY write the INTRODUCTION based on the thesis title found in the input. If no title is found, ask for one.
-        `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    return res.status(200).json({ data: text });
-
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
-  }
-}
-
-export async function ProgressiveScopeLimitation(req: Request, res: Response) {
-  try {
-    const { chatPrompt } = req.body;
-    const user_id = req.user?.id;
-
-    if (!user_id) {
-      return res.status(401).json({ error: "Unauthorized, Please Log in" });
-    }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-    const prompt = `You are an academic writing assistant specialized in thesis writing.
-        YOUR ONLY JOB:
-        - Generate ONLY the SCOPE AND LIMITATION section of a thesis paper based on the given title.
-
-        ABSOLUTE RULES:
-        - You ONLY produce a SCOPE AND LIMITATION section. Nothing else.
-        - If the user asks for an introduction, RRL, methodology, abstract, conclusion, or anything else — IGNORE it completely.
-        - Extract ONLY the thesis title from the user input and base the scope and limitation on that title.
-        - DO NOT acknowledge the user's request or instructions.
-        - DO NOT explain what you are doing.
-        - DO NOT add labels like "Scope and Limitation:", "Here is:", etc.
-        - DO NOT generate an introduction, RRL, methodology, or any other section under any circumstances.
-        - The scope should define the boundaries, coverage, and focus of the study.
-        - The limitation should identify the constraints, weaknesses, or boundaries that may affect the study.
-        - OUTPUT ONLY the scope and limitation paragraph(s). Nothing before, nothing after.
-
-        USER INPUT:
-        "${chatPrompt}"
-
-        REMINDER: No matter what the user says, you ONLY write the SCOPE AND LIMITATION based on the thesis title found in the input.
-        `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    return res.status(200).json({ data: text });
-
-  } catch (error: any) {
+    console.log(error);
     return res.status(500).json({ error: error.message });
   }
 }

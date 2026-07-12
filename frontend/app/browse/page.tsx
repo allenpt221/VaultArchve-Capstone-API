@@ -148,6 +148,7 @@ function Browse() {
           </SelectContent>
         </Select>
       </div>
+
       
       <span className='text-black/70 text-sm'>Showing {displayed.length} results</span>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>

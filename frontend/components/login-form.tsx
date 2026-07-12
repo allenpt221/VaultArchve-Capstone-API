@@ -16,6 +16,7 @@ import { useEffect, useState } from "react"
 import { authUserStore } from "@/Stores/authStores"
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
 import { CircleCheckBig, Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
 
 const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/
 
@@ -140,12 +141,12 @@ export function LoginForm({
                   />
                 </div>
               </Field>
-                <a
-                href="#"
+                <Link
+                href="/forgot-password"
                 className="ml-auto text-sm underline-offset-2 hover:underline"
               >
                 Forgot your password?
-              </a>
+              </Link>
               <Field>
                 <Button type="submit"
                   disabled={loading || countdown !== null}

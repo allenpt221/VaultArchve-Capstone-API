@@ -1,19 +1,37 @@
-'use client'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { authUserStore } from '@/Stores/authStores'
+"use client";
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = authUserStore()
-  const router = useRouter()
+import { useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { authUserStore } from "@/Stores/authStores";
+
+const PUBLIC_ROUTES = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+];
+
+export default function ProtectedRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, loading } = authUserStore();
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login')
+    if (loading) return;
+
+    if (!user && !PUBLIC_ROUTES.includes(pathname)) {
+      router.replace("/login");
     }
-  }, [user, loading, router])
+  }, [user, loading, pathname, router]);
 
-  if (loading || !user) return null
+  if (loading) return null;
 
-  return <>{children}</>
+  if (!user && !PUBLIC_ROUTES.includes(pathname)) {
+    return null;
+  }
+
+  return <>{children}</>;
 }
