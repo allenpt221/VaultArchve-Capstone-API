@@ -10,11 +10,15 @@ exports.getUsers = getUsers;
 exports.getProfile = getProfile;
 exports.deleteUser = deleteUser;
 exports.toggleStudentStatus = toggleStudentStatus;
+exports.forgotPassword = forgotPassword;
+exports.resetPassword = resetPassword;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const supa_client_1 = require("../supabase/supa-client");
 const ioredis_1 = __importDefault(require("../lib/ioredis"));
+const uuid_1 = require("uuid");
 const ratelimit_1 = require("../lib/ratelimit");
+const resetPassword_1 = require("../lib/resetPassword");
 async function Signup(req, res) {
     try {
         const { email, firstname, lastname, password, role } = req.body;
@@ -292,5 +296,100 @@ async function toggleStudentStatus(req, res) {
         return res.status(500).json({
             error: error.message || "Internal server error",
         });
+    }
+}
+async function forgotPassword(req, res) {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+        const normalizedEmail = email.trim().toLowerCase();
+        const { data: user, error } = await supa_client_1.supabase
+            .from("Authentication")
+            .select("id, email")
+            .eq("email", normalizedEmail)
+            .single();
+        // Always return a generic success message, even if the user doesn't
+        // exist — prevents this endpoint from being used to enumerate emails.
+        if (error || !user) {
+            return res.status(200).json({
+                message: "If an account with that email exists, a reset link has been sent.",
+            });
+        }
+        const rawToken = (0, uuid_1.v4)();
+        const hashedToken = await bcrypt_1.default.hash(rawToken, 10);
+        const expiresAt = new Date(Date.now() + 1000 * 60 * 15); // 15 min, matches email copy
+        const { error: updateError } = await supa_client_1.supabase
+            .from("Authentication")
+            .update({
+            reset_token: hashedToken,
+            reset_token_expires_at: expiresAt.toISOString(),
+        })
+            .eq("id", user.id);
+        if (updateError) {
+            console.error("Failed to store reset token:", updateError);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+        const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}&id=${user.id}`;
+        await (0, resetPassword_1.sendResetPasswordEmail)(user.email, resetLink);
+        return res.status(200).json({
+            message: "If an account with that email exists, a reset link has been sent.",
+        });
+    }
+    catch (error) {
+        console.error("Forgot password error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+async function resetPassword(req, res) {
+    try {
+        const { id, token, password, confirmPassword } = req.body;
+        if (!id || !token || !password || !confirmPassword) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: "Passwords do not match" });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({
+                message: "Password must be at least 8 characters long",
+            });
+        }
+        const { data: user, error } = await supa_client_1.supabase
+            .from("Authentication")
+            .select("id, reset_token, reset_token_expires_at")
+            .eq("id", id)
+            .single();
+        if (error || !user || !user.reset_token) {
+            return res.status(400).json({ message: "Invalid or expired reset link" });
+        }
+        const isExpired = !user.reset_token_expires_at ||
+            new Date(user.reset_token_expires_at).getTime() < Date.now();
+        if (isExpired) {
+            return res.status(400).json({ message: "Reset link has expired" });
+        }
+        const isValidToken = await bcrypt_1.default.compare(token, user.reset_token);
+        if (!isValidToken) {
+            return res.status(400).json({ message: "Invalid or expired reset link" });
+        }
+        const hashedPassword = await bcrypt_1.default.hash(password, 10);
+        const { error: updateError } = await supa_client_1.supabase
+            .from("Authentication")
+            .update({
+            password: hashedPassword,
+            reset_token: null,
+            reset_token_expires_at: null,
+        })
+            .eq("id", id);
+        if (updateError) {
+            console.error("Failed to update password:", updateError);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+        return res.status(200).json({ message: "Password has been reset successfully" });
+    }
+    catch (error) {
+        console.error("Reset password error:", error);
+        return res.status(500).json({ message: "Internal server error" });
     }
 }

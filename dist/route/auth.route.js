@@ -12,6 +12,8 @@ route.post('/login', auth_controller_1.Login);
 route.get('/getuser', middware_1.verifyToken, middware_1.adminOnly, auth_controller_1.getUsers);
 route.post('/logout', middware_1.verifyToken, auth_controller_1.Logout);
 route.get('/profile', middware_1.verifyToken, auth_controller_1.getProfile);
+route.post('/forgot-password', auth_controller_1.forgotPassword);
+route.post('/reset-password', auth_controller_1.resetPassword);
 route.delete('/delete/:id', middware_1.verifyToken, middware_1.adminOnly, auth_controller_1.deleteUser);
 route.put('/disable/:id', middware_1.verifyToken, middware_1.adminOnly, auth_controller_1.toggleStudentStatus);
 exports.default = route;

@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register backend/index.ts",
-    "build": "rm -rf dist && tsc && cd frontend && npm install && npm run build",
+    "build": "rimraf dist && tsc && cd frontend && npm install && npm run build",
     "start": "node dist/index.js"
   },
   "keywords": [],
@@ -44,6 +44,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.14",
+    "rimraf": "^6.1.3",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"

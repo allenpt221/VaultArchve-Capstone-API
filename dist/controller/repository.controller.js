@@ -138,13 +138,12 @@ async function SumbitThesis(req, res) {
 async function UpdateThesis(req, res) {
     try {
         const { id } = req.params;
-        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_discussion, thesis_references, thesis_conclusion, 
-        // ENTRE FIELDS
-        entrep_intro, entrep_action_plan, entrep_market_product_description, entrep_survey_result, entrep_target_market, entrep_product, entrep_production, } = req.body;
+        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_discussion, thesis_references, thesis_conclusion, entrep_intro, entrep_action_plan, entrep_market_product_description, entrep_survey_result, entrep_target_market, entrep_product, entrep_production, } = req.body;
         const files = req.files;
         const thesis_file = files?.[0];
         let thesis_file_url;
         let thesis_file_name;
+        let oldFilePath;
         if (thesis_file) {
             const allowedTypes = [
                 "application/pdf",
@@ -152,6 +151,17 @@ async function UpdateThesis(req, res) {
             ];
             if (!allowedTypes.includes(thesis_file.mimetype)) {
                 return res.status(400).json({ status: false, message: "Only PDF and DOCX files are allowed" });
+            }
+            const { data: existingThesis, error: existingFetchError } = await supa_client_1.supabase
+                .from("Thesis")
+                .select("thesis_file_url")
+                .eq("id", id)
+                .single();
+            if (existingFetchError) {
+                console.error("Failed to fetch existing thesis for file swap:", existingFetchError);
+            }
+            else {
+                oldFilePath = existingThesis?.thesis_file_url;
             }
             const fileName = `${id}_${Date.now()}_${thesis_file.originalname.replace(/\s+/g, "_")}`;
             const { data: uploadData, error: uploadError } = await supa_client_1.supabase.storage
@@ -168,7 +178,7 @@ async function UpdateThesis(req, res) {
             thesis_file_name = thesis_file.originalname;
         }
         const isEntrep = course?.toLowerCase().includes("entrep");
-        const { error } = await supa_client_1.supabase
+        const { data: updatedRow, error } = await supa_client_1.supabase
             .from("Thesis")
             .update({
             title,
@@ -182,7 +192,6 @@ async function UpdateThesis(req, res) {
             thesis_conclusion,
             ...(thesis_file_url && { thesis_file_url }),
             ...(thesis_file_name && { thesis_file_name }),
-            // ✅ ONLY UPDATE IF ENTRE COURSE
             ...(isEntrep && {
                 entrep_intro,
                 entrep_action_plan,
@@ -193,15 +202,29 @@ async function UpdateThesis(req, res) {
                 entrep_production,
             }),
         })
-            .eq("id", id);
+            .eq("id", id)
+            .select()
+            .single();
         if (error) {
             return res.status(400).json({ error: error.message });
+        }
+        // Only remove the old file once the row update succeeded, and only if a new file actually replaced it
+        if (oldFilePath && thesis_file_url && oldFilePath !== thesis_file_url) {
+            const { error: oldFileRemoveError, data: oldFileRemoveData } = await supa_client_1.supabase.storage
+                .from("thesis-files")
+                .remove([oldFilePath]);
+            if (oldFileRemoveError) {
+                console.error("Failed to delete old thesis file from storage:", JSON.stringify(oldFileRemoveError, null, 2));
+            }
+            else {
+                console.log("Old file removed:", oldFileRemoveData);
+            }
         }
         const keys = await ioredis_1.default.keys("thesis:page:*");
         if (keys.length > 0) {
             await ioredis_1.default.del(...keys);
         }
-        return res.status(200).json({ message: "Thesis updated successfully" });
+        return res.status(200).json({ message: "Thesis updated successfully", data: updatedRow });
     }
     catch (error) {
         console.error("Server error:", error);
@@ -321,11 +344,17 @@ async function deleteId(req, res) {
             return res.status(404).json({ error: "Thesis not found" });
         }
         if (thesis.thesis_file_url) {
-            const { error: storageError } = await supa_client_1.supabase.storage
+            const { error: storageError, data: removeData } = await supa_client_1.supabase.storage
                 .from("thesis-files")
                 .remove([thesis.thesis_file_url]);
             if (storageError) {
-                console.error("Failed to delete file from storage:", storageError);
+                console.error("Failed to delete file from storage:", JSON.stringify(storageError, null, 2));
+            }
+            else if (!removeData || removeData.length === 0) {
+                console.warn("Storage remove returned no deleted objects for path:", thesis.thesis_file_url);
+            }
+            else {
+                console.log("Storage file removed:", removeData);
             }
         }
         // Delete analytics first (foreign key dependency)

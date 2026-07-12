@@ -85,9 +85,7 @@ async function downloadThesis(req, res) {
 }
 async function getFilteredThesis(req, res) {
     try {
-        const { search, year, department, sort = "issue_date", order = "desc", page = "1", per_page = "10", } = req.query;
-        const currentPage = Math.max(1, parseInt(page, 10) || 1);
-        const perPage = Math.min(100, Math.max(1, parseInt(per_page, 10) || 10));
+        const { search, year, department, sort = "issue_date", order = "desc", } = req.query;
         const allowedSortColumns = ["issue_date", "title", "author", "views"];
         const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
         const isRelatedSort = ["views", "downloads"].includes(sortColumn);
@@ -125,17 +123,10 @@ async function getFilteredThesis(req, res) {
                 return order === "asc" ? aVal - bVal : bVal - aVal;
             });
         }
-        // Paginate in memory AFTER all filters and sorting are applied
-        const total = sorted.length;
-        const lastPage = Math.max(1, Math.ceil(total / perPage));
-        const from = (currentPage - 1) * perPage;
-        const paginated = sorted.slice(from, from + perPage);
+        // No server-side pagination — frontend handles pagination client-side
         return res.status(200).json({
-            data: paginated,
-            total,
-            current_page: currentPage,
-            last_page: lastPage,
-            per_page: perPage,
+            data: sorted,
+            total: sorted.length,
         });
     }
     catch (err) {
