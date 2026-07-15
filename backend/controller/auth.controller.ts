@@ -278,6 +278,16 @@ export async function deleteUser(req: Request, res: Response) {
       return res.status(400).json({ error: "ID is required" });
     }
 
+    // Delete dependent thesisRecommendation rows first to avoid FK violation
+    const { error: recError } = await supabase
+      .from("thesisRecommendation")
+      .delete()
+      .eq("user_id", id);
+
+    if (recError) {
+      return res.status(500).json({ error: recError.message });
+    }
+
     const { data, error } = await supabase
       .from("Authentication")
       .delete()

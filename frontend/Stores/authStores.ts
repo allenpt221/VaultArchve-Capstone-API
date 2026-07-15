@@ -9,6 +9,7 @@ interface userProps{
     firstname: string;
     lastname: string;
     role: string;
+    status: string;
 }
 
 interface LoginProps{

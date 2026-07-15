@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authUserStore } from "@/Stores/authStores";
+import DisabledPage from "./disable";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -19,6 +20,8 @@ export default function ProtectedRoute({
   const router = useRouter();
   const pathname = usePathname();
 
+  const isDisabled = user?.status !== "active";
+
   useEffect(() => {
     if (loading) return;
 
@@ -31,6 +34,10 @@ export default function ProtectedRoute({
 
   if (!user && !PUBLIC_ROUTES.includes(pathname)) {
     return null;
+  }
+
+  if (user && isDisabled && !PUBLIC_ROUTES.includes(pathname)) {
+    return <DisabledPage />;
   }
 
   return <>{children}</>;
