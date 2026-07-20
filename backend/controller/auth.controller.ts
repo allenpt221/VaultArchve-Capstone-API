@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { loginLimiter } from '../lib/ratelimit';
 import { sendResetPasswordEmail } from '../lib/resetPassword';
+import { invalidateCacheByPrefix } from '../lib/cache';
 
 
 
@@ -19,7 +20,6 @@ interface User {
     role: string;
     status:string;
 }
-
 
 export async function Signup(req: Request, res: Response) {
     try {
@@ -76,10 +76,7 @@ export async function Signup(req: Request, res: Response) {
         }
 
         // invalidate cached user pages so the new user shows up immediately
-        const keys = await redis.keys("users:page:*");
-        if (keys.length > 0) {
-          await redis.del(...keys);
-        }
+        await invalidateCacheByPrefix("users:page");
 
         res.status(201).json({
               message: 'User created successfully',
@@ -139,14 +136,14 @@ export async function Login(req: Request, res: Response){
 
 
         const accessToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role, status: user.status },
             process.env.JWT_SECRET as string,
             { expiresIn: "1h" }
         );
 
 
         const refreshToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role, status: user.status },
             process.env.JWT_REFRESH_SECRET as string,
             { expiresIn: "7d" }
         );
@@ -172,7 +169,8 @@ export async function Login(req: Request, res: Response){
             email: user.email,
             firstname: user.firstname,
             lastname: user.lastname,
-            role: user.role
+            role: user.role,
+            status: user.status
         }
         });
 
@@ -304,10 +302,7 @@ export async function deleteUser(req: Request, res: Response) {
 
     // Invalidate cached user pages so the deletion shows up immediately,
     // instead of waiting out the 1-hour TTL on the stale page.
-    const staleKeys = await redis.keys("users:page:*");
-    if (staleKeys.length > 0) {
-      await redis.del(...staleKeys);
-    }
+    await invalidateCacheByPrefix("users:page");
 
     return res.status(200).json({
       message: "User deleted successfully",
@@ -358,10 +353,7 @@ export async function toggleStudentStatus(req: Request, res: Response) {
 
     // Invalidate cached user pages so the new status shows up immediately,
     // instead of waiting out the 1-hour TTL on the stale page.
-    const staleKeys = await redis.keys("users:page:*");
-    if (staleKeys.length > 0) {
-      await redis.del(...staleKeys);
-    }
+    await invalidateCacheByPrefix("users:page");
 
     return res.status(200).json({
       success: true,

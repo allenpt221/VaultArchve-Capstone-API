@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export const sendResetPasswordEmail = async (to: string, resetLink: string) => {
   try {
     const { data, error } = await resend.emails.send({
-      from: "VaultArchve - GCC <onboarding@resend.dev>",
+      from: "VaultArchve - GCC <noreply@vaultarchve.com>",
       to,
       subject: "Reset Your VaultArchve Password",
       html: `

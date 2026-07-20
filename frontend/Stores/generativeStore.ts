@@ -13,7 +13,6 @@ interface generativeAiProps {
   result: any[];
   loading: boolean;
   message: string | null;
-
 }
 
 
@@ -51,6 +50,11 @@ RecommendedAI: async ({ chatPrompt, course }: RecommendedProps): Promise<void> =
 
     if (status === 400) {
       set({ message: data?.message || "Invalid request. Please check your input." });
+      return;
+    }
+
+    if (status === 429) {
+      set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
       return;
     }
 

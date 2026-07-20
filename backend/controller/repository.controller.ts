@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
 import redis from "../lib/ioredis";
-import { sign } from "node:crypto";
+import { invalidateCacheByPrefix } from "../lib/cache";
 
 interface ThesisProps {
     title: string;
@@ -160,10 +160,7 @@ export async function SumbitThesis(req: Request, res: Response) {
         ]);
 
         // CACHE CLEAR
-        const keys = await redis.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await redis.del(...keys);
-        }
+        await invalidateCacheByPrefix("thesis:page");
 
         return res.status(200).json({
             status: true,
@@ -297,10 +294,7 @@ export async function UpdateThesis(req: Request, res: Response) {
             }
         }
 
-        const keys = await redis.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await redis.del(...keys);
-        }
+        await invalidateCacheByPrefix("thesis:page");
 
         return res.status(200).json({ message: "Thesis updated successfully", data: updatedRow });
     } catch (error: any) {
@@ -470,10 +464,7 @@ export async function deleteId(req: Request, res: Response) {
             return res.status(500).json({ error: "Failed to delete thesis" });
         }
 
-        const keys = await redis.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await redis.del(...keys);
-        }
+        await invalidateCacheByPrefix("thesis:page");
 
         return res.status(200).json({ success: true, message: "Thesis deleted successfully" });
 

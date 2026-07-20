@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, BookOpen, Mail, LogOut } from "lucide-react";
 import Link from "next/link";
@@ -15,14 +15,16 @@ export default function DisabledPage({
   message = "Your account has been disabled due to a violation of our community guidelines. If you believe this is a mistake, please reach out to the admin team below.",
   contactEmail = "admin@gcc.edu.ph",
 }: DisabledPageProps) {
-  const { logOut } = authUserStore();
+  const { logOut, user } = authUserStore();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  console.log(user)
 
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await logOut();
+      logOut();
       router.replace("/login");
     } catch (error) {
       console.error("Logout error:", error);

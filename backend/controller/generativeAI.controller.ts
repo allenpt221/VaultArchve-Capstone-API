@@ -1,10 +1,13 @@
 import { supabase } from "../supabase/supa-client";
 import { Request, Response } from "express";
 import OpenAI from "openai";
+import { checkDailyLimit } from "../lib/checkDailyLimit";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const DAILY_PROMPT_LIMIT = 5;
 
 export async function RecommendedAI(req: Request, res: Response) {
   try {
@@ -93,6 +96,16 @@ export async function RecommendedAI(req: Request, res: Response) {
  
     if (fetchError) {
       return res.status(500).json({ message: "Failed to fetch existing theses", error: fetchError });
+    }
+
+    const { allowed, count } = await checkDailyLimit(user_id, "thesisRecommendation", DAILY_PROMPT_LIMIT);
+
+    if (!allowed) {
+      return res.status(429).json({
+        error: "Daily limit reached",
+        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+        remaining: 0,
+      });
     }
  
     const hasExisting = existingTheses && existingTheses.length > 0;
