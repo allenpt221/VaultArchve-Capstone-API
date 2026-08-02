@@ -19,14 +19,25 @@ interface TableActionsProps {
   author: string;
   issue_date: string;
   course: string;
-  abstract: string;
-  introduction: string;
-  discussion: string;
-  conclusion: string;
-  references: string;
   filename: string;
   isOpen?: () => void;
   DeleteThesis: (id: string) => void;
+
+  // Standard (non-entrep) fields
+  abstract?: string;
+  introduction?: string;
+  discussion?: string;
+  conclusion?: string;
+  references?: string;
+
+  // Entrepreneurship fields
+  entrep_intro?: string;
+  entrep_action_plan?: string;
+  entrep_market_product_description?: string;
+  entrep_survey_result?: string;
+  entrep_target_market?: string;
+  entrep_product?: string;
+  entrep_production?: string;
 }
 
 export function TableActions({
@@ -40,10 +51,19 @@ export function TableActions({
   discussion,
   conclusion,
   references,
+  entrep_intro,
+  entrep_action_plan,
+  entrep_market_product_description,
+  entrep_survey_result,
+  entrep_target_market,
+  entrep_product,
+  entrep_production,
   filename,
   isOpen,
   DeleteThesis
 }: TableActionsProps) {
+
+  const isEntrep = course === 'Entrepreneurship'
 
   // FIX: guard against undefined id (e.g. API returns _id instead of id)
   function shortId(id: string) {
@@ -62,7 +82,19 @@ export function TableActions({
       .join("");
   }
 
-  const contentFields = [introduction, discussion, conclusion, references];
+  // Entrep rows have 7 content columns (no separate Abstract column);
+  // standard rows have 4 content columns plus a dedicated Abstract cell.
+  const contentFields = isEntrep
+    ? [
+        entrep_intro,
+        entrep_action_plan,
+        entrep_market_product_description,
+        entrep_survey_result,
+        entrep_target_market,
+        entrep_product,
+        entrep_production,
+      ]
+    : [introduction, discussion, conclusion, references];
 
   return (
     <TableRow>
@@ -79,9 +111,12 @@ export function TableActions({
         {title}
       </TableCell>
 
-      <TableCell className="max-w-30 truncate font-medium">
-        {abstract}
-      </TableCell>
+      {/* Abstract column only exists for standard (non-entrep) rows */}
+      {!isEntrep && (
+        <TableCell className="max-w-30 truncate font-medium">
+          {abstract}
+        </TableCell>
+      )}
 
       <TableCell className="text-left">
         <span className="inline-flex items-center justify-end gap-1.5">
@@ -130,8 +165,7 @@ export function TableActions({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontalIcon />
-              <span className="sr-only">Open menu</span>
+              <MoreHorizontalIcon className=""/>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -141,7 +175,6 @@ export function TableActions({
             >
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer py-2">Duplicate</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" className="cursor-pointer py-2"
             onClick={() => DeleteThesis(id)}

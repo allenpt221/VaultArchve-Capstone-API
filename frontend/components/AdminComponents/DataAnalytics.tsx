@@ -9,26 +9,19 @@ import {
   ChevronRight,
   ChevronLeft,
   Search,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react'
 import { TableActions } from '../ThesisTable'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Select,
   SelectContent,
@@ -48,7 +41,7 @@ const FILTER_TABS = [
 
 type FilterKey = typeof FILTER_TABS[number]['key']
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 8
 
 // Standard (non-entrep) table headers
 const STANDARD_HEADERS = [
@@ -84,22 +77,15 @@ const ENTREP_HEADERS = [
   'Actions',
 ]
 
-function truncate(text: string | undefined | null, max = 160) {
-  return (
-    <span
-      className="text-sm block"
-      style={{
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        maxWidth: `${max}px`,
-      }}
-      title={text ?? undefined}
-    >
-      {text || 'N/A'}
-    </span>
-  )
+// Maps a header label to the backend column it should sort by.
+// Only headers present here render as clickable/sortable.
+const SORTABLE_FIELDS: Record<string, string> = {
+  Title: 'title',
+  Author: 'author',
+  Date: 'issue_date',
 }
+
+type SortOrder = 'asc' | 'desc'
 
 function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const {
@@ -118,9 +104,25 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const [selectedThesis, setSelectedThesis] = useState<typeof repository[0] | null>(null)
   const [viewMode, setViewMode] = useState<FilterKey>('All')
   const [page, setPage] = useState(1)
+  const [sortField, setSortField] = useState<string>('issue_date')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
   const handleDelete = (id: string) => {
     return deleteThesis(id)
+  }
+
+  const handleSortClick = (header: string) => {
+    const field = SORTABLE_FIELDS[header]
+    if (!field) return
+
+    if (field === sortField) {
+      // same column — flip direction
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      // new column — default to descending (most recent / Z-A first)
+      setSortField(field)
+      setSortOrder('desc')
+    }
   }
 
   // Debounce raw search input
@@ -136,17 +138,17 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     getMasterRepository()
   }, [])
 
-  // Fetch the full filtered dataset whenever search or course changes
+  // Fetch the full filtered dataset whenever search, course, or sort changes
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
-      setPage(1) 
+      setPage(1)
       const department = viewMode === 'All' ? 'all' : viewMode
-      FilteredThesis(debouncedSearch, 'all', department, 'issue_date', 'desc')
+      FilteredThesis(debouncedSearch, 'all', department, sortField, sortOrder)
       setIsLoading(false)
     }
     load()
-  }, [debouncedSearch, viewMode])
+  }, [debouncedSearch, viewMode, sortField, sortOrder])
 
   const totalViews =
     dataAnalytics?.reduce((sum, item) => sum + (Number(item.views) || 0), 0) ?? 0
@@ -225,7 +227,8 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     return repository
   }, [repository, viewMode])
 
-  // repository (scoped) is already the full filtered dataset from FilteredThesis; paginate it client-side
+  // repository (scoped) is already the full filtered + sorted dataset from
+  // FilteredThesis; paginate it client-side only.
   const totalPages = Math.max(1, Math.ceil(scopedRepository.length / PAGE_SIZE))
 
   const visibleRepository = useMemo(() => {
@@ -382,19 +385,40 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                   className="hover:bg-transparent"
                   style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
                 >
-                  {tableHeaders.map((h) => (
-                    <TableHead
-                      key={h}
-                      className="text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap"
-                      style={{
-                        letterSpacing: '0.05em',
-                        fontSize: '11px',
-                        background: 'rgba(0,0,0,0.02)',
-                      }}
-                    >
-                      {h}
-                    </TableHead>
-                  ))}
+                  {tableHeaders.map((h) => {
+                    const field = SORTABLE_FIELDS[h]
+                    const isSortable = Boolean(field)
+                    const isActive = isSortable && field === sortField
+
+                    return (
+                      <TableHead
+                        key={h}
+                        onClick={isSortable ? () => handleSortClick(h) : undefined}
+                        className={`text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap ${
+                          isSortable ? 'cursor-pointer select-none hover:text-foreground' : ''
+                        }`}
+                        style={{
+                          letterSpacing: '0.05em',
+                          fontSize: '11px',
+                          background: 'rgba(0,0,0,0.02)',
+                        }}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {h}
+                          {isSortable &&
+                            (isActive ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3 h-3" />
+                              ) : (
+                                <ArrowDown className="w-3 h-3" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 opacity-30" />
+                            ))}
+                        </span>
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -407,78 +431,11 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                       No thesis found matching your search.
                     </td>
                   </tr>
-                ) : isEntrepView ? (
-                  // ── Entrepreneurship rows ──
-                  visibleRepository.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="text-xs font-mono">
-                        {String(item.id).slice(0, 8)}...
-                      </TableCell>
-                      <TableCell>{truncate(item.title)}</TableCell>
-                      <TableCell>{truncate(item.author)}</TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">
-                        {item.issue_date
-                          ? new Date(item.issue_date).getFullYear()
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap"
-                          style={{
-                            background: getCourseStyle(item.course).bg,
-                            color: getCourseStyle(item.course).color,
-                          }}
-                        >
-                          {item.course}
-                        </span>
-                      </TableCell>
-                      <TableCell>{truncate(item.entrep_intro)}</TableCell>
-                      <TableCell>{truncate(item.entrep_action_plan)}</TableCell>
-                      <TableCell>{truncate(item.entrep_market_product_description)}</TableCell>
-                      <TableCell>{truncate(item.entrep_survey_result)}</TableCell>
-                      <TableCell>{truncate(item.entrep_target_market)}</TableCell>
-                      <TableCell>{truncate(item.entrep_product)}</TableCell>
-                      <TableCell>{truncate(item.entrep_production)}</TableCell>
-                      <TableCell>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-md font-medium"
-                          style={{ background: '#FAEEDA', color: '#633806' }}
-                          title={item.thesis_file_name}
-                        >
-                          {item.thesis_file_name
-                            ? item.thesis_file_name.slice(0, 10) + '...'
-                            : 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedThesis(item)}>
-                              <Pencil className="w-3.5 h-3.5 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(item.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
                 ) : (
-                  // ── Standard (non-entrep) rows ──
-                  visibleRepository.map((item, index) => (
+                  // ── Rows (TableActions branches internally on course === 'Entrepreneurship') ──
+                  visibleRepository.map((item) => (
                     <TableActions
-                      key={index}
+                      key={item.id}
                       id={item.id}
                       title={item.title}
                       author={item.author}
@@ -489,6 +446,13 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                       discussion={item.thesis_discussion}
                       conclusion={item.thesis_conclusion}
                       references={item.thesis_references}
+                      entrep_intro={item.entrep_intro}
+                      entrep_action_plan={item.entrep_action_plan}
+                      entrep_market_product_description={item.entrep_market_product_description}
+                      entrep_survey_result={item.entrep_survey_result}
+                      entrep_target_market={item.entrep_target_market}
+                      entrep_product={item.entrep_product}
+                      entrep_production={item.entrep_production}
                       filename={item.thesis_file_name}
                       isOpen={() => setSelectedThesis(item)}
                       DeleteThesis={handleDelete}

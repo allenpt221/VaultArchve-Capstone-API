@@ -18,7 +18,7 @@ function Navbar() {
   const navbarItem = [
     { name: "Home", link: "/" },
     { name: "Browse", link: "/browse" },
-    { name: "AI Recommendation", link: "/recommendation" },
+    { name: "Generative AI", link: "/recommendation" },
     { name: "About", link: "/about" },
   ];
 
