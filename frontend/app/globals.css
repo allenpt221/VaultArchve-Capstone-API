@@ -6,6 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 
+
+
 [data-highlighted] {
   background-color: #eab308 !important;
   color: black !important;
