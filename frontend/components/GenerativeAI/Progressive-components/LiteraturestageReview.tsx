@@ -86,12 +86,21 @@ export function LiteratureReviewStage({
                 <button
                   key={r.id}
                   onClick={() => onSelectSavedReview(r.id)}
-                  className="text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50"
+                  className="overflow-hidden relative text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50 group"
                   style={{
                     borderColor: isSelected ? '#BA7517' : 'rgba(0,0,0,0.08)',
                     background: isSelected ? '#FAEEDA' : '#FFFFFF',
                   }}
+                  title={r.topic}
                 >
+                  <span
+                    // onClick={(e) => onDeleteMethodology(m.id)}
+                    role="button"
+                    aria-label="Delete saved topic"
+                    className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
                   <p className="text-sm font-medium truncate">{r.topic}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3 text-muted-foreground" />

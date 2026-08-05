@@ -87,17 +87,18 @@ export function MethodologyStage({
                 <button
                   key={m.id}
                   onClick={() => onSelectSavedMethodology(m.id)}
-                  className="relative text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50 group"
+                  className="overflow-hidden relative text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50 group"
                   style={{
                     borderColor: isSelected ? '#BA7517' : 'rgba(0,0,0,0.08)',
                     background: isSelected ? '#FAEEDA' : '#FFFFFF',
                   }}
+                  title={m.topic}
                 >
                   <span
                     onClick={(e) => onDeleteMethodology(m.id)}
                     role="button"
                     aria-label="Delete saved topic"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
+                    className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </span>
@@ -150,7 +151,7 @@ export function MethodologyStage({
               }
             }}
             placeholder="e.g. How does mobile learning affect senior high school students' test scores?"
-            className="flex-1 rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+            className="w-full flex-1 rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
           />
           <button
@@ -160,7 +161,7 @@ export function MethodologyStage({
             style={{ background: '#0B1C33', color: '#FFFFFF' }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Add
+            Insert
           </button>
         </div>
 
