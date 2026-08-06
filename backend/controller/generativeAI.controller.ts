@@ -12,6 +12,14 @@ const DAILY_PROMPT_LIMIT = 5;
 const MIN_RESEARCH_QUESTIONS_DA = 1;
 const MAX_RESEARCH_QUESTIONS_DA = 6;
 
+
+// --- helpers to detect "give me 10 titles" / "at least 8 recommendations" etc. ---
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+  fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+};
+
 function isGibberish(text: string): boolean {
   if (!text || text.trim().length === 0) return false;
 
@@ -70,15 +78,35 @@ function checkMeaningfulText(
   return { valid: true };
 }
 
+
+
+function extractRequestedCount(text: string): number | null {
+  // "10 titles", "8 recommendations", "12 thesis suggestions"
+  const digitMatch = text.match(/\b(\d{1,3})\s*(?:titles?|recommendations?|suggestions?|thesis(?:es)?|topics?)\b/i);
+  if (digitMatch) return parseInt(digitMatch[1], 10);
+
+  // "ten titles", "fifteen suggestions"
+  const wordMatch = text.match(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b\s*(?:titles?|recommendations?|suggestions?|thesis(?:es)?|topics?)/i
+  );
+  if (wordMatch) return NUMBER_WORDS[wordMatch[1].toLowerCase()];
+
+  // "more than 5", "at least 10", "over 6"
+  const moreThanMatch = text.match(/(?:more than|at least|over|above)\s*(\d{1,3})/i);
+  if (moreThanMatch) return parseInt(moreThanMatch[1], 10) + 1;
+
+  return null;
+}
+
 export async function RecommendedAI(req: Request, res: Response) {
   try {
     const { course, chatPrompt } = req.body;
     const user_id = req.user?.id;
- 
+
     if (!user_id) {
       return res.status(401).json({ message: "Unauthorized, Please Log in" });
     }
- 
+
     if (!course) {
       return res.status(400).json({ message: "Course is required." });
     }
@@ -89,12 +117,12 @@ export async function RecommendedAI(req: Request, res: Response) {
     }
 
     const promptText = (chatPrompt || "").trim().toLowerCase();
- 
+
     const isImageRequest =
       /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i.test(
         promptText
       );
- 
+
     if (isImageRequest) {
       return res.status(400).json({
         error: "Unsupported request",
@@ -102,12 +130,12 @@ export async function RecommendedAI(req: Request, res: Response) {
           "Sorry, I can only generate thesis title recommendations. I'm not able to create images, photos, or any visual content. Please enter a thesis-related instruction instead.",
       });
     }
- 
+
     const isOffTopicRequest =
       /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
       /(literature\s+review|related\s+literature|related\s+studies|research\s+paper|study\s+guide|essay\s+writing|content\s+writing|thesis\s+writing|chapter\s+[1-5])/i.test(promptText) ||
       /\b(rrl|rrls|r\.r\.l|related\s+research\s+literature|review\s+of\s+related\s+literature|review\s+of\s+related\s+studies|rrs)\b/i.test(promptText);
- 
+
     if (isOffTopicRequest) {
       return res.status(400).json({
         error: "Unsupported request",
@@ -115,18 +143,30 @@ export async function RecommendedAI(req: Request, res: Response) {
           "I can only generate thesis title recommendations and their features. Writing literature reviews, abstracts, introductions, or any thesis content is not supported here.",
       });
     }
- 
+
+    // --- NEW: reject requests asking for more than 5 titles before calling the AI ---
+    const requestedCount = extractRequestedCount(promptText);
+    if (requestedCount && requestedCount > 5) {
+      return res.status(400).json({
+        error: "Request exceeds limit",
+        message: `I can only generate up to 5 thesis title recommendations at a time. You asked for ${requestedCount} — please rephrase your request within that limit.`,
+      });
+    }
+
     const isEntrepCourse = /entrepreneurship/i.test(course);
- 
-    const { data: existingTheses, error: fetchError } = await supabase
+
+    const { data: thesisPool, error: fetchError } = await supabase
       .from("Thesis")
       .select("id, title, thesis_introduction, entrep_intro")
-      .ilike("course", `%${course}%`)
-      .limit(5);
- 
+      .ilike("course", `%${course}%`);
+
     if (fetchError) {
       return res.status(500).json({ message: "Failed to fetch existing theses", error: fetchError });
     }
+
+    const existingTheses = thesisPool
+      ? [...thesisPool].sort(() => Math.random() - 0.5).slice(0, 5)
+      : [];
 
     const { allowed, count } = await checkDailyLimit(user_id, "thesisRecommendation", DAILY_PROMPT_LIMIT);
 
@@ -137,9 +177,21 @@ export async function RecommendedAI(req: Request, res: Response) {
         remaining: 0,
       });
     }
- 
+
+    const { data: previousRecs } = await supabase
+      .from("thesisRecommendation")
+      .select("response")
+      .eq("user_id", user_id)
+      .eq("course", course)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    const previousTitles = (previousRecs || [])
+      .flatMap((r: any) => (Array.isArray(r.response) ? r.response.map((rec: any) => rec.title) : []))
+      .filter(Boolean);
+
     const hasExisting = existingTheses && existingTheses.length > 0;
- 
+
     const existingBlock = hasExisting
       ? existingTheses
           .map((t, i) => {
@@ -150,16 +202,25 @@ export async function RecommendedAI(req: Request, res: Response) {
           })
           .join("\n\n")
       : null;
- 
+
+    const avoidBlock = previousTitles.length
+      ? `
+      DO NOT repeat, lightly reword, or produce close variants of any of these titles
+      you already suggested to this user for this course:
+      ${previousTitles.map((t) => `- ${t}`).join("\n")}
+      Generate genuinely different titles, angles, or scopes than these.
+      `
+      : "";
+
     const prompt = `
       You are an academic advisor and research innovation expert.
- 
+
       ${
         hasExisting
           ? `
       EXISTING PUBLISHED THESES (from the database for course: ${course}):
       ${existingBlock}
- 
+
       YOUR TASK:
       - Use the existing thesis titles and introductions above as your BASE
       - EVOLVE each one: add new features, new research angles, updated scope, or modern methods
@@ -173,21 +234,22 @@ export async function RecommendedAI(req: Request, res: Response) {
       ONLY return thesis titles, summaries, new features, and tags — do NOT write literature reviews, abstracts, or any thesis content.
       `
       }
- 
+      ${avoidBlock}
+
       Course: ${course}
       ${chatPrompt ? `User Instruction (apply this to ALL suggestions): "${chatPrompt}"` : ""}
- 
+
       For each evolved thesis provide:
       - "original_title": the exact source thesis title from the database (or "New" if none existed)
       - "title": the new evolved thesis title
       - "summary": 2–3 sentence summary of the evolved thesis
       - "new_features": array of 2–3 short strings — what is NEW or added vs the original
       - "tags": 3 short keyword tags
- 
+
       IMPORTANT: Return EXACTLY 5 items in the "recommendations" array — no more, no fewer.
       If fewer than 5 existing theses were provided above, invent additional original entries
       (using "original_title": "New") to reach exactly 5 total.
- 
+
       Return ONLY a JSON object of the form { "recommendations": [ ... ] }, no markdown, no explanation:
       {
         "recommendations": [
@@ -201,10 +263,11 @@ export async function RecommendedAI(req: Request, res: Response) {
         ]
       }
     `;
- 
+
     const result = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
-      reasoning_effort: "none", // keeps cost predictable; bump to "low" if outputs feel shallow
+      reasoning_effort: "none",
+      temperature: 1.0,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -214,35 +277,33 @@ export async function RecommendedAI(req: Request, res: Response) {
         },
         {
           role: "user",
-          content: prompt,
+          content: `${prompt}\n\n(request_id: ${crypto.randomUUID()})`,
         },
       ],
     });
- 
+
     const rawText = result.choices[0].message.content || "";
- 
+
     let parsed;
     try {
       const cleaned = rawText.replace(/```json|```/g, "").trim();
       const jsonParsed = JSON.parse(cleaned);
-      // Normalize: accept either a raw array or { recommendations: [...] }
       const normalized = Array.isArray(jsonParsed) ? jsonParsed : jsonParsed.recommendations;
-      // Safety net: enforce exactly 5, even if the model over/under-generates
       parsed = Array.isArray(normalized) ? normalized.slice(0, 5) : normalized;
     } catch {
       return res.status(500).json({
         error: "AI returned invalid JSON. Please try again.",
       });
     }
- 
+
     const { error: insertError } = await supabase
       .from("thesisRecommendation")
       .insert([{ user_id, course, chatPrompt, response: parsed }]);
- 
+
     if (insertError) {
       return res.status(500).json({ message: "Failed to insert response", error: insertError });
     }
- 
+
     return res.status(200).json({
       recommendations: parsed,
       based_on_existing: hasExisting,
