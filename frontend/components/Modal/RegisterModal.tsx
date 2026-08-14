@@ -81,7 +81,6 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
     setLoading(false)
 
     if (result?.success) {
-      await fetchUsers(currentPage, 10)
       resetAndClose()
     } else {
       setError(result?.message || 'Failed to register student. Please try again.')
