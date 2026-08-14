@@ -219,7 +219,7 @@ export async function Logout(req: Request, res: Response) {
 
 export async function getUsers(req: Request, res: Response) {
   try {
-    const { page, limit } = req.query as { page: string; limit: string };
+    const { page, limit, search } = req.query as { page: string; limit: string; search?: string };
 
     if (!page || !limit) {
       return res.status(400).json({
@@ -228,19 +228,34 @@ export async function getUsers(req: Request, res: Response) {
       });
     }
 
-    const cacheKey = `users:page:${page}:limit:${limit}`;
+    const searchTerm = search?.trim() || '';
 
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return res.status(200).json({ success: true, users: cached }); 
+    // Only cache unfiltered pages — searches hit Supabase directly
+    const cacheKey = searchTerm
+      ? null
+      : `users:page:${page}:limit:${limit}`;
+
+    if (cacheKey) {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return res.status(200).json({ success: true, users: cached });
+      }
     }
 
     const from = (Number(page) - 1) * Number(limit);
     const to = from + Number(limit) - 1;
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from("Authentication")
-      .select("id, email, firstname, lastname, role, status, created_at", { count: "exact" })
+      .select("id, email, firstname, lastname, role, status, created_at", { count: "exact" });
+
+    if (searchTerm) {
+      query = query.or(
+        `firstname.ilike.%${searchTerm}%,lastname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,role.ilike.%${searchTerm}%`
+      );
+    }
+
+    const { data, error, count } = await query
       .order("created_at", { ascending: true })
       .range(from, to);
 
@@ -260,7 +275,9 @@ export async function getUsers(req: Request, res: Response) {
       totalPages: Math.ceil(count! / Number(limit)),
     };
 
-    await redis.set(cacheKey, responseData, { ex: 3600 });
+    if (cacheKey) {
+      await redis.set(cacheKey, responseData, { ex: 3600 });
+    }
 
     return res.status(200).json({
       success: true,

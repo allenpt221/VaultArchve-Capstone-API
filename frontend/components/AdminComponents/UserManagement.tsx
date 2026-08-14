@@ -33,20 +33,16 @@ function UserManagement() {
     users,
     currentPage,
     totalPages,
-    totalCount,
     loading,
     fetchUsers,
     deleteUser,
     disableUser
   } = userStore()
 
-
   const [search, setSearch] = useState('')
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-
-
 
   const handleDisable = (id: string) => {
     return disableUser(id);
@@ -56,12 +52,17 @@ function UserManagement() {
     return deleteUser(id);
   };
 
+  // Debounced fetch — fires on mount (empty search) and whenever search changes.
+  // Always resets to page 1 so a new search term never lands on a stale/out-of-range page.
   useEffect(() => {
-    fetchUsers(1, 10)
-  }, [])
+    const timeout = setTimeout(() => {
+      fetchUsers(1, 10, search)
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [search])
 
-  async function handlePageChange(page: number) {
-    fetchUsers(page, 10)
+  function handlePageChange(page: number) {
+    fetchUsers(page, 10, search) // carry current search term across pages
   }
 
   function handleSort(field: 'name' | 'email' | 'role') {
@@ -84,17 +85,8 @@ function UserManagement() {
     )
   }
 
-  const filteredUsers = users.filter((u) => {
-    const term = search.toLowerCase()
-    return (
-      u.email?.toLowerCase().includes(term) ||
-      u.firstname?.toLowerCase().includes(term) ||
-      u.lastname?.toLowerCase().includes(term) ||
-      u.role?.toLowerCase().includes(term)
-    )
-  })
-
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
+  // Search already happened server-side — sort just orders the current page's rows.
+  const sortedUsers = [...users].sort((a, b) => {
     if (!sortField) return 0
 
     let valA = ''

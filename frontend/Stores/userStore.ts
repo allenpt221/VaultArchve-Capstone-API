@@ -33,7 +33,7 @@ interface usersStateProps{
     currentPage: number;
     totalPages: number;
 
-    fetchUsers: (page: number, limit: number) => Promise<MutationResult>;
+    fetchUsers: (page: number, limit: number, search: string) => Promise<MutationResult>;
     addUser: (data: CreateUserProps) => Promise<MutationResult>;
     disableUser: (id: string) => Promise<MutationResult>;
     deleteUser: (id: string) => Promise<MutationResult>;
@@ -50,11 +50,11 @@ export const userStore = create<usersStateProps>((set, get) => ({
     currentPage: 1,
     totalPages: 1,
 
-  fetchUsers: async (page: number, limit: number): Promise<MutationResult> => {
+  fetchUsers: async (page: number, limit: number, search: string = ''): Promise<MutationResult> => {
     try {
       set({ loading: true, error: null });
 
-      const res = await axios.get('/auth/getuser', { params: { page, limit } });
+      const res = await axios.get('/auth/getuser', { params: { page, limit, search } });
 
       const { users, totalCount, currentPage, totalPages } = res.data.users;
 
@@ -70,6 +70,17 @@ export const userStore = create<usersStateProps>((set, get) => ({
 
     } catch (error: any) {
       set({ loading: false });
+
+      // 404 = no matches for this search/page, not a real failure — treat as empty state
+      if (error.response?.status === 404) {
+        set({
+          users: [],
+          totalCount: 0,
+          currentPage: 1,
+          totalPages: 0,
+        });
+        return { success: true };
+      }
 
       const data = error.response?.data;
       const message = data?.error || data?.message || 'Failed to fetch users.';
