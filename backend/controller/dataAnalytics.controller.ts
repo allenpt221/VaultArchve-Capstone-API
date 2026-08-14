@@ -60,18 +60,23 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
     try {
         const { thesis_id } = req.params;
         const filename = req.query.filename as string;
-        const ip = req.ip || req.headers["x-forwarded-for"] as string || "unknown";
+        const userId = req.user?.id; // set by your auth middleware — check the field name it actually uses
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
         if (!thesis_id || !filename) {
             return res.status(400).json({ message: "Thesis ID and filename are required" });
         }
 
-        const { success, remaining } = await downloadLimiter.limit(`download:${ip}:${thesis_id}`);
+        const { success, remaining, reset } = await downloadLimiter.limit(`download:${userId}`);
 
         if (!success) {
             return res.status(429).json({
                 message: "Too many downloads. Please try again later.",
                 remaining,
+                retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
             });
         }
 
@@ -109,7 +114,6 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
         res.status(500).json({ message: "Internal server error" });
     }
 }
-
 
 export async function getFilteredThesis(req: Request, res: Response) {
   try {

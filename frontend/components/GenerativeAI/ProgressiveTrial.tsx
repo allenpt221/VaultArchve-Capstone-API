@@ -5,6 +5,8 @@ import { Microscope, Check, Lock, ArrowRight } from 'lucide-react'
 import { TopicSelectionStage } from './Progressive-components/TopicSelection'
 import { LiteratureReviewStage } from './Progressive-components/LiteraturestageReview'
 import { MethodologyStage } from './Progressive-components/Methodology'
+import { DataCollectionStage } from './Progressive-components/DataCollection'
+import PaperReview from './Progressive-components/PaperReview'
 
 
 function ProgressiveTrial() {
@@ -12,7 +14,7 @@ function ProgressiveTrial() {
   const activeLabel = STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
   const previousLabel = STAGES[t.activeIndex - 1]?.label
   const stageLocked = t.isStageLocked(t.activeStage)
-
+  
   return (
     <div className="sm:px-4 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* ── Hero ── */}
@@ -61,13 +63,27 @@ function ProgressiveTrial() {
                 disabled={isLocked}
                 aria-disabled={isLocked}
                 title={isLocked ? `Complete ${STAGES[i - 1]?.label} first` : undefined}
-                className="flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 border transition-colors text-center disabled:cursor-not-allowed"
+                className="relative flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 border transition-colors text-center disabled:cursor-not-allowed"
                 style={{
                   background: isActive ? '#0B1C33' : '#FFFFFF',
                   borderColor: isActive ? '#0B1C33' : 'rgba(0,0,0,0.08)',
                   cursor: isLocked ? 'not-allowed' : 'pointer',
                 }}
               >
+                {/* ── Step number ── */}
+                <span
+                  className="absolute top-1.5 left-2 text-[10px] leading-none"
+                  style={{
+                    color: isActive
+                      ? '#FFFFFF'
+                      : isLocked
+                      ? '#C7C6C1'
+                      : '#000000',
+                  }}
+                >
+                  Step {i + 1}
+                </span>
+
                 <span className="relative">
                   <Icon className="w-4 h-4" style={{ color: isActive ? '#FFFFFF' : isLocked ? '#B0AFAA' : '#444441' }} />
                   {isDone && (
@@ -118,19 +134,12 @@ function ProgressiveTrial() {
             savedReviewsLoading={t.historyLoading}
             selectedReviewId={t.selectedReviewId}
             onSelectSavedReview={t.handleSelectSavedReview}
-            sources={t.sources}
-            sourceCitation={t.sourceCitation}
-            onSourceCitationChange={t.setSourceCitation}
-            sourceFinding={t.sourceFinding}
-            onSourceFindingChange={t.setSourceFinding}
-            sourceRelevance={t.sourceRelevance}
-            onSourceRelevanceChange={t.setSourceRelevance}
-            onAddSource={t.handleAddSource}
-            onRemoveSource={t.handleRemoveSource}
             onGenerateReview={t.handleGenerateReview}
             isLoading={t.isLiteratureLoading}
             errorMessage={t.message}
             review={t.displayedReview}
+            sourceCount={t.displayedReview?.sourceCount}
+            unverifiedDropped={t.displayedReview?.unverifiedDropped}
             onContinue={() => t.setActiveStage('methodology')}
           />
         ) : t.activeStage === 'methodology' ? (
@@ -145,7 +154,6 @@ function ProgressiveTrial() {
             onResearchQuestionInputChange={t.setResearchQuestionInput}
             onAddResearchQuestion={t.handleAddResearchQuestion}
             onRemoveResearchQuestion={t.handleRemoveResearchQuestion}
-            onDeleteMethodology={t.handleDeleteMethodology}
             context={t.methodologyContext}
             onContextChange={t.setMethodologyContext}
             onGenerateMethodology={t.handleGenerateMethodology}
@@ -155,24 +163,48 @@ function ProgressiveTrial() {
             onContinue={() => t.setActiveStage('collection')}
           />
         ) : t.activeStage === 'collection' ? (
-          // ── Research Question isn't wired up yet. Skipping marks it complete so
-          // Methodology (which sits right after it) doesn't stay locked forever. ──
-          <div className="rounded-xl border bg-white p-10 text-center space-y-3" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-            <Lock className="w-5 h-5 mx-auto text-muted-foreground" />
-            <p className="text-sm font-medium">{activeLabel} is coming soon.</p>
-            <p className="text-xs text-muted-foreground">This stage's AI guidance isn't wired up yet.</p>
-            <button
-              onClick={() => {
-                t.markComplete('collection')
-                t.setActiveStage('methodology')
-              }}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold mx-auto"
-              style={{ color: '#0B1C33' }}
-            >
-              Skip for now, continue to Methodology
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+           <DataCollectionStage
+              topic={t.topic}
+              approach={t.dataCollectionApproach}
+              onApproachChange={t.setDataCollectionApproach}
+              researchQuestions={t.researchQuestions}
+              researchQuestionInput={t.researchQuestionInput}
+              onResearchQuestionInputChange={t.setResearchQuestionInput}
+              onAddResearchQuestion={t.handleAddResearchQuestion}
+              onRemoveResearchQuestion={t.handleRemoveResearchQuestion}
+              gapStatement={t.gapStatement}
+              onGapStatementChange={t.setGapStatement}
+              rawFindings={t.rawFindings}
+              onRawFindingsChange={t.setRawFindings}
+              onGenerate={t.handleGenerateDataAnalysis}
+              isLoading={t.isDataAnalysisLoading}
+              errorMessage={t.message}
+              result={t.displayedDataAnalysis}
+              history={t.dataAnalysisHistory}
+              historyLoading={t.dataAnalysesLoading}
+              historyTotal={t.dataAnalysesTotal}
+              hasMore={t.hasMoreDataAnalyses}
+              onLoadMore={t.handleLoadMoreDataAnalyses}
+              selectedId={t.selectedDataAnalysisId}
+              onSelectSaved={t.handleSelectSavedDataAnalysis}
+              onContinue={() => t.setActiveStage('paper-review')}
+            />
+        ) : t.activeStage === 'paper-review' ? (
+          <PaperReview
+            topic={t.topic}
+            paperFile={t.paperFile}
+            setPaperFile={t.setPaperFile}
+            handleUploadPaperReview={t.handleUploadPaperReview}
+            isPaperReviewLoading={t.isPaperReviewLoading}
+            fullPaperReviewHistory={t.fullPaperReviewHistory}
+            fullPaperReviewHistoryLoading={t.fullPaperReviewHistoryLoading}
+            hasMorePaperReviews={t.hasMorePaperReviews}
+            handleLoadMorePaperReviews={t.handleLoadMorePaperReviews}
+            selectedPaperReviewId={t.selectedPaperReviewId}
+            handleSelectSavedPaperReview={t.handleSelectSavedPaperReview}
+            displayedPaperReview={t.displayedPaperReview}
+            message={t.message}
+          />
         ) : (
           // ── Placeholder for remaining stages not yet wired up (Writing, Review) ──
           <div className="rounded-xl border bg-white p-10 text-center space-y-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>

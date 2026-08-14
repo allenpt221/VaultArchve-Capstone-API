@@ -4,11 +4,11 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
-import heroBg from "@/assets/bghero.png";
+import heroBg from "@/assets/bghero.webp";
 import Image from "next/image";
 import { repoStores } from "@/Stores/repoStores";
 import ThesisCard from "@/components/ThesisCard";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from '@/lib/axios';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 

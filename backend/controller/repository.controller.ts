@@ -3,17 +3,6 @@ import { supabase } from "../supabase/supa-client";
 import redis from "../lib/ioredis";
 import { invalidateCacheByPrefix } from "../lib/cache";
 
-interface ThesisProps {
-    title: string;
-    author: string;
-    course: string;
-    issueDate: Date;
-    abstract: string;
-    introduction: string;
-    discussion: string;
-    references: string;
-    conclusion: string;
-}
 
 export async function SumbitThesis(req: Request, res: Response) {
     try {

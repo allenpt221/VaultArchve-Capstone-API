@@ -6,14 +6,14 @@ import {
   PenLine,
   ClipboardCheck,
 } from 'lucide-react'
-import type { MethodologyApproach, TopicGuidance } from './types'
+import type { MethodologyApproach, TopicGuidance, ConsistencyResult } from './types'
 
 export const STAGES = [
   { key: 'topic', label: 'Topic Selection', icon: Lightbulb },
   { key: 'literature', label: 'Literature Review', icon: BookOpen },
   { key: 'methodology', label: 'Methodology', icon: FlaskConical },
   { key: 'collection', label: 'Data Collection & Analysis', icon: HelpCircle },
-  { key: 'writing', label: 'Writing', icon: PenLine },
+  { key: 'paper-review', label: 'Review & Check', icon: PenLine },
   { key: 'review', label: 'Review & Submit', icon: ClipboardCheck },
 ] as const
 
@@ -42,3 +42,11 @@ export const MIN_RESEARCH_QUESTIONS = 1
 export const MAX_RESEARCH_QUESTIONS = 6
 
 
+export const MAX_PDF_SIZE_MB = 15
+
+export const CONSISTENCY_STYLES: Record<ConsistencyResult, { label: string; bg: string; color: string }> = {
+  Pass: { label: 'Pass', bg: '#EAF3DE', color: '#27500A' },
+  Partial: { label: 'Partial', bg: '#FAEEDA', color: '#633806' },
+  Mismatch: { label: 'Mismatch', bg: '#FBEAEA', color: '#7A2020' },
+  'Not Found': { label: 'Not Found', bg: '#EDEDED', color: '#4A4A4A' },
+}

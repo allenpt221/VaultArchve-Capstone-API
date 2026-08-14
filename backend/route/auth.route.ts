@@ -1,7 +1,6 @@
 import express from 'express';
-import { deleteUser, forgotPassword, getProfile, getUsers, Login, Logout, resetPassword, Signup, toggleStudentStatus } from '../controller/auth.controller';
+import { ChangePassword, deleteUser, forgotPassword, getProfile, getUsers, Login, Logout, resetPassword, Signup, toggleStudentStatus } from '../controller/auth.controller';
 import { adminOnly, verifyToken } from '../middleware/middware';
-import { loginLimiter } from '../lib/ratelimit';
 
 
 const route = express.Router();
@@ -13,7 +12,7 @@ route.post('/logout', verifyToken, Logout);
 route.get('/profile', verifyToken, getProfile);
 route.post('/forgot-password', forgotPassword);
 route.post('/reset-password', resetPassword);
-
+route.post("/change-password", verifyToken, ChangePassword);
 
 route.delete('/delete/:id', verifyToken, adminOnly, deleteUser);
 route.put('/disable/:id', verifyToken, adminOnly, toggleStudentStatus);

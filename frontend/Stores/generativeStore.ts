@@ -1,3 +1,4 @@
+import { DataAnalysisResponse, DataAnalysisResult, MethodologyApproach, SavedDataAnalysis, FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types';
 import axios from '@/lib/axios';
 import { create } from 'zustand';
 
@@ -42,15 +43,8 @@ interface TopicSelectionProps{
   context?: string;
 }
 
-interface LiteratureSourceProps {
-  citation: string;
-  key_finding: string;
-  relevance_to_gap: string;
-}
-
 interface LiteratureReviewProps {
   topic: string;
-  sources: LiteratureSourceProps[];
 }
 
 interface MethodologyProps {
@@ -67,18 +61,21 @@ interface TopicGuidance {
   nextSteps: string[];
 }
 
-interface RecommendedSearch {
-  theme: string;
-  searchQuery: string;
-  why: string;
-}
+export type AnnotatedBibliographyEntry = {
+  citation: string;
+  url: string;
+  annotation: string;
+  sourceType: string;
+  title: string
+  authors: string
+  year: string;
+  container: string;
+};
 
 interface LiteratureReviewResult {
-  themeGroups: Record<string, string[]>;
-  gapStatement: string;
-  annotatedBibliography: { citation: string; annotation: string }[];
-  synthesisParagraph: string;
-  recommendedSearches: RecommendedSearch[];
+  annotatedBibliography: AnnotatedBibliographyEntry[];
+  sourceCount: number;
+  unverifiedDropped: number;
 }
 
 interface MethodologyPopulation {
@@ -115,16 +112,17 @@ interface MethodologyResult {
   limitations: string[];
 }
 
+
+
 interface SavedLiteratureReview {
   id: string;
   user_id: string;
   topic: string;
-  sources: LiteratureSourceProps[];
   gap_statement: string;
   theme_groups: Record<string, string[]>;
-  annotated_bibliography: { citation: string; annotation: string }[];
+  annotated_bibliography: AnnotatedBibliographyEntry[];
   synthesis_paragraph: string;
-  recommended_searches: RecommendedSearch[];
+  unverifiedDropped: number;
   created_at: string;
 }
 
@@ -167,7 +165,37 @@ interface generativeAiProps {
   GetTopicSelections: (params?: { limit?: number; offset?: number }) => Promise<void>;
   GetMethodologies: (params?: { limit?: number; offset?: number }) => Promise<void>;
   DeleteTopicSelection: (id: string) => Promise<void>;
-  DeleteMethodology: (id: string) => Promise<void>;
+  dataAnalysis: DataAnalysisResult | null
+  dataAnalysisHistory: SavedDataAnalysis[]
+  dataAnalysesTotal: number
+  dataAnalysesLimit: number
+  dataAnalysesOffset: number
+  dataAnalysesLoading: boolean
+
+  DataAnalysisAI: (params: {
+    topic: string
+    approach: MethodologyApproach
+    researchQuestions: string[]
+    gapStatement?: string
+    rawFindings: string
+  }) => Promise<void>
+  GetDataAnalyses: (opts?: { limit?: number; offset?: number }) => Promise<void>
+
+  // Full Paper Review
+  fullPaperReview: FullPaperReviewResult | null
+  fullPaperReviewHistory: SavedFullPaperReview[]
+  fullPaperReviewsTotal: number
+  fullPaperReviewsLimit: number
+  fullPaperReviewsOffset: number
+  fullPaperReviewLoading: boolean
+  fullPaperReviewHistoryLoading: boolean
+  // `topic` is now sent alongside the file/manual sections so the saved
+  // review can be matched back to the current topic later, the same way
+  // Topic Selection / Literature Review / Methodology / Data Collection
+  // records are matched.
+  FullPaperReviewAI: (file: File | null, manualSections?: Record<string, string>, topic?: string) => Promise<void>
+  GetFullPaperReviews: (opts?: { limit?: number; offset?: number }) => Promise<void>
+
   result: any[];
   topicGuidance: TopicGuidance | null;
   literatureReview: LiteratureReviewResult | null;
@@ -195,9 +223,25 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     historyLoading: false,
     topicHistoryLoading: false,
     methodologyHistoryLoading: false,
+    dataAnalysis: null,
+    dataAnalysisHistory: [],
+    dataAnalysesTotal: 0,
+    dataAnalysesLimit: 20,
+    dataAnalysesOffset: 0,
+    dataAnalysesLoading: false,
+
+    fullPaperReview: null,
+    fullPaperReviewHistory: [],
+    fullPaperReviewsTotal: 0,
+    fullPaperReviewsLimit: 20,
+    fullPaperReviewsOffset: 0,
+    fullPaperReviewLoading: false,
+    fullPaperReviewHistoryLoading: false,
+
     loading: false,
     message: "",
 
+  // POST METHOD
   RecommendedAI: async ({ chatPrompt, course }: RecommendedProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
@@ -243,7 +287,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
       set({ message: error.message || "An unexpected error occurred." });
     }
   },
-
+  // POST METHOD
   TopicSelectionAI: async ({ topic, context }: TopicSelectionProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
@@ -290,17 +334,21 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
-  LiteratureReviewAI: async ({ topic, sources }: LiteratureReviewProps): Promise<void> => {
+  // POST METHOD
+  LiteratureReviewAI: async ({ topic }: LiteratureReviewProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
 
       const res = await axios.post('/ai/literature-review', {
         topic,
-        sources,
       });
 
       set({
-        literatureReview: res.data,
+        literatureReview: {
+          annotatedBibliography: res.data.annotatedBibliography,
+          sourceCount: res.data.sourceCount,
+          unverifiedDropped: res.data.unverifiedDropped,
+        },
         loading: false,
         message: "Literature review generated successfully!",
       });
@@ -321,6 +369,11 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
         return;
       }
 
+      if (status === 404) {
+        set({ message: data?.message || "Couldn't find enough sources for this topic. Try broadening or rephrasing it." });
+        return;
+      }
+
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
         return;
@@ -336,6 +389,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // POST METHOD
   MethodologyAI: async ({ topic, researchQuestions, context }: MethodologyProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
@@ -383,6 +437,162 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // POST METHOD
+  DataAnalysisAI: async (params) => {
+  set({ loading: true, message: null })
+    try {
+      const res = await axios.post('/ai/data-analysis', params)
+      set({ dataAnalysis: res.data.dataAnalysis })
+    } catch (error: any) {
+      console.log(error)
+      set({
+        message:
+          error?.response?.data?.message ||
+          'Could not generate the data analysis. Please try again.',
+      })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  // GET METHOD
+  GetDataAnalyses: async (opts) => {
+    set({ dataAnalysesLoading: true })
+    try {
+      const limit = opts?.limit ?? get().dataAnalysesLimit ?? 20
+      const offset = opts?.offset ?? 0
+      const res = await axios.get('/ai/data-analysis', { params: { limit, offset } })
+      set({
+        dataAnalysisHistory:
+          offset === 0
+            ? res.data.dataAnalyses
+            : [...get().dataAnalysisHistory, ...res.data.dataAnalyses],
+        dataAnalysesTotal: res.data.total,
+        dataAnalysesLimit: res.data.limit,
+        dataAnalysesOffset: res.data.offset,
+      })
+    } catch (error: any) {
+      console.log(error)
+    } finally {
+      set({ dataAnalysesLoading: false })
+    }
+  },
+
+  // POST METHOD (multipart) — Full Paper Review
+  FullPaperReviewAI: async (file: File | null, manualSections?: Record<string, string>, topic?: string): Promise<void> => {
+    set({ fullPaperReviewLoading: true, message: "" });
+    try {
+     const formData = new FormData()
+      if (file) {
+        formData.append('paper', file)
+      }
+      if (manualSections) {
+        Object.entries(manualSections).forEach(([key, value]) => {
+          formData.append(key, value)
+        })
+      }
+      // Sent so the backend can persist/associate this review with the
+      // current topic — needed for auto-matching it back on later visits,
+      // the same way Topic Selection / Literature Review / Methodology /
+      // Data Collection records are matched.
+      if (topic) {
+        formData.append('topic', topic)
+      }
+
+
+      const res = await axios.post('/ai/paper-reviews', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      set({
+        fullPaperReview: {
+          reviewId: res.data.reviewId,
+          fileName: res.data.fileName,
+          chapterDetection: res.data.chapterDetection,
+          consistencyCheck: res.data.consistencyCheck,
+          citationAudit: res.data.citationAudit,
+          structuralCompliance: res.data.structuralCompliance,
+          overallReadiness: res.data.overallReadiness,
+        },
+        fullPaperReviewLoading: false,
+        message: "Paper review generated successfully!",
+      });
+
+    } catch (error: any) {
+      set({ fullPaperReviewLoading: false });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 400) {
+        set({ message: data?.message || "Invalid request. Please check your file." });
+        return;
+      }
+
+      if (status === 429) {
+        set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
+        return;
+      }
+
+      console.error("Full Paper Review Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+
+  // GET METHOD
+  GetFullPaperReviews: async (opts): Promise<void> => {
+    set({ fullPaperReviewHistoryLoading: true, message: "" });
+    try {
+      const limit = opts?.limit ?? get().fullPaperReviewsLimit ?? 20;
+      const offset = opts?.offset ?? 0;
+
+      const res = await axios.get('/ai/paper-reviews', {
+        params: { limit, offset },
+      });
+
+      set({
+        fullPaperReviewHistory:
+          offset === 0
+            ? res.data.reviews
+            : [...get().fullPaperReviewHistory, ...res.data.reviews],
+        fullPaperReviewsTotal: res.data.total,
+        fullPaperReviewsLimit: res.data.limit,
+        fullPaperReviewsOffset: res.data.offset,
+        fullPaperReviewHistoryLoading: false,
+      });
+
+    } catch (error: any) {
+      set({ fullPaperReviewHistoryLoading: false });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Could not load your paper reviews." });
+        return;
+      }
+
+      console.error("Get Full Paper Reviews Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+
+  // GET METHOD
   GetLiteratureReviews: async (params): Promise<void> => {
     try {
       set({ historyLoading: true, message: "" });
@@ -420,6 +630,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // GET METHOD
   GetTopicSelections: async (params): Promise<void> => {
     try {
       set({ topicHistoryLoading: true, message: "" });
@@ -457,6 +668,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // GET METHOD
   GetMethodologies: async (params): Promise<void> => {
     try {
       set({ methodologyHistoryLoading: true, message: "" });
@@ -494,6 +706,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // DELETE METHOD
   DeleteTopicSelection: async (id: string): Promise<void> => {
     const previous = get().topicSelectionHistory;
     set({
@@ -529,6 +742,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     }
   },
 
+  // DELETE METHOD
   DeleteMethodology: async (id: string): Promise<void> => {
     const previous = get().methodologyHistory;
     set({

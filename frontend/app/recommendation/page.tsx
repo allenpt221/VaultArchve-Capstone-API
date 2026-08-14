@@ -3,12 +3,22 @@ import ProgressiveTrial from '@/components/GenerativeAI/ProgressiveTrial'
 import AIrecommendation from '@/components/GenerativeAI/RecommendationAI'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Bot } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+const ASSISTANT_STORAGE_KEY = 'thesisAssistant:selectedAssistant'
 
 function page() {
 
-  const AssistantAI = ['Title recommendation', 'Progressive Trial']
-  const [selectedAssistant, setSelectedAssistant] = useState('Title recommendation')
+  const AssistantAI = ['Title recommendation', 'Progressive Trail']
+  const [selectedAssistant, setSelectedAssistant] = useState(() => {
+    if (typeof window === 'undefined') return 'Title recommendation'
+    const saved = localStorage.getItem(ASSISTANT_STORAGE_KEY)
+    return saved && AssistantAI.includes(saved) ? saved : 'Title recommendation'
+  })
+
+  useEffect(() => {
+    localStorage.setItem(ASSISTANT_STORAGE_KEY, selectedAssistant)
+  }, [selectedAssistant])
 
   return (
     <div className='sm:h-[89vh] w-full flex flex-col bg-background px-3'>
@@ -37,7 +47,7 @@ function page() {
 
 
       {selectedAssistant === "Title recommendation" && <AIrecommendation />}
-      {selectedAssistant === "Progressive Trial" && <ProgressiveTrial />}
+      {selectedAssistant === "Progressive Trail" && <ProgressiveTrial />}
 
 
 

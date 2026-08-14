@@ -1,7 +1,6 @@
 'use client'
-import { MIN_SOURCES, THEME_SWATCHES } from '@/hooks/constants';
-import { LiteratureReviewResult, LiteratureSource } from '@/hooks/types';
-import { BookOpen, Sparkles, Loader2, History, Clock, Plus, X, Search, ArrowRight } from 'lucide-react'
+import { LiteratureReviewResult } from '@/hooks/types';
+import { BookOpen, Sparkles, Loader2, History, Clock, X, ArrowRight, ExternalLink, FileText } from 'lucide-react'
 
 type SavedReview = { id: string; topic: string; created_at: string }
 
@@ -13,22 +12,27 @@ type Props = {
   selectedReviewId: string | null
   onSelectSavedReview: (id: string) => void
 
-  sources: LiteratureSource[]
-  sourceCitation: string
-  onSourceCitationChange: (v: string) => void
-  sourceFinding: string
-  onSourceFindingChange: (v: string) => void
-  sourceRelevance: string
-  onSourceRelevanceChange: (v: string) => void
-  onAddSource: () => void
-  onRemoveSource: (index: number) => void
-
   onGenerateReview: () => void
   isLoading: boolean
   errorMessage: string | null
 
   review: LiteratureReviewResult | null
+  sourceCount?: number
+  unverifiedDropped?: number
   onContinue: () => void
+}
+
+// Small color accents per source type so the badges are easy to scan at a glance.
+const SOURCE_TYPE_STYLES: Record<string, { bg: string; color: string }> = {
+  'Journal Article': { bg: '#E7F0FA', color: '#1D5490' },
+  'Conference Paper': { bg: '#EFE9FA', color: '#5B3A9E' },
+  Thesis: { bg: '#E8F5EC', color: '#1F7A3D' },
+  Report: { bg: '#FDECEA', color: '#B23A2E' },
+  'Web Source': { bg: '#F1F1F1', color: '#555555' },
+}
+
+function sourceTypeStyle(type?: string) {
+  return SOURCE_TYPE_STYLES[type ?? ''] ?? SOURCE_TYPE_STYLES['Web Source']
 }
 
 export function LiteratureReviewStage({
@@ -37,19 +41,12 @@ export function LiteratureReviewStage({
   savedReviewsLoading,
   selectedReviewId,
   onSelectSavedReview,
-  sources,
-  sourceCitation,
-  onSourceCitationChange,
-  sourceFinding,
-  onSourceFindingChange,
-  sourceRelevance,
-  onSourceRelevanceChange,
-  onAddSource,
-  onRemoveSource,
   onGenerateReview,
   isLoading,
   errorMessage,
   review,
+  sourceCount,
+  unverifiedDropped,
   onContinue,
 }: Props) {
   return (
@@ -61,67 +58,11 @@ export function LiteratureReviewStage({
         <div>
           <h2 className="font-semibold text-lg leading-tight">Literature Review</h2>
           <p className="text-xs text-muted-foreground">
-            Log your sources, then let AI find the gap and synthesize them.
+            AI searches the web for real sources on your topic and builds an annotated bibliography.
           </p>
         </div>
       </div>
 
-      {/* ── Saved reviews ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <History className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your saved reviews</p>
-        </div>
-
-        {savedReviewsLoading ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading your saved reviews...
-          </div>
-        ) : savedReviews.length > 0 ? (
-          <div className="grid sm:grid-cols-2 gap-2">
-            {savedReviews.map((r) => {
-              const isSelected = r.id === selectedReviewId
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => onSelectSavedReview(r.id)}
-                  className="overflow-hidden relative text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50 group"
-                  style={{
-                    borderColor: isSelected ? '#BA7517' : 'rgba(0,0,0,0.08)',
-                    background: isSelected ? '#FAEEDA' : '#FFFFFF',
-                  }}
-                  title={r.topic}
-                >
-                  <span
-                    // onClick={(e) => onDeleteMethodology(m.id)}
-                    role="button"
-                    aria-label="Delete saved topic"
-                    className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </span>
-                  <p className="text-sm font-medium truncate">{r.topic}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(r.created_at).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground py-1">
-            No saved reviews yet — generate one below and it'll show up here.
-          </p>
-        )}
-      </div>
 
       {topic && (
         <div className="rounded-lg px-3.5 py-2.5" style={{ background: 'rgba(11,28,51,0.04)' }}>
@@ -134,88 +75,6 @@ export function LiteratureReviewStage({
         </div>
       )}
 
-      {/* ── Add source form ── */}
-      <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: 'rgba(0,0,0,0.1)', background: 'rgba(11,28,51,0.02)' }}>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Log a source</p>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Citation</label>
-          <input
-            type="text"
-            value={sourceCitation}
-            onChange={(e) => onSourceCitationChange(e.target.value)}
-            placeholder="Author, A. (Year). Title. Journal, Vol(Issue), pages."
-            className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white"
-            style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Key finding</label>
-          <textarea
-            value={sourceFinding}
-            onChange={(e) => onSourceFindingChange(e.target.value)}
-            placeholder="What did this source find?"
-            rows={2}
-            className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white resize-none"
-            style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Relevance to your gap</label>
-          <textarea
-            value={sourceRelevance}
-            onChange={(e) => onSourceRelevanceChange(e.target.value)}
-            placeholder="How does this connect to (or fail to cover) what your study is about?"
-            rows={2}
-            className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white resize-none"
-            style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-          />
-        </div>
-
-        <button
-          onClick={onAddSource}
-          disabled={!sourceCitation.trim() || !sourceFinding.trim() || !sourceRelevance.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: '#0B1C33', color: '#FFFFFF' }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add source
-        </button>
-      </div>
-
-      {/* ── Logged sources ── */}
-      {sources.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Logged sources ({sources.length})
-          </p>
-          <div className="space-y-2">
-            {sources.map((s, i) => (
-              <div
-                key={i}
-                className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5"
-                style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{s.citation}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{s.key_finding}</p>
-                </div>
-                <button onClick={() => onRemoveSource(i)} className="shrink-0 text-muted-foreground hover:text-red-600 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          {sources.length < MIN_SOURCES && (
-            <p className="text-xs" style={{ color: '#633806' }}>
-              Log {MIN_SOURCES - sources.length} more source{MIN_SOURCES - sources.length === 1 ? '' : 's'} to generate your review.
-            </p>
-          )}
-        </div>
-      )}
-
       {errorMessage && !review && (
         <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
           {errorMessage}
@@ -224,14 +83,14 @@ export function LiteratureReviewStage({
 
       <button
         onClick={onGenerateReview}
-        disabled={sources.length < MIN_SOURCES || isLoading}
+        disabled={!topic.trim() || isLoading}
         className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Synthesizing...
+            Searching the web &amp; synthesizing...
           </>
         ) : (
           <>
@@ -251,86 +110,95 @@ export function LiteratureReviewStage({
             </div>
           )}
 
-          <div className="rounded-lg px-3.5 py-3" style={{ background: '#FAEEDA' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-              Research gap
-            </p>
-            <p className="text-sm leading-relaxed" style={{ color: '#1A1A1A' }}>
-              {review.gapStatement}
-            </p>
-          </div>
-
-          {Object.keys(review.themeGroups || {}).length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Synthesis matrix</p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {Object.entries(review.themeGroups).map(([theme, citations], i) => (
-                  <div key={theme} className="rounded-lg border p-3 space-y-1.5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-                    <p className="text-xs font-semibold" style={{ color: THEME_SWATCHES[i % THEME_SWATCHES.length] }}>
-                      {theme}
-                    </p>
-                    <ul className="space-y-1">
-                      {citations.map((c, j) => (
-                        <li key={j} className="text-xs text-muted-foreground leading-snug">
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+          {typeof sourceCount === 'number' && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>
+                Found and verified {sourceCount} real source{sourceCount === 1 ? '' : 's'} via web search.
+              </span>
+              {!!unverifiedDropped && (
+                <span className="inline-flex items-center gap-1" style={{ color: '#BA7517' }}>
+                  {unverifiedDropped} unverifiable {unverifiedDropped === 1 ? 'entry' : 'entries'} dropped
+                </span>
+              )}
             </div>
           )}
-
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Synthesis</p>
-            <p className="text-sm leading-relaxed">{review.synthesisParagraph}</p>
-          </div>
 
           {review.annotatedBibliography?.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Annotated bibliography</p>
-              <ul className="space-y-3">
-                {review.annotatedBibliography.map((b, i) => (
-                  <li key={i} className="text-sm">
-                    <p className="font-medium">{b.citation}</p>
-                    <p className="text-muted-foreground leading-relaxed">{b.annotation}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Annotated Bibliography
+                </p>
+                <span
+                  className="text-xs font-semibold rounded-full px-2 py-0.5"
+                  style={{ background: '#FAEEDA', color: '#BA7517' }}
+                >
+                  {review.annotatedBibliography.length} source{review.annotatedBibliography.length === 1 ? '' : 's'}
+                </span>
+              </div>
 
-          {review.recommendedSearches?.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recommended searches</p>
-              <div className="space-y-2">
-                {review.recommendedSearches.map((r, i) => {
-                  const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(r.searchQuery)}`
-                  const color = THEME_SWATCHES[i % THEME_SWATCHES.length]
+              <ul className="space-y-3">
+                {review.annotatedBibliography.map((b, i) => {
+                  const badge = sourceTypeStyle(b.sourceType)
+                  // Fallback for any not-yet-migrated rows that still only have `citation`.
+                  const headline = b.title ?? b.citation
+                  const byline = [b.authors, b.year, b.container].filter(Boolean).join(' · ')
+
                   return (
-                    <div key={i} className="rounded-lg border px-3 py-2.5 space-y-1.5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-                      <div className="flex items-center gap-1.5">
-                        <Search className="w-3 h-3 shrink-0" style={{ color }} />
-                        <span className="text-xs font-semibold" style={{ color }}>
-                          {r.theme}
-                        </span>
+                    <li
+                      key={i}
+                      className="rounded-xl border overflow-hidden transition-shadow hover:shadow-sm"
+                      style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                    >
+                      <div className="flex items-start gap-3 px-4 pt-4">
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
+                          style={{ background: '#0B1C33', color: '#F5B841' }}
+                        >
+                          {i + 1}
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {b.sourceType && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5"
+                                style={{ background: badge.bg, color: badge.color }}
+                              >
+                                <FileText className="w-2.5 h-2.5" />
+                                {b.sourceType}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-sm font-semibold leading-snug" style={{ color: '#0B1C33' }}>
+                            {headline}
+                          </p>
+
+                          {byline && <p className="text-xs text-muted-foreground">{byline}</p>}
+                        </div>
+
+                        {b.url && (
+                          <a
+                            href={b.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-md px-2 py-1 transition-colors hover:bg-amber-50"
+                            style={{ color: '#BA7517' }}
+                            title="Open source"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
                       </div>
-                      <a
-                        href={scholarUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between gap-2 text-sm font-mono bg-muted/40 hover:bg-muted/70 rounded px-2 py-1.5 leading-snug break-words transition-colors group"
-                        style={{ color: '#0B1C33' }}
-                      >
-                        <span className="underline decoration-dotted underline-offset-2">{r.searchQuery}</span>
-                        <ArrowRight className="w-3.5 h-3.5 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{r.why}</p>
-                    </div>
+
+                      <div className="px-4 pb-4 pt-2 ml-9">
+                        <p className="text-sm leading-relaxed text-muted-foreground">{b.annotation}</p>
+                      </div>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             </div>
           )}
 

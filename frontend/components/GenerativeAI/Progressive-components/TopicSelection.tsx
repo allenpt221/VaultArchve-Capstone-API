@@ -235,7 +235,7 @@ export function TopicSelectionStage({
             </div>
           )}
 
-          <button onClick={onContinue} className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#0B1C33' }}>
+          <button onClick={onContinue} className=" cursor-pointer hover:text-[#003887] text-[#0B1C33] inline-flex items-center gap-1.5 text-sm font-semibold">
             Continue to Literature Review
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

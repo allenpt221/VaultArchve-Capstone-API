@@ -67,34 +67,35 @@ export function ForgotForm({
                   Enter your Gmail address and we&apos;ll send you a link to reset your password
                 </p>
               </div>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={forgotPasswordLoading}
-                  pattern="[a-zA-Z0-9._%+-]+@gmail\.com$"
-                  title="Please enter a valid Gmail address"
-                  required
-                />
-              </Field>
 
-              {feedback && (
-                <p
-                  className={cn(
-                    "text-sm text-center",
-                    feedback.type === "success"
-                      ? "text-green-600"
-                      : "text-red-600"
-                  )}
-                >
-                  {feedback.message}
-                </p>
-              )}
-
+              <div className="space-y-1">
+                <Field>
+                  <FieldLabel htmlFor="email">Email</FieldLabel>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={forgotPasswordLoading}
+                    pattern="[a-zA-Z0-9._%+-]+@gmail\.com$"
+                    title="Please enter a valid Gmail address"
+                    required
+                  />
+                </Field>
+                {feedback && (
+                  <p
+                    className={cn(
+                      "text-xs text-center",
+                      feedback.type === "success"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    )}
+                  >
+                    {feedback.message}
+                  </p>
+                )}
+              </div>
               <Field>
                 <Button
                   type="submit"

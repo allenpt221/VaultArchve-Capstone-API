@@ -5,9 +5,10 @@ import { Request, Response } from 'express';
 import redis from '../lib/ioredis';
 import { v4 as uuidv4 } from 'uuid';
 
-import { loginLimiter } from '../lib/ratelimit';
+import { loginIpLimiter, loginLimiter } from '../lib/ratelimit';
 import { sendResetPasswordEmail } from '../lib/resetPassword';
 import { invalidateCacheByPrefix } from '../lib/cache';
+import { sendWelcomeEmail } from '../lib/registedEmail';
 
 
 
@@ -78,6 +79,15 @@ export async function Signup(req: Request, res: Response) {
         // invalidate cached user pages so the new user shows up immediately
         await invalidateCacheByPrefix("users:page");
 
+
+        sendWelcomeEmail(
+            insertedUser.email,
+            `${insertedUser.firstname} ${insertedUser.lastname}`,
+            password  // the original plaintext, still in scope from req.body
+          ).catch((emailError) => {
+            console.error("Welcome email failed to send:", emailError);
+          });
+
         res.status(201).json({
               message: 'User created successfully',
               user: insertedUser 
@@ -90,95 +100,99 @@ export async function Signup(req: Request, res: Response) {
     }
 }
 
-export async function Login(req: Request, res: Response){
-    try {
-        const { email, password }: User = req.body;
+export async function Login(req: Request, res: Response) {
+  try {
+    const { email, password }: User = req.body;
 
-        const ip = req.ip || req.headers["x-forwarded-for"] as string;
-
-
-        const { success, reset } = await loginLimiter.limit(ip);
-
-        if (!success) {
-          return res.status(429).json({
-            success: false,
-            message: "You have been timed out. Please try again later.",
-            retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
-          });
-        }
-
-        const normalizedEmail = email.trim().toLowerCase();
-
-        const {data: user, error } = await supabase
-        .from("Authentication")
-        .select("*")
-        .eq("email", normalizedEmail)
-        .single();
-
-        if(password.length < 8){
-          res.status(401).json({ message: "Password must be at least 8 characters.", success: false});
-          return
-        }
-
-        if(error || !user){
-            console.log("Invalid credentials");
-            res.status(401).json({ message: 'Invalid credentials', success: false });
-            return;
-        }
-
-
-        const passwordMatch = await bcrypt.compare(password, user.password);
-
-        if(!passwordMatch){
-            console.log("Invalid credentials");
-            return res.status(401).json({ message: "Invalid credentials", success: false})
-        }
-
-
-        const accessToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, status: user.status },
-            process.env.JWT_SECRET as string,
-            { expiresIn: "1h" }
-        );
-
-
-        const refreshToken = jwt.sign(
-            { id: user.id, email: user.email, role: user.role, status: user.status },
-            process.env.JWT_REFRESH_SECRET as string,
-            { expiresIn: "7d" }
-        );
-
-        res.cookie("accessToken", accessToken, {
-        httpOnly: true,       
-        secure: process.env.NODE_ENV === 'production',        
-        sameSite: "strict",
-        maxAge: 60 * 60 * 1000
-        });
-
-        res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,       
-        secure: process.env.NODE_ENV === 'production',        
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-
-        res.status(200).json({
-        message: "Login successful",
-        success: true,
-        user: {
-            email: user.email,
-            firstname: user.firstname,
-            lastname: user.lastname,
-            role: user.role,
-            status: user.status
-        }
-        });
-
-    } catch (error:any) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: 'Internal server error'})
-        return
+    if (!email || !password) {
+      res.status(400).json({ message: "Email and password are required.", success: false });
+      return;
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const ip = req.ip || (req.headers["x-forwarded-for"] as string) || "unknown";
+
+    // Per-account limit (strict) + per-IP backstop (loose), checked together
+    const [emailLimit, ipLimit] = await Promise.all([
+      loginLimiter.limit(normalizedEmail),
+      loginIpLimiter.limit(ip),
+    ]);
+
+    if (!emailLimit.success || !ipLimit.success) {
+      const reset = Math.max(emailLimit.reset, ipLimit.reset);
+      return res.status(429).json({
+        success: false,
+        message: "Too many login attempts. Please try again later.",
+        retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
+      });
+    }
+
+    if (password.length < 8) {
+      res.status(401).json({ message: "Password must be at least 8 characters.", success: false });
+      return;
+    }
+
+    const { data: user, error } = await supabase
+      .from("Authentication")
+      .select("*")
+      .eq("email", normalizedEmail)
+      .single();
+
+    if (error || !user) {
+      console.log("Invalid credentials");
+      res.status(401).json({ message: "Invalid credentials", success: false });
+      return;
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      console.log("Invalid credentials");
+      return res.status(401).json({ message: "Invalid credentials", success: false });
+    }
+
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, status: user.status },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1h" }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, status: user.status },
+      process.env.JWT_REFRESH_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      success: true,
+      user: {
+        email: user.email,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        role: user.role,
+        status: user.status,
+      },
+    });
+  } catch (error: any) {
+    console.error("Server error:", error);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
 }
 
 export async function Logout(req: Request, res: Response) {
@@ -484,5 +498,83 @@ export async function resetPassword(req: Request, res: Response) {
   } catch (error: any) {
     console.error("Reset password error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+
+export async function ChangePassword(req: Request, res: Response) {
+  try {
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in" });
+    }
+
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Current password and new password are both required",
+        success: false,
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        message: "New password must be at least 8 characters",
+        success: false,
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        message: "New password must be different from your current password",
+        success: false,
+      });
+    }
+
+    // Fetch the user's current hashed password to verify against
+    const { data: user, error: fetchError } = await supabase
+      .from("Authentication")
+      .select("id, password")
+      .eq("id", user_id)
+      .single();
+
+    if (fetchError || !user) {
+      console.error("Supabase fetch error:", fetchError);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Current password is incorrect",
+        success: false,
+      });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    const { error: updateError } = await supabase
+      .from("Authentication")
+      .update({ password: hashedNewPassword })
+      .eq("id", user_id);
+
+    if (updateError) {
+      console.error("Supabase update error:", updateError);
+      return res.status(500).json({ message: "Failed to update password" });
+    }
+
+    return res.status(200).json({
+      message: "Password changed successfully",
+      success: true,
+    });
+  } catch (error: any) {
+    console.error("Server error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
