@@ -595,3 +595,38 @@ export async function ChangePassword(req: Request, res: Response) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { first_name, last_name, family_background, family_contact } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    if (!first_name?.trim() || !last_name?.trim()) {
+      return res.status(400).json({ error: "First and last name are required" });
+    }
+
+    const { data: updatedUser, error: updateError } = await supabase
+      .from("users")
+      .update({
+        first_name: first_name.trim(),
+        last_name: last_name.trim(),
+        family_background: family_background?.trim() ?? null,
+        family_contact: family_contact?.trim() ?? null,
+      })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+
+    return res.status(200).json({ user: updatedUser });
+  } catch (err) {
+    console.error("updateProfile error:", err);
+    return res.status(500).json({ error: "Something went wrong" });
+  }
+};

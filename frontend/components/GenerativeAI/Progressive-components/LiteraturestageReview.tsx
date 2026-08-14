@@ -37,8 +37,6 @@ function sourceTypeStyle(type?: string) {
 
 export function LiteratureReviewStage({
   topic,
-  savedReviews,
-  savedReviewsLoading,
   selectedReviewId,
   onSelectSavedReview,
   onGenerateReview,

@@ -1,5 +1,4 @@
 import axios from '@/lib/axios';
-import { TreesIcon } from 'lucide-react';
 import { create } from 'zustand';
 
 
@@ -10,6 +9,8 @@ interface userProps{
     lastname: string;
     role: string;
     status: string;
+    familybackground?: string;
+    familycontact?: string;
 }
 
 interface LoginProps{
@@ -34,6 +35,28 @@ interface ResetPasswordResult {
   message?: string;
 }
 
+interface UpdateProfileProps {
+  firstname: string;
+  lastname: string;
+  familybackground: string;
+  familycontact: string;
+}
+
+interface UpdateProfileResult {
+  success: boolean;
+  message?: string;
+}
+
+interface UpdatePasswordProps {
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface UpdatePasswordResult {
+  success: boolean;
+  message?: string;
+}
+
 
 
 interface authProps{
@@ -43,6 +66,8 @@ interface authProps{
     justLoggedIn: boolean;
     forgotPasswordLoading: boolean,
     resetPasswordLoading: boolean;
+    updateProfileLoading: boolean;
+    updatePasswordLoading: boolean;
     logIn: (data: LoginProps) => Promise<LoginResult>;
     logOut: () => void;
     forgotPassword: (email: string) => Promise<ForgotPasswordResult>;
@@ -53,6 +78,8 @@ interface authProps{
       password: string;
       confirmPassword: string;
     }) => Promise<ResetPasswordResult>;
+    updateProfile: (data: UpdateProfileProps) => Promise<UpdateProfileResult>;
+    updatePassword: (data: UpdatePasswordProps) => Promise<UpdatePasswordResult>;
 }
 
 
@@ -63,6 +90,8 @@ export const authUserStore = create<authProps>((set, get) => ({
     checkingAuth: true,
     forgotPasswordLoading: false,
     resetPasswordLoading: false,
+    updateProfileLoading: false,
+    updatePasswordLoading: false,
 
   logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
     try {
@@ -160,5 +189,60 @@ export const authUserStore = create<authProps>((set, get) => ({
     };
   }
 },
+
+  updateProfile: async ({ firstname, lastname, familybackground, familycontact }: UpdateProfileProps): Promise<UpdateProfileResult> => {
+    try {
+      set({ updateProfileLoading: true });
+
+      const res = await axios.put('/auth/updateprofile', {
+        firstname,
+        lastname,
+        familybackground,
+        familycontact,
+      });
+
+      set({
+        user: res.data.user,
+        updateProfileLoading: false,
+      });
+
+      return { success: true, message: res.data.message };
+
+    } catch (error: any) {
+      set({ updateProfileLoading: false });
+
+      const data = error.response?.data;
+
+      return {
+        success: false,
+        message: data?.message || 'Something went wrong.',
+      };
+    }
+  },
+
+  updatePassword: async ({ currentPassword, newPassword }: UpdatePasswordProps): Promise<UpdatePasswordResult> => {
+    try {
+      set({ updatePasswordLoading: true });
+
+      const res = await axios.put('/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+
+      set({ updatePasswordLoading: false });
+
+      return { success: true, message: res.data.message };
+
+    } catch (error: any) {
+      set({ updatePasswordLoading: false });
+
+      const data = error.response?.data;
+
+      return {
+        success: false,
+        message: data?.message || 'Something went wrong.',
+      };
+    }
+  },
 
 }));

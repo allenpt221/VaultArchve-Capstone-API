@@ -1,4 +1,4 @@
-import { DataAnalysisResponse, DataAnalysisResult, MethodologyApproach, SavedDataAnalysis, FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types';
+import { DataAnalysisResult, MethodologyApproach, SavedDataAnalysis, FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types';
 import axios from '@/lib/axios';
 import { create } from 'zustand';
 
