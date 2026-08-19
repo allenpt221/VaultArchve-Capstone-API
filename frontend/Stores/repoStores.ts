@@ -69,6 +69,8 @@ interface productState {
 
   incrementDownloads: () => void;
   incrementViews: (id: string) => void;
+  incrementSaves: (id: string) => void;
+  decrementSaves: (id: string) => void;
 }
 
 export const repoStores = create<productState>((set, get) => ({
@@ -435,6 +437,139 @@ export const repoStores = create<productState>((set, get) => ({
       dataAnalytics: state.dataAnalytics.map((a) =>
         a.thesis_id === state.thesisData?.id
           ? { ...a, downloads: (Number(a.downloads) || 0) + 1 }
+          : a
+      ),
+    })),
+
+  incrementSaves: (id: string) =>
+    set((state) => ({
+      thesisData:
+        state.thesisData?.id === id
+          ? {
+              ...state.thesisData,
+              ThesisDataAnalytics: [
+                {
+                  ...state.thesisData.ThesisDataAnalytics?.[0],
+                  saves:
+                    (state.thesisData.ThesisDataAnalytics?.[0]?.saves ?? 0) +
+                    1,
+                },
+              ],
+            }
+          : state.thesisData,
+
+      repository: state.repository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: (t.ThesisDataAnalytics?.[0]?.saves ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      randomRepository: state.randomRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: (t.ThesisDataAnalytics?.[0]?.saves ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      masterRepository: state.masterRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: (t.ThesisDataAnalytics?.[0]?.saves ?? 0) + 1,
+                },
+              ],
+            }
+          : t
+      ),
+
+      dataAnalytics: state.dataAnalytics.map((a) =>
+        a.thesis_id === id
+          ? { ...a, saves: (Number(a.saves) || 0) + 1 }
+          : a
+      ),
+    })),
+
+  decrementSaves: (id: string) =>
+    set((state) => ({
+      thesisData:
+        state.thesisData?.id === id
+          ? {
+              ...state.thesisData,
+              ThesisDataAnalytics: [
+                {
+                  ...state.thesisData.ThesisDataAnalytics?.[0],
+                  saves: Math.max(
+                    (state.thesisData.ThesisDataAnalytics?.[0]?.saves ?? 0) - 1,
+                    0
+                  ),
+                },
+              ],
+            }
+          : state.thesisData,
+
+      repository: state.repository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: Math.max((t.ThesisDataAnalytics?.[0]?.saves ?? 0) - 1, 0),
+                },
+              ],
+            }
+          : t
+      ),
+
+      randomRepository: state.randomRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: Math.max((t.ThesisDataAnalytics?.[0]?.saves ?? 0) - 1, 0),
+                },
+              ],
+            }
+          : t
+      ),
+
+      masterRepository: state.masterRepository.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ThesisDataAnalytics: [
+                {
+                  ...t.ThesisDataAnalytics?.[0],
+                  saves: Math.max((t.ThesisDataAnalytics?.[0]?.saves ?? 0) - 1, 0),
+                },
+              ],
+            }
+          : t
+      ),
+
+      dataAnalytics: state.dataAnalytics.map((a) =>
+        a.thesis_id === id
+          ? { ...a, saves: Math.max((Number(a.saves) || 0) - 1, 0) }
           : a
       ),
     })),

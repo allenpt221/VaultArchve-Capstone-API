@@ -12,6 +12,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Bookmark,
 } from 'lucide-react'
 import { TableActions } from '../ThesisTable'
 import { useEffect, useMemo, useState } from 'react'
@@ -154,6 +155,9 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     dataAnalytics?.reduce((sum, item) => sum + (Number(item.views) || 0), 0) ?? 0
   const totalDownloads =
     dataAnalytics?.reduce((sum, item) => sum + (Number(item.downloads) || 0), 0) ?? 0
+  const totalSaves =
+  dataAnalytics?.reduce((sum, item) => sum + (Number(item.saves) || 0), 0) ?? 0
+
 
   const mostViewedAnalytic =
     dataAnalytics?.reduce(
@@ -191,6 +195,15 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
       badge: 'All time',
       badgeBg: '#EEEDFE',
       badgeColor: '#3C3489',
+    },
+    {
+      icon: <Bookmark className="w-4 h-4" style={{ color: '#B0367A' }} />,
+      iconBg: '#FCE8F1',
+      value: totalSaves.toLocaleString(),
+      label: 'Total saves',
+      badge: 'All time',
+      badgeBg: '#FCE8F1',
+      badgeColor: '#7A1F51',
     },
     {
       icon: <TrendingUp className="w-4 h-4" style={{ color: '#BA7517' }} />,
@@ -264,7 +277,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
 
       {/* ── Stat Cards ── */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 ${
+        className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 ${
           isCollapsed ? 'lg:grid-cols-4' : 'lg:grid-cols-2'
         }`}
       >

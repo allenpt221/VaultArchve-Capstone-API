@@ -162,7 +162,15 @@ function AdminContent() {
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0 w-8 h-8 rounded-full bg-amber-400 text-[#0B1C33] font-bold flex items-center justify-center text-sm">
-                {(user?.email?.[0] || user?.email?.[0] || "A").toUpperCase()}
+                {user?.profile ? (
+                  <img
+                    src={user.profile}
+                    alt={user?.email ?? "User"}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  (user?.email?.[0] || "A").toUpperCase()
+                )}
               </div>
               <div
                 className={`min-w-0 transition-all duration-300

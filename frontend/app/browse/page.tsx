@@ -9,12 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from '@/components/ui/input';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { repoStores } from '@/Stores/repoStores';
 import axios from '@/lib/axios';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ITEMS_PER_PAGE } from '../Provider';
 import ThesisCard from '@/components/ThesisCard';
+import { useSavedThesisStore } from '@/Stores/savedThesisStore';
 
 
 const departments = ['Accountancy', 'Accounting Information System', 'Public Administration', 'Entrepreneurship'];
@@ -35,16 +36,14 @@ function Browse() {
   const [sort, setSort] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { repository, FilteredThesis, incrementViews } = repoStores();
+  const { repository, FilteredThesis, incrementViews, incrementSaves, decrementSaves } = repoStores();
 
-
+  const { saveStatusMap, checkSaveStatus, saveThesis, unsaveThesis } = useSavedThesisStore();
 
   const [showAlert, setShowAlert] = useState(false);
   const [isClickable, setIsClickable] = useState(true);
 
-  // Stabilize FilteredThesis reference to prevent infinite re-renders
   const stableFilteredThesis = useCallback(FilteredThesis, []);
-
 
   useEffect(() => {
     const { sort: sortCol, order } = sortMap[sort];
@@ -73,19 +72,47 @@ function Browse() {
     }, 3000);
   };
 
-  const displayed = repository.filter((item) => {
+  const displayed = useMemo(() => {
     const q = search.toLowerCase();
-    return (
+    return repository.filter((item) =>
       item.title?.toLowerCase().includes(q) ||
       item.author?.toLowerCase().includes(q)
     );
-  });
+  }, [repository, search]);
 
   const totalPages = Math.ceil(displayed.length / ITEMS_PER_PAGE);
-  const paginated = displayed.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+
+  const paginated = useMemo(
+    () => displayed.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    ),
+    [displayed, currentPage]
   );
+
+  const paginatedIds = useMemo(
+    () => paginated.map((item) => item.id).join(','),
+    [paginated]
+  );
+
+  useEffect(() => {
+    paginatedIds.split(',').forEach((id) => {
+      if (id && saveStatusMap[id] === undefined) {
+        checkSaveStatus(id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginatedIds, checkSaveStatus]);
+
+    const handleToggleSave = async (id: string) => {
+      const isSaved = saveStatusMap[id];
+      const result = isSaved ? await unsaveThesis(id) : await saveThesis(id);
+      if (result.success) {
+        isSaved ? decrementSaves(id) : incrementSaves(id);
+      } else {
+        triggerAlert();
+      }
+    };
 
   return (
     <div className="sm:px-20 px-3 py-12">
@@ -99,7 +126,6 @@ function Browse() {
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border p-5 mb-8 flex sm:flex-row flex-col gap-3">
-        {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -110,7 +136,6 @@ function Browse() {
           />
         </div>
 
-        {/* Department */}
         <Select value={dept} onValueChange={setDept}>
           <SelectTrigger className="w-full md:w-70">
             <SelectValue placeholder="Department" />
@@ -123,7 +148,6 @@ function Browse() {
           </SelectContent>
         </Select>
 
-        {/* Year */}
         <Select value={year} onValueChange={setYear}>
           <SelectTrigger className="w-full sm:w-32 font-body">
             <SelectValue placeholder="Year" />
@@ -136,7 +160,6 @@ function Browse() {
           </SelectContent>
         </Select>
 
-        {/* Sort */}
         <Select value={sort} onValueChange={setSort}>
           <SelectTrigger className="w-full sm:w-36 font-body">
             <SelectValue placeholder="Sort by" />
@@ -149,7 +172,6 @@ function Browse() {
         </Select>
       </div>
 
-      
       <span className='text-black/70 text-sm'>Showing {displayed.length} results</span>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mt-2'>
         {paginated.length === 0 ? (
@@ -170,49 +192,51 @@ function Browse() {
               </button>
             </div>
           </div>
-              ) : (
-              paginated.map((item, index) => (
-                <ThesisCard
-                  key={index}
-                  id={item.id}
-                  isClickable={isClickable}
-                  onAuthFail={triggerAlert}
-                  onView={() => handleCountView(item.id)}
-                  course={item.course}
-                  title={item.title}
-                  author={item.author}
-                  issue_date={item.issue_date}
-                  abstract={item.abstract}
-                  views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
-                />
-              ))
+        ) : (
+          paginated.map((item) => (
+            <ThesisCard
+              key={item.id}
+              id={item.id}
+              isClickable={isClickable}
+              onAuthFail={triggerAlert}
+              onView={() => handleCountView(item.id)}
+              course={item.course}
+              title={item.title}
+              author={item.author}
+              issue_date={item.issue_date}
+              abstract={item.abstract}
+              views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
+              saves={item.ThesisDataAnalytics?.[0]?.saves ?? 0}
+              isSaved={saveStatusMap[item.id] ?? false}
+              onToggleSave={() => handleToggleSave(item.id)}
+            />
+          ))
         )}
       </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-8">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                disabled={currentPage === 1}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-500 hover:text-black transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" /> Back
-              </button>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-8">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-500 hover:text-black transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" /> Back
+          </button>
 
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
 
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-500 hover:text-black transition-colors"
-              >
-                Next <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-500 hover:text-black transition-colors"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {showAlert && (
         <Alert

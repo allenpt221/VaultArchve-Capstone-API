@@ -9,8 +9,15 @@ interface userProps{
     lastname: string;
     role: string;
     status: string;
-    familybackground?: string;
-    familycontact?: string;
+    program:string;
+    profile: string;
+    middleInitial: string;
+    gender: string;
+    contactNumber: string;
+    addressLine: string;
+    barangay: string;
+    municipality: string;
+    province:string;
 }
 
 interface LoginProps{
@@ -38,8 +45,14 @@ interface ResetPasswordResult {
 interface UpdateProfileProps {
   firstname: string;
   lastname: string;
-  familybackground: string;
-  familycontact: string;
+  middleInitial: string;
+  contactNumber: string;
+  gender: string;
+  addressLine: string;
+  barangay: string;
+  municipality: string;
+  province: string;
+
 }
 
 interface UpdateProfileResult {
@@ -57,6 +70,11 @@ interface UpdatePasswordResult {
   message?: string;
 }
 
+interface UpdateAvatarResult {
+  success: boolean;
+  message?: string;
+}
+
 
 
 interface authProps{
@@ -68,6 +86,7 @@ interface authProps{
     resetPasswordLoading: boolean;
     updateProfileLoading: boolean;
     updatePasswordLoading: boolean;
+    updateAvatarLoading: boolean;
     logIn: (data: LoginProps) => Promise<LoginResult>;
     logOut: () => void;
     forgotPassword: (email: string) => Promise<ForgotPasswordResult>;
@@ -80,6 +99,7 @@ interface authProps{
     }) => Promise<ResetPasswordResult>;
     updateProfile: (data: UpdateProfileProps) => Promise<UpdateProfileResult>;
     updatePassword: (data: UpdatePasswordProps) => Promise<UpdatePasswordResult>;
+    updateAvatar: (file: File) => Promise<UpdateAvatarResult>;
 }
 
 
@@ -92,6 +112,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     resetPasswordLoading: false,
     updateProfileLoading: false,
     updatePasswordLoading: false,
+    updateAvatarLoading: false,
 
   logIn: async ({ email, password }: LoginProps): Promise<LoginResult> => {
     try {
@@ -190,15 +211,20 @@ export const authUserStore = create<authProps>((set, get) => ({
   }
 },
 
-  updateProfile: async ({ firstname, lastname, familybackground, familycontact }: UpdateProfileProps): Promise<UpdateProfileResult> => {
+  updateProfile: async ({ firstname, lastname, middleInitial, gender, contactNumber, addressLine, barangay, municipality, province }: UpdateProfileProps): Promise<UpdateProfileResult> => {
     try {
       set({ updateProfileLoading: true });
 
-      const res = await axios.put('/auth/updateprofile', {
+      const res = await axios.put('/auth/update-details', {
         firstname,
         lastname,
-        familybackground,
-        familycontact,
+        middleInitial, 
+        gender, 
+        contactNumber, 
+        addressLine, 
+        barangay, 
+        municipality, 
+        province
       });
 
       set({
@@ -241,6 +267,36 @@ export const authUserStore = create<authProps>((set, get) => ({
       return {
         success: false,
         message: data?.message || 'Something went wrong.',
+      };
+    }
+  },
+
+  updateAvatar: async (file: File): Promise<UpdateAvatarResult> => {
+    try {
+      set({ updateAvatarLoading: true });
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const res = await axios.put('/auth/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      set((state) => ({
+        user: state.user ? { ...state.user, profile: res.data.profileUrl } : state.user,
+        updateAvatarLoading: false,
+      }));
+
+      return { success: true, message: res.data.message };
+
+    } catch (error: any) {
+      set({ updateAvatarLoading: false });
+
+      const data = error.response?.data;
+
+      return {
+        success: false,
+        message: data?.message || 'Failed to upload photo.',
       };
     }
   },

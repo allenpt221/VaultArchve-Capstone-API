@@ -31,6 +31,7 @@ interface registerFormState {
   lastname: string
   email: string
   password: string
+  program: string;
   role: string
 }
 
@@ -39,11 +40,12 @@ const initialFormState: registerFormState = {
   lastname: '',
   email: '',
   password: '',
+  program: 'Bachelor of Public Administration',
   role: 'student',
 }
 
 function RegisterModal({ isOpen, onClose }: registerModalProps) {
-  const { addUser, fetchUsers, currentPage } = userStore()
+  const { addUser } = userStore()
 
   const [form, setForm] = useState<registerFormState>(initialFormState)
   const [showPassword, setShowPassword] = useState(false)
@@ -186,6 +188,27 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
                 )}
               </button>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="role" className="text-xs font-medium">
+              Academic Program
+            </Label>
+            <Select
+              value={form.program}
+              onValueChange={(value) => handleChange('program', value)}
+              disabled={loading}
+            >
+              <SelectTrigger id="role" className="text-sm">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Bachelor of Public Administration">Bachelor of Public Administration</SelectItem>
+                <SelectItem value="Bachelor of Science in Accounting Information System">Bachelor of Science in Accounting Information System</SelectItem>
+                <SelectItem value="Bachelor of Science in Accountancy">Bachelor of Science in Accountancy</SelectItem>
+                <SelectItem value="Bachelor of Science in Entrepreneurship">Bachelor of Science in Entrepreneurship</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

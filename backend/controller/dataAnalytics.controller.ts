@@ -21,7 +21,6 @@ export async function incrementView(req: Request, res: Response) {
 
         if (!id) return res.status(400).json({ message: "ID is required" });
 
-        // 1️⃣ Get current views
         const { data: thesisData, error: fetchError } = await supabase
             .from("ThesisDataAnalytics")
             .select("views")
@@ -32,7 +31,6 @@ export async function incrementView(req: Request, res: Response) {
             return res.status(404).json({ message: "Page not found" });
         }
 
-        // 2️⃣ Increment views
         const { data: updatedPage, error: updateError } = await supabase
             .from("ThesisDataAnalytics")
             .update({ views: thesisData.views + 1 })
@@ -43,7 +41,6 @@ export async function incrementView(req: Request, res: Response) {
         if (updateError) {
             return res.status(500).json({ message: "Failed to increment views", error: updateError });
         }
-        
 
         return res.status(200).json({
             message: "View count incremented",
@@ -60,7 +57,7 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
     try {
         const { thesis_id } = req.params;
         const filename = req.query.filename as string;
-        const userId = req.user?.id; // set by your auth middleware — check the field name it actually uses
+        const userId = req.user?.id;
 
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
@@ -90,13 +87,11 @@ export async function downloadThesis(req: Request<DownloadProps>, res: Response)
             return res.status(404).json({ message: "Thesis not found" });
         }
 
-        // 2️⃣ Increment downloads
         await supabase
             .from("ThesisDataAnalytics")
             .update({ downloads: (thesisData.downloads || 0) + 1 })
             .eq("thesis_id", thesis_id);
 
-        // 4️⃣ Generate signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
             .storage
             .from("thesis-files")
@@ -138,9 +133,8 @@ export async function getFilteredThesis(req: Request, res: Response) {
 
     let query = supabase
       .from("Thesis")
-      .select('*, ThesisDataAnalytics(views, downloads)', { count: 'exact' });
+      .select('*, ThesisDataAnalytics(views, downloads, saves)', { count: 'exact' });
 
-    // Only sort at DB level if the column belongs to Thesis
     if (!isRelatedSort) {
       query = query.order(sortColumn, { ascending: order === "asc" });
     }
@@ -180,7 +174,6 @@ export async function getFilteredThesis(req: Request, res: Response) {
       });
     }
 
-    // No server-side pagination — frontend handles pagination client-side
     return res.status(200).json({
       data: sorted,
       total: sorted.length,
@@ -189,4 +182,160 @@ export async function getFilteredThesis(req: Request, res: Response) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
   }
+}
+
+export async function saveThesis(req: Request, res: Response) {
+    try {
+        const { thesisId } = req.body;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!thesisId) {
+            return res.status(400).json({ message: "Thesis ID is required" });
+        }
+
+        const { error: insertError } = await supabase
+            .from("thesisSaved")
+            .insert({ user_id: userId, thesis_id: thesisId });
+
+        if (insertError) {
+            if (insertError.code === "23505") {
+                return res.status(409).json({ message: "Thesis already saved" });
+            }
+            console.error(insertError);
+            return res.status(500).json({ message: "Failed to save thesis", error: insertError });
+        }
+
+        const { error: rpcError } = await supabase.rpc("increment_thesis_saves", {
+            thesis_id_input: thesisId,
+        });
+
+        if (rpcError) {
+            console.error("Failed to increment saves count:", rpcError);
+        }
+
+        return res.status(200).json({ message: "Thesis saved" });
+
+    } catch (error: any) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export async function unsaveThesis(req: Request, res: Response) {
+    try {
+        const { thesisId } = req.params;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!thesisId) {
+            return res.status(400).json({ message: "Thesis ID is required" });
+        }
+
+        const { data: deleted, error: deleteError } = await supabase
+            .from("thesisSaved")
+            .delete()
+            .eq("user_id", userId)
+            .eq("thesis_id", thesisId)
+            .select();
+
+        if (deleteError) {
+            console.error(deleteError);
+            return res.status(500).json({ message: "Failed to unsave thesis", error: deleteError });
+        }
+
+        if (deleted && deleted.length > 0) {
+            const { error: rpcError } = await supabase.rpc("decrement_thesis_saves", {
+                thesis_id_input: thesisId,
+            });
+
+            if (rpcError) {
+                console.error("Failed to decrement saves count:", rpcError);
+            }
+        }
+
+        return res.status(200).json({ message: "Thesis unsaved" });
+
+    } catch (error: any) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export async function checkSaveStatus(req: Request, res: Response) {
+    try {
+        const { thesisId } = req.params;
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { data, error } = await supabase
+            .from("thesisSaved")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("thesis_id", thesisId)
+            .maybeSingle();
+
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ message: "Failed to check save status", error });
+        }
+
+        return res.status(200).json({ saved: !!data });
+
+    } catch (error: any) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export async function getSavedThesis(req: Request, res: Response) {
+    try {
+        const userId = req.user?.id;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, error, count } = await supabase
+            .from("thesisSaved")
+            .select('id, created_at, Thesis(*, ThesisDataAnalytics(views, downloads, saves))', { count: 'exact' })
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .range(from, to);
+
+        if (error) {
+            console.error(error);
+            return res.status(500).json({ message: "Failed to fetch saved thesis", error });
+        }
+
+        const totalCount = count ?? 0;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        return res.status(200).json({
+            savedThesis: {
+                savedThesis: data,
+                totalCount,
+                currentPage: page,
+                totalPages,
+            },
+        });
+
+    } catch (error: any) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
 }

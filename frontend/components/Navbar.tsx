@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation';
 import gccLogo from '@/assets/gcclogo.png';
 import Image from 'next/image';
-import { Menu, X, LogOut, Shield, ChevronDown } from 'lucide-react';
+import { Menu, X, LogOut, Shield, ChevronDown, Settings } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { authUserStore } from '@/Stores/authStores';
 
@@ -106,9 +106,17 @@ function Navbar() {
                 className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/8 transition-all duration-200 group'
               >
                 {/* Avatar */}
-                <div className='h-7 w-7 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-xs shadow-md'>
-                  {getInitials(user.email)}
-                </div>
+                {user.profile ? (
+                  <img
+                    src={user.profile}
+                    alt={user.email}
+                    className='h-7 w-7 rounded-full object-cover shadow-md'
+                  />
+                ) : (
+                  <div className='h-7 w-7 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-xs shadow-md'>
+                    {getInitials(user.email)}
+                  </div>
+                )}
                 <span className='text-white/80 text-sm font-medium max-w-28 truncate group-hover:text-white transition-colors'>
                   {user.email}
                 </span>
@@ -126,6 +134,14 @@ function Navbar() {
                     <p className='text-white text-sm font-medium truncate mt-0.5'>{user.email}</p>
                   </div>
                   <div className='p-1.5'>
+                    <Link
+                      href='/settings'
+                      onClick={() => setOpenUserMenu(false)}
+                      className='w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/8 hover:text-white transition-all duration-200 text-sm font-medium'
+                    >
+                      <Settings size={14} />
+                      Settings
+                    </Link>
                     <button
                       onClick={handleLogOut}
                       className='w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 text-sm font-medium'
@@ -186,9 +202,17 @@ function Navbar() {
         {/* User info in drawer */}
         {user && (
           <div className='mx-4 mt-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3'>
-            <div className='h-9 w-9 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm shrink-0'>
-              {getInitials(user.email)}
-            </div>
+            {user.profile ? (
+              <img
+                src={user.profile}
+                alt={user.email}
+                className='h-9 w-9 rounded-full object-cover shrink-0'
+              />
+            ) : (
+              <div className='h-9 w-9 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm shrink-0'>
+                {getInitials(user.email)}
+              </div>
+            )}
             <div className='min-w-0'>
               <p className='text-white/40 text-xs'>Signed in as</p>
               <p className='text-white text-sm font-medium truncate'>{user.email}</p>
@@ -230,6 +254,17 @@ function Navbar() {
 
           {/* Divider */}
           <div className='h-px bg-white/10 my-2' />
+
+          {user && (
+            <Link
+              href='/settings'
+              onClick={() => setOpenMenu(false)}
+              className='flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/8 transition-colors'
+            >
+              <Settings size={14} />
+              Settings
+            </Link>
+          )}
 
           {user && (
             <button

@@ -9,6 +9,8 @@ import { loginIpLimiter, loginLimiter } from '../lib/ratelimit';
 import { sendResetPasswordEmail } from '../lib/resetPassword';
 import { invalidateCacheByPrefix } from '../lib/cache';
 import { sendWelcomeEmail } from '../lib/registedEmail';
+import cloudinary from '../lib/cloudinary';
+import { UploadApiResponse } from 'cloudinary';
 
 
 
@@ -17,6 +19,8 @@ interface User {
     email: string;
     firstname: string;
     lastname: string;
+    program: string;
+    profile: string;
     password: string;
     role: string;
     status:string;
@@ -24,7 +28,7 @@ interface User {
 
 export async function Signup(req: Request, res: Response) {
     try {
-        const { email, firstname, lastname, password, role }: User = req.body;
+        const { email, firstname, lastname, password, program }: User = req.body;
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -64,10 +68,12 @@ export async function Signup(req: Request, res: Response) {
                 firstname,
                 lastname,
                 password: hashedPassword,
+                program,
+                profile: null,
                 role: "student"
             }
         ])
-        .select("id, email, firstname, lastname, role, status") // exclude password
+        .select("id, email, firstname, lastname, role, status, program") // exclude password
         .single();
 
         if (error) {
@@ -151,14 +157,29 @@ export async function Login(req: Request, res: Response) {
       return res.status(401).json({ message: "Invalid credentials", success: false });
     }
 
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, status: user.status },
+    const accessToken = jwt.sign({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        middleInitial: user.middleInitial,
+        gender: user.gender,
+        contactNumber: user.contactNumber,
+        addressLine: user.addressLine,
+        barangay: user.barangay,
+        municipality: user.municipality,
+        province: user.province,
+        program: user.program,
+        profile: user.profile,
+      },
       process.env.JWT_SECRET as string,
       { expiresIn: "1h" }
     );
 
     const refreshToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, status: user.status },
+      { id: user.id, email: user.email, role: user.role, status: user.status, firstname: user.firstname, lastname: user.lastname, program: user.program, profile: user.profile },
       process.env.JWT_REFRESH_SECRET as string,
       { expiresIn: "7d" }
     );
@@ -185,7 +206,9 @@ export async function Login(req: Request, res: Response) {
         firstname: user.firstname,
         lastname: user.lastname,
         role: user.role,
+        program: user.program,
         status: user.status,
+        profile: user.profile,
       },
     });
   } catch (error: any) {
@@ -289,13 +312,31 @@ export async function getUsers(req: Request, res: Response) {
   }
 }
 
-export async function getProfile(req: Request, res: Response){
+export async function getProfile(req: Request, res: Response) {
   try {
-    res.json(req.user);
-  } catch (error:any) {
-    console.error("Logout error:", error);
-    res.status(500).json({ error: "Internal server error" });
-    return;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in" });
+    }
+
+    const { data: user, error } = await supabase
+      .from("Authentication")
+      .select(
+        "id, email, firstname, lastname, middleInitial, gender, contactNumber, addressLine, barangay, municipality, province, role, status, program, profile"
+      )
+      .eq("id", userId)
+      .single();
+
+    if (error || !user) {
+      console.error("getProfile Supabase error:", error);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json(user);
+  } catch (error: any) {
+    console.error("getProfile error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
@@ -599,30 +640,53 @@ export async function ChangePassword(req: Request, res: Response) {
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { first_name, last_name, family_background, family_contact } = req.body;
+    const {
+      firstname,
+      lastname,
+      middleInitial,
+      gender,
+      contactNumber,
+      addressLine,
+      barangay,
+      municipality,
+      province,
+    } = req.body;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    if (!first_name?.trim() || !last_name?.trim()) {
+    if (!firstname?.trim() || !lastname?.trim()) {
       return res.status(400).json({ error: "First and last name are required" });
     }
 
+    const toNullable = (v?: string) => {
+      const trimmed = v?.trim();
+      return trimmed ? trimmed : null;
+    };
+
     const { data: updatedUser, error: updateError } = await supabase
-      .from("users")
+      .from("Authentication")
       .update({
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        family_background: family_background?.trim() ?? null,
-        family_contact: family_contact?.trim() ?? null,
+        firstname: firstname.trim(),
+        middleInitial: toNullable(middleInitial),
+        lastname: lastname.trim(),
+        gender: toNullable(gender),
+        contactNumber: toNullable(contactNumber),
+        addressLine: toNullable(addressLine),
+        barangay: toNullable(barangay),
+        municipality: toNullable(municipality),
+        province: toNullable(province),
       })
       .eq("id", userId)
       .select()
       .single();
 
     if (updateError) {
-      return res.status(500).json({ error: "Failed to update profile" });
+      return res.status(500).json({ error: "Failed to update profile", updateError });
     }
+
+    await invalidateCacheByPrefix("users:page");
+
 
     return res.status(200).json({ user: updatedUser });
   } catch (err) {
@@ -630,3 +694,64 @@ export const updateProfile = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Something went wrong" });
   }
 };
+
+// Uploads the incoming file (from multer's memoryStorage — req.file.buffer)
+// to Cloudinary as a base64 data URI, then saves the resulting URL on the
+// "profile" column. No stream / streamifier needed.
+async function uploadBufferToCloudinary(
+  buffer: Buffer,
+  mimetype: string,
+  publicId: string
+): Promise<UploadApiResponse> {
+  const dataUri = `data:${mimetype};base64,${buffer.toString('base64')}`;
+
+  return cloudinary.uploader.upload(dataUri, {
+    folder: "vaultarchve/avatars",
+    public_id: publicId,
+    overwrite: true,
+    resource_type: "image",
+    transformation: [{ width: 256, height: 256, crop: "fill", gravity: "face" }],
+  });
+}
+
+export async function updateAvatar(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in", success: false });
+    }
+
+    const file = req.file as Express.Multer.File | undefined;
+
+    if (!file) {
+      return res.status(400).json({ message: "No image file provided", success: false });
+    }
+
+    const uploadResult = await uploadBufferToCloudinary(file.buffer, file.mimetype, `user_${userId}`);
+
+    const { data: updatedUser, error: updateError } = await supabase
+      .from("Authentication")
+      .update({ profile: uploadResult.secure_url })
+      .eq("id", userId)
+      .select("id, email, firstname, lastname, role, status, program, profile")
+      .single();
+
+    if (updateError || !updatedUser) {
+      console.error("Supabase error:", updateError);
+      return res.status(500).json({ message: "Failed to save profile photo", success: false });
+    }
+
+    await invalidateCacheByPrefix("users:page");
+
+    return res.status(200).json({
+      message: "Profile photo updated",
+      success: true,
+      profileUrl: uploadResult.secure_url,
+      user: updatedUser,
+    });
+  } catch (error: any) {
+    console.error("updateAvatar error:", error);
+    return res.status(500).json({ message: "Internal server error", success: false });
+  }
+}

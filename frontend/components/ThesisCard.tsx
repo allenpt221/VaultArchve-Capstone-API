@@ -1,5 +1,5 @@
 import { authUserStore } from '@/Stores/authStores';
-import { Calendar, Eye, MoveRight, Users } from 'lucide-react';
+import { Bookmark, Calendar, Eye, MoveRight, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface ThesisProps {
@@ -10,9 +10,12 @@ interface ThesisProps {
   issue_date: string;
   abstract: string;
   views: number;
+  saves: number;
   onView?: () => void;
   onAuthFail?: () => void;
   isClickable?: boolean;
+  isSaved?: boolean;
+  onToggleSave?: () => void;
 }
 
 function formatText(str: string) {
@@ -23,7 +26,21 @@ function formatText(str: string) {
     .join(" ");
 }
 
-function ThesisCard({ id, course, title, author, issue_date, abstract, views, onView, onAuthFail, isClickable }: ThesisProps) {
+function ThesisCard({
+  id,
+  course,
+  title,
+  author,
+  issue_date,
+  abstract,
+  views,
+  saves,
+  onView,
+  onAuthFail,
+  isClickable,
+  isSaved,
+  onToggleSave,
+}: ThesisProps) {
   const router = useRouter();
   const { user } = authUserStore();
 
@@ -39,6 +56,17 @@ function ThesisCard({ id, course, title, author, issue_date, abstract, views, on
     router.push(`/browse/${id}`);
   };
 
+  const handleSaveClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!user) {
+      onAuthFail?.();
+      return;
+    }
+
+    onToggleSave?.();
+  };
+
   return (
     <div
       onClick={handleClick}
@@ -50,10 +78,25 @@ function ThesisCard({ id, course, title, author, issue_date, abstract, views, on
         <span className="bg-amber-300/40 px-3 py-0.5 rounded-full">
           <p className="text-xs text-black/90">{formatText(course)}</p>
         </span>
-        <span className="flex gap-1 text-xs items-center text-black/60">
-          <Eye size={14} />
-          {views}
-        </span>
+
+        <div className="flex items-center gap-3">
+          <span className="flex gap-1 text-xs items-center text-black/60">
+            <Eye size={14} />
+            {views}
+          </span>
+
+          <button
+            onClick={handleSaveClick}
+            className="flex items-center gap-1 text-xs text-black/60 hover:text-amber-400 transition-colors"
+            aria-label={isSaved ? "Unsave thesis" : "Save thesis"}
+          >
+            <Bookmark
+              size={14}
+              className={isSaved ? "fill-amber-400 text-amber-400" : ""}
+            />
+            {saves}
+          </button>
+        </div>
       </div>
 
       <p className="font-semibold text-base group-hover:text-amber-400">{title}</p>

@@ -7,6 +7,7 @@ import path from 'path';
 import AuthRouter from './route/auth.route';
 import RepoRouter from './route/repository.route';
 import AiRouter from './route/generativeAI.router';
+import SavedThesisRouter from './route/saveThesis.route'
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ nextApp.prepare().then(() => {
 
   // ── API routes ──
   app.use('/api/auth', AuthRouter);
+  app.use('/api/saved-thesis', SavedThesisRouter);
   app.use('/api/repository', RepoRouter);
   app.use('/api/ai', AiRouter);
 

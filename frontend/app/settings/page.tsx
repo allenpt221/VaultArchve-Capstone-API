@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff, User, ShieldCheck, Check, AlertCircle, BookOpen } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Eye, EyeOff, User, ShieldCheck, Check, AlertCircle, BookOpen, Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { authUserStore } from "@/Stores/authStores";
 
 const NAVY = "#0B1C33";
@@ -44,9 +50,22 @@ const fieldClass =
   "focus-visible:ring-[rgba(245,180,0,0.35)] focus-visible:border-[#F5B400]";
 
 export default function SettingsPage() {
-  const { user, updateProfileLoading, updatePasswordLoading, updateProfile, updatePassword } = authUserStore();
+  const {
+    user,
+    updateProfileLoading,
+    updatePasswordLoading,
+    updateProfile,
+    updatePassword,
+    updateAvatar,
+  } = authUserStore();
 
   const [tab, setTab] = useState<"profile" | "security">("profile");
+
+  // Avatar upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState("");
@@ -59,13 +78,43 @@ export default function SettingsPage() {
 
   // Profile fields
   const [firstname, setFirstname] = useState(user?.firstname ?? "");
+  const [middleInitial, setMiddleInitial] = useState(user?.middleInitial ?? "");
   const [lastname, setLastname] = useState(user?.lastname ?? "");
-  const [familybackground, setFamilybackground] = useState(user?.familybackground ?? "");
-  const [familycontact, setFamilycontact] = useState(user?.familycontact ?? "");
+  const [gender, setGender] = useState(user?.gender ?? "");
+  const [contactNumber, setContactNumber] = useState(user?.contactNumber ?? "");
+  const [addressLine, setAddressLine] = useState(user?.addressLine ?? "");
+  const [barangay, setBarangay] = useState(user?.barangay ?? "");
+  const [municipality, setMunicipality] = useState(user?.municipality ?? "");
+  const [province, setProvince] = useState(user?.province ?? "");
   const [profileError, setProfileError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState("");
 
   const initials = `${(firstname[0] || "").toUpperCase()}${(lastname[0] || "").toUpperCase()}` || "—";
+
+  // True only when at least one profile field differs from the last saved user data
+  const hasProfileChanges =
+    firstname !== (user?.firstname ?? "") ||
+    middleInitial !== (user?.middleInitial ?? "") ||
+    lastname !== (user?.lastname ?? "") ||
+    gender !== (user?.gender ?? "") ||
+    contactNumber !== (user?.contactNumber ?? "") ||
+    addressLine !== (user?.addressLine ?? "") ||
+    barangay !== (user?.barangay ?? "") ||
+    municipality !== (user?.municipality ?? "") ||
+    province !== (user?.province ?? "");
+
+  // Auto-dismiss profile notices after a few seconds
+  useEffect(() => {
+    if (!profileSuccess) return;
+    const timer = setTimeout(() => setProfileSuccess(""), 4000);
+    return () => clearTimeout(timer);
+  }, [profileSuccess]);
+
+  useEffect(() => {
+    if (!profileError) return;
+    const timer = setTimeout(() => setProfileError(""), 4000);
+    return () => clearTimeout(timer);
+  }, [profileError]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +141,41 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarClick = () => {
+    if (!avatarUploading) fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    setAvatarError("");
+
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("Image must be smaller than 5MB");
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setAvatarPreview(localPreview);
+    setAvatarUploading(true);
+
+    const result = await updateAvatar(file);
+
+    setAvatarUploading(false);
+    URL.revokeObjectURL(localPreview);
+    setAvatarPreview(null);
+
+    if (!result?.success) {
+      setAvatarError(result?.message || "Failed to upload photo");
+    }
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileError("");
@@ -102,7 +186,17 @@ export default function SettingsPage() {
       return;
     }
 
-    const result = await updateProfile({ firstname, lastname, familybackground, familycontact });
+    const result = await updateProfile({
+      firstname,
+      middleInitial,
+      lastname,
+      gender,
+      contactNumber,
+      addressLine,
+      barangay,
+      municipality,
+      province,
+    });
 
     if (result.success) {
       setProfileSuccess(result.message ?? "Profile updated successfully");
@@ -117,7 +211,7 @@ export default function SettingsPage() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
       `}</style>
 
-      <div className="max-w-3xl mx-auto px-4 py-14" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="max-w-5xl mx-auto px-4 py-14" style={{ fontFamily: "'Inter', sans-serif" }}>
         {/* Eyebrow badge, matches the "Academic Digital Repository" pill */}
         <div className="flex justify-center mb-5">
           <span
@@ -131,20 +225,61 @@ export default function SettingsPage() {
 
         {/* Header / identity */}
         <div className="flex flex-col items-center text-center mb-10">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-            style={{ background: NAVY }}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          <button
+            type="button"
+            onClick={handleAvatarClick}
+            disabled={avatarUploading}
+            className="relative w-28 h-28 rounded-full mb-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            style={{ outlineColor: AMBER }}
+            aria-label="Change profile photo"
           >
-            <span className="text-lg font-bold" style={{ color: AMBER }}>
-              {initials}
-            </span>
-          </div>
-          <p className="text-slate-500 text-sm mt-1">Manage your VaultArchve profile and password</p>
+            {avatarPreview || user?.profile ? (
+              <img
+                src={avatarPreview || user?.profile}
+                alt={`${firstname} ${lastname}`}
+                className="w-28 h-28 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="w-28 h-28 rounded-full flex items-center justify-center"
+                style={{ background: NAVY }}
+              >
+                <span className="text-3xl font-bold" style={{ color: AMBER }}>
+                  {initials}
+                </span>
+              </div>
+            )}
+
+            {/* Hover / uploading overlay */}
+            <div
+              className={`absolute inset-0 rounded-full flex items-center justify-center bg-black/40 transition-opacity ${
+                avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              {avatarUploading ? (
+                <Loader2 size={22} className="text-white animate-spin" />
+              ) : (
+                <Camera size={22} className="text-white" />
+              )}
+            </div>
+          </button>
+          <h2 className="text-lg font-semibold text-slate-800">
+            {firstname} {lastname}
+          </h2>
+          <p className="text-slate-500 text-sm mt-1">{user?.program}</p>
+          {avatarError && <p className="text-xs text-red-600 mt-1">{avatarError}</p>}
         </div>
 
         {/* Segmented tabs, matches the nav pill treatment (amber = active) */}
         <div className="flex justify-center mb-8">
-          <div className="inline-flex bg-slate-100 rounded-full p-1 gap-1">
+          <div className="inline-flex bg-slate-100 rounded-full p-1 gap-1 cursor-pointer">
             {(
               [
                 { id: "profile", label: "Personal information", icon: User },
@@ -157,7 +292,7 @@ export default function SettingsPage() {
                   key={id}
                   type="button"
                   onClick={() => setTab(id)}
-                  className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-colors"
+                  className="flex cursor-pointer items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-colors"
                   style={{
                     background: active ? AMBER : "transparent",
                     color: active ? NAVY : "#64748B",
@@ -175,7 +310,17 @@ export default function SettingsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
           {tab === "profile" && (
             <form onSubmit={handleProfileSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-5">
+                <div>
+                  <FieldLabel htmlFor="lastname">Last name</FieldLabel>
+                  <Input
+                    id="lastname"
+                    className={fieldClass}
+                    value={lastname}
+                    onChange={(e) => setLastname(e.target.value)}
+                    required
+                  />
+                </div>
                 <div>
                   <FieldLabel htmlFor="firstname">First name</FieldLabel>
                   <Input
@@ -187,38 +332,95 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <FieldLabel htmlFor="lastname">Last name</FieldLabel>
+                  <FieldLabel htmlFor="middleInitial">Middle Name</FieldLabel>
                   <Input
-                    id="lastname"
+                    id="middleInitial"
                     className={fieldClass}
-                    value={lastname}
-                    onChange={(e) => setLastname(e.target.value)}
-                    required
+                    value={middleInitial}
+                    onChange={(e) => setMiddleInitial(e.target.value.slice(0, 10))}
+                    placeholder="M.I."
                   />
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <FieldLabel htmlFor="email">Email</FieldLabel>
+                  <Input
+                    id="email"
+                    className={fieldClass}
+                    value={user?.email ?? ""}
+                    disabled
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="gender">Gender</FieldLabel>
+                  <Select value={gender} onValueChange={setGender}>
+                    <SelectTrigger id="gender" className={fieldClass}>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
-                <FieldLabel htmlFor="familybackground">Family background</FieldLabel>
-                <Textarea
-                  id="familybackground"
-                  className={`${fieldClass} h-auto resize-none py-2.5`}
-                  value={familybackground}
-                  onChange={(e) => setFamilybackground(e.target.value)}
-                  placeholder="Brief family background"
-                  rows={4}
+                <FieldLabel htmlFor="contactNumber">Contact number</FieldLabel>
+                <Input
+                  id="contactNumber"
+                  className={fieldClass}
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  placeholder="e.g. 0917 123 4567"
                 />
               </div>
 
               <div>
-                <FieldLabel htmlFor="familycontact">Family contact</FieldLabel>
+                <FieldLabel htmlFor="addressLine">Address (House #/Block/Street/Subdivision/Building)</FieldLabel>
                 <Input
-                  id="familycontact"
+                  id="addressLine"
                   className={fieldClass}
-                  value={familycontact}
-                  onChange={(e) => setFamilycontact(e.target.value)}
-                  placeholder="Phone number or email"
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  placeholder="e.g. Blk 3 Lot 12, Sunrise St., Greenfield Subdivision"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div>
+                  <FieldLabel htmlFor="barangay">Barangay</FieldLabel>
+                  <Input
+                    id="barangay"
+                    className={fieldClass}
+                    value={barangay}
+                    onChange={(e) => setBarangay(e.target.value)}
+                    placeholder="Barangay"
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="municipality">Municipality/City</FieldLabel>
+                  <Input
+                    id="municipality"
+                    className={fieldClass}
+                    value={municipality}
+                    onChange={(e) => setMunicipality(e.target.value)}
+                    placeholder="Municipality or City"
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="province">Province</FieldLabel>
+                  <Input
+                    id="province"
+                    className={fieldClass}
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    placeholder="Province"
+                  />
+                </div>
               </div>
 
               <Notice tone="error">{profileError}</Notice>
@@ -227,9 +429,9 @@ export default function SettingsPage() {
               <div className="pt-2 flex justify-end border-t border-slate-100">
                 <Button
                   type="submit"
-                  disabled={updateProfileLoading}
+                  disabled={updateProfileLoading || !hasProfileChanges}
                   style={{ backgroundColor: AMBER, color: NAVY }}
-                  className="mt-4 rounded-full px-6 font-semibold hover:opacity-90"
+                  className="mt-4 rounded-full p-5 font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateProfileLoading ? "Saving..." : "Save changes"}
                 </Button>
@@ -306,7 +508,7 @@ export default function SettingsPage() {
                   type="submit"
                   disabled={updatePasswordLoading}
                   style={{ backgroundColor: AMBER, color: NAVY }}
-                  className="mt-4 rounded-full px-6 font-semibold hover:opacity-90"
+                  className="mt-4 rounded-full p-5 font-semibold hover:opacity-90"
                 >
                   {updatePasswordLoading ? "Updating..." : "Update password"}
                 </Button>
