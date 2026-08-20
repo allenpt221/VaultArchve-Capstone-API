@@ -14,7 +14,6 @@ export const STAGES = [
   { key: 'methodology', label: 'Methodology', icon: FlaskConical },
   { key: 'collection', label: 'Data Collection & Analysis', icon: HelpCircle },
   { key: 'paper-review', label: 'Review & Check', icon: PenLine },
-  { key: 'review', label: 'Review & Submit', icon: ClipboardCheck },
 ] as const
 
 export type StageKey = (typeof STAGES)[number]['key']

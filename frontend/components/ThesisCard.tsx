@@ -10,7 +10,7 @@ interface ThesisProps {
   issue_date: string;
   abstract: string;
   views: number;
-  saves: number;
+  saves?: number;
   onView?: () => void;
   onAuthFail?: () => void;
   isClickable?: boolean;
@@ -34,7 +34,7 @@ function ThesisCard({
   issue_date,
   abstract,
   views,
-  saves,
+  saves = 0,
   onView,
   onAuthFail,
   isClickable,

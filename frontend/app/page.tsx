@@ -8,15 +8,17 @@ import heroBg from "@/assets/bghero.webp";
 import Image from "next/image";
 import { repoStores } from "@/Stores/repoStores";
 import ThesisCard from "@/components/ThesisCard";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from '@/lib/axios';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useSavedThesisStore } from '@/Stores/savedThesisStore';
 
 
 
 export default function Home() {
 
-    const { randomRepository, repository, incrementViews, dataAnalytics } = repoStores();
+    const { randomRepository, repository, incrementViews, incrementSaves, decrementSaves, dataAnalytics } = repoStores();
+    const { saveStatusMap, checkSaveStatus, saveThesis, unsaveThesis } = useSavedThesisStore();
     const [showAlert, setShowAlert] = useState(false);
     const [isClickable, setIsClickable] = useState(true);
     const totalViews = dataAnalytics.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
@@ -62,6 +64,30 @@ export default function Home() {
       setIsClickable(true)
     }, 3000);
   };
+
+  const handleToggleSave = async (id: string) => {
+    const isSaved = saveStatusMap[id];
+    const result = isSaved ? await unsaveThesis(id) : await saveThesis(id);
+    if (result.success) {
+      isSaved ? decrementSaves(id) : incrementSaves(id);
+    } else {
+      triggerAlert();
+    }
+  };
+
+  const featuredIds = useMemo(
+    () => randomRepository.map((item) => item.id).join(','),
+    [randomRepository]
+  );
+
+  useEffect(() => {
+    featuredIds.split(',').forEach((id) => {
+      if (id && saveStatusMap[id] === undefined) {
+        checkSaveStatus(id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featuredIds, checkSaveStatus]);
   
 
   return (
@@ -117,8 +143,23 @@ export default function Home() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {randomRepository.map((item, index) => (
-            <ThesisCard id={item.id} isClickable={isClickable} onAuthFail={triggerAlert} onView={() => handleCountView(item.id)} key={index} views={item.ThesisDataAnalytics?.[0]?.views ?? 0} course={item.course} title={item.title} author={item.author} issue_date={item.issue_date} abstract={item.abstract} />
+          {randomRepository.map((item) => (
+            <ThesisCard
+              key={item.id}
+              id={item.id}
+              isClickable={isClickable}
+              onAuthFail={triggerAlert}
+              onView={() => handleCountView(item.id)}
+              views={item.ThesisDataAnalytics?.[0]?.views ?? 0}
+              saves={item.ThesisDataAnalytics?.[0]?.saves ?? 0}
+              course={item.course}
+              title={item.title}
+              author={item.author}
+              issue_date={item.issue_date}
+              abstract={item.abstract}
+              isSaved={saveStatusMap[item.id] ?? false}
+              onToggleSave={() => handleToggleSave(item.id)}
+            />
           ))}
         </div>
 
