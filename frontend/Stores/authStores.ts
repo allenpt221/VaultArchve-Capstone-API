@@ -105,7 +105,7 @@ interface authProps{
 
 export const authUserStore = create<authProps>((set, get) => ({
     user: null,
-    loading: false,
+    loading: true,
     justLoggedIn: false,
     checkingAuth: true,
     forgotPasswordLoading: false,
@@ -142,12 +142,12 @@ export const authUserStore = create<authProps>((set, get) => ({
   },  
 
   checkAuth: async (): Promise<void> => {
-    set({ checkingAuth: true });
+    set({ checkingAuth: true, loading: true });
     try {
       const res = await axios.get('auth/profile');
-      set({ user: res.data, checkingAuth: false });
+      set({ user: res.data, checkingAuth: false, loading: false });
     } catch (error: any) {
-      set({ checkingAuth: false, user: null });
+      set({ checkingAuth: false, user: null, loading: false });
     }
   },
 

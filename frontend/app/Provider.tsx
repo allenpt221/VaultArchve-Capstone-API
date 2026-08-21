@@ -29,23 +29,19 @@ export default function Provider() {
   useEffect(() => {
     if (checkingAuth) return;
 
-    const lastPath = sessionStorage.getItem("lastPath");
+    // Only act when we're actually ON the login page.
+    if (pathname !== "/login") return;
 
-    if (user && lastPath && lastPath !== "/login") {
-      router.replace(lastPath);
-      return;
-    }
-
-    if (user?.role === "admin" && pathname === "/login") {
+    if (user?.role === "admin") {
       router.replace("/admin");
       return;
     }
 
-    if (user && pathname === "/login") {
-      router.replace("/");
+    if (user) {
+      const lastPath = sessionStorage.getItem("lastPath");
+      router.replace(lastPath && lastPath !== "/login" ? lastPath : "/");
       return;
     }
-
   }, [user, checkingAuth, pathname, router]);
 
   return null;

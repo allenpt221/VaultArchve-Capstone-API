@@ -3,10 +3,7 @@ import { supabase } from "../supabase/supa-client";
 import redis from "../lib/ioredis";
 import { downloadLimiter } from "../lib/ratelimit";
 
-interface DownloadProps{
-    thesis_id: string;
-    filename: string;
-}
+
 
 interface queryProps{
     year: string;
@@ -53,7 +50,7 @@ export async function incrementView(req: Request, res: Response) {
     }
 }
 
-export async function downloadThesis(req: Request<DownloadProps>, res: Response) {
+export async function downloadThesis(req: Request, res: Response) {
     try {
         const { thesis_id } = req.params;
         const filename = req.query.filename as string;

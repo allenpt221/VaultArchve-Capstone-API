@@ -22,7 +22,7 @@ router.put('/thesis/update/:id', verifyToken, adminOnly, upload.any(), UpdateThe
 
 // dataAnalytics
 router.put('/views/:id', verifyToken, incrementView);
-router.get('/download/:thesis_id', downloadThesis);
+router.get('/download/:thesis_id', verifyToken, downloadThesis);
 router.get('/features', getRandomThesis);
 router.get('/viewsdownloads', getRepoViewAndDownloads);
 
