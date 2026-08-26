@@ -4,30 +4,30 @@ import { adminOnly, verifyToken } from '../middleware/middware';
 import multer from 'multer';
 
 
-const route = express.Router();
+const router = express.Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 
-route.post('/signup', Signup);
-route.post('/login', Login);
-route.get('/getuser', verifyToken, adminOnly, getUsers);
-route.post('/logout', verifyToken, Logout);
-route.get('/profile', verifyToken, getProfile);
-route.post('/forgot-password', forgotPassword);
-route.post('/reset-password', resetPassword);
-route.post("/change-password", verifyToken, ChangePassword);
-route.put("/update-details", verifyToken, updateProfile);
+router.post('/signup', Signup);
+router.post('/login', Login);
+router.get('/getuser', verifyToken, adminOnly, getUsers);
+router.post('/logout', verifyToken, Logout);
+router.get('/profile', verifyToken, getProfile);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post("/change-password", verifyToken, ChangePassword);
+router.put("/update-details", verifyToken, updateProfile);
 
 
-route.put("/avatar", verifyToken, upload.single("avatar"), updateAvatar);
+router.put("/avatar", verifyToken, upload.single("avatar"), updateAvatar);
 
-route.delete('/delete/:id', verifyToken, adminOnly, deleteUser);
-route.put('/disable/:id', verifyToken, adminOnly, toggleStudentStatus);
-
-
-
+router.delete('/delete/:id', verifyToken, adminOnly, deleteUser);
+router.put('/disable/:id', verifyToken, adminOnly, toggleStudentStatus);
 
 
 
-export default route;
+
+
+
+export default router;

@@ -13,7 +13,7 @@ export interface SavedThesisItem {
     issue_date: string;
     thesis_file_url: string;
     thesis_file_name: string;
-    ThesisDataAnalytics?: { views: number; downloads: number };
+    ThesisDataAnalytics?: { views: number; downloads: number; saves: number }[];
     [key: string]: any;
   };
 }
@@ -95,6 +95,7 @@ export const useSavedThesisStore = create<SavedThesisState>((set, get) => ({
       set((state) => ({
         isSaving: false,
         saveStatusMap: { ...state.saveStatusMap, [thesisId]: true },
+        totalCount: state.totalCount + 1,
       }));
 
       return { success: true, message: res.data.message };
@@ -120,6 +121,7 @@ export const useSavedThesisStore = create<SavedThesisState>((set, get) => ({
         savedThesis: state.savedThesis.filter(
           (item) => item.Thesis?.id !== thesisId
         ),
+        totalCount: Math.max(state.totalCount - 1, 0),
       }));
 
       return { success: true, message: res.data.message };

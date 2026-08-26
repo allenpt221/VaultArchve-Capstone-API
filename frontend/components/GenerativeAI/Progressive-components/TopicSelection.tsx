@@ -1,6 +1,7 @@
 'use client'
-import { Lightbulb, Sparkles, Loader2, History, Clock, Check, ArrowRight, X } from 'lucide-react'
+import { Lightbulb, Sparkles, Loader2, History, Clock, Check, ArrowRight, X, Copy } from 'lucide-react'
 import type { MouseEvent } from 'react'
+import { useState } from 'react'
 import { FEASIBILITY_STYLES } from '@/hooks/constants'
 import { TopicGuidance } from '@/hooks/types'
 
@@ -41,6 +42,19 @@ export function TopicSelectionStage({
   guidance,
   onContinue,
 }: Props) {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+
+  const handleCopyTopic = async (e: MouseEvent, text: string, index: number) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 1500)
+    } catch (err) {
+      console.error('Copy failed:', err)
+    }
+  }
+
   return (
     <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
@@ -147,7 +161,7 @@ export function TopicSelectionStage({
       <button
         onClick={onGetGuidance}
         disabled={!topic.trim() || isLoading}
-        className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
         {isLoading ? (
@@ -192,14 +206,30 @@ export function TopicSelectionStage({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Refined topic ideas</p>
               <div className="space-y-1.5">
                 {guidance.refinedTopics.map((t, i) => (
-                  <button
+                  <div
                     key={i}
-                    onClick={() => onTopicChange(t)}
-                    className="w-full text-left text-sm rounded-lg border px-3 py-2 hover:bg-amber-50 transition-colors"
+                    className="group flex items-center gap-2 rounded-lg border pl-3 pr-2 py-2 hover:bg-amber-50 transition-colors"
                     style={{ borderColor: 'rgba(0,0,0,0.1)' }}
                   >
-                    {t}
-                  </button>
+                    <button
+                      onClick={() => onTopicChange(t)}
+                      className="flex-1 text-left text-sm cursor-pointer"
+                    >
+                      {t}
+                    </button>
+                    <button
+                      onClick={(e) => handleCopyTopic(e, t, i)}
+                      className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-[#BA7517] hover:bg-black/5 transition-colors cursor-pointer"
+                      title="Copy to clipboard"
+                      aria-label="Copy topic to clipboard"
+                    >
+                      {copiedIndex === i ? (
+                        <Check className="w-3.5 h-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

@@ -17,8 +17,9 @@ function Footer(){
             <div>
             <h4 className="font-display font-semibold text-primary-foreground mb-3">Quick Links</h4>
             <ul className="space-y-2 text-sm">
+                <li><a href="/" className="hover:text-secondary transition-colors">Home</a></li>
                 <li><a href="/browse" className="hover:text-secondary transition-colors">Browse Theses</a></li>
-                    <li><a href="/recommendation" className="hover:text-secondary transition-colors">AI Recommendation</a></li>
+                <li><a href="/recommendation" className="hover:text-secondary transition-colors">Genarative AI</a></li>
                 <li><a href="/about" className="hover:text-secondary transition-colors">About</a></li>
             </ul>
             </div>

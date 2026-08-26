@@ -76,7 +76,7 @@ function ThesisCard({
     >
       <div className="flex justify-between">
         <span className="bg-amber-300/40 px-3 py-0.5 rounded-full">
-          <p className="text-xs text-black/90">{formatText(course)}</p>
+          <p className="sm:text-xs text-[10px] text-black/90">{formatText(course)}</p>
         </span>
 
         <div className="flex items-center gap-3">
@@ -87,7 +87,7 @@ function ThesisCard({
 
           <button
             onClick={handleSaveClick}
-            className="flex items-center gap-1 text-xs text-black/60 hover:text-amber-400 transition-colors"
+            className="flex items-center gap-1 text-xs text-black/60 hover:text-amber-400 transition-colors cursor-pointer"
             aria-label={isSaved ? "Unsave thesis" : "Save thesis"}
           >
             <Bookmark

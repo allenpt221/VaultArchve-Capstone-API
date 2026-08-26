@@ -309,9 +309,9 @@ export async function getSavedThesis(req: Request, res: Response) {
 
         const { data, error, count } = await supabase
             .from("thesisSaved")
-            .select('id, created_at, Thesis(*, ThesisDataAnalytics(views, downloads, saves))', { count: 'exact' })
+            .select('id, createdAt, Thesis(*, ThesisDataAnalytics(views, downloads, saves))', { count: 'exact' })
             .eq("user_id", userId)
-            .order("created_at", { ascending: false })
+            .order("createdAt", { ascending: false })
             .range(from, to);
 
         if (error) {

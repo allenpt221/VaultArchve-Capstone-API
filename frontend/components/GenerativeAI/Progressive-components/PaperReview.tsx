@@ -13,24 +13,56 @@ import {
 import { CONSISTENCY_STYLES, MAX_PDF_SIZE_MB } from '@/hooks/constants'
 import type { FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types'
 
+// Grouped by the standard 5-chapter thesis structure (matches the
+// structuralCompliance checklist on the backend) instead of the old
+// 6 generic fields. Each field now maps to a real chapter, and the
+// placeholder tells the student which subsections belong inside it —
+// so manual entry gets checked at the same subsection granularity as
+// an uploaded PDF, instead of everything outside Abstract/Intro/
+// Methodology/Discussion/Conclusion/References being auto-flagged as
+// "missing" just because there was never a box for it.
 const MANUAL_SECTIONS = [
-  { key: 'thesis_abstract', label: 'Abstract' },
-  { key: 'thesis_introduction', label: 'Introduction' },
-  { key: 'thesis_methodology', label: 'Methodology' },
-  { key: 'thesis_discussion', label: 'Discussion' },
-  { key: 'thesis_conclusion', label: 'Conclusion' },
-  { key: 'thesis_references', label: 'References' },
+  {
+    key: 'chapter1_introduction',
+    label: 'Chapter 1 — Introduction',
+    hint: 'Background of the Study, Statement of the Problem, Research Questions, Significance of the Study, Scope and Delimitation, Definition of Terms',
+  },
+  {
+    key: 'chapter2_rrl',
+    label: 'Chapter 2 — Review of Related Literature',
+    hint: 'Review of Related Literature, Theoretical Framework, Conceptual Framework',
+  },
+  {
+    key: 'chapter3_methodology',
+    label: 'Chapter 3 — Methodology',
+    hint: 'Research Design, Population and Sampling, Research Instrument, Data Gathering Procedure, Statistical Treatment',
+  },
+  {
+    key: 'chapter4_presentation',
+    label: 'Chapter 4 — Presentation, Analysis and Interpretation of Data',
+    hint: 'Presentation of Data, Analysis of Data, Discussion of Findings',
+  },
+  {
+    key: 'chapter5_summary',
+    label: 'Chapter 5 — Summary, Conclusion and Recommendation',
+    hint: 'Summary of Findings, Conclusion, Recommendation',
+  },
+  {
+    key: 'thesis_references',
+    label: 'References',
+    hint: 'Full reference list',
+  },
 ] as const
 
 type ManualSectionKey = (typeof MANUAL_SECTIONS)[number]['key']
 type ManualSectionValues = Record<ManualSectionKey, string>
 
 const EMPTY_MANUAL_SECTIONS: ManualSectionValues = {
-  thesis_abstract: '',
-  thesis_introduction: '',
-  thesis_methodology: '',
-  thesis_discussion: '',
-  thesis_conclusion: '',
+  chapter1_introduction: '',
+  chapter2_rrl: '',
+  chapter3_methodology: '',
+  chapter4_presentation: '',
+  chapter5_summary: '',
   thesis_references: '',
 }
 
@@ -146,7 +178,7 @@ function PaperReview({
           Review & Submit
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Upload your full thesis draft as a PDF, or type in your sections manually. We'll
+          Upload your full thesis draft as a PDF, or type in your chapters manually. We'll
           check its structure, cross-check it against your earlier stages, and audit
           citations before you submit.
         </p>
@@ -204,7 +236,7 @@ function PaperReview({
           }}
         >
           <PenLine size={14} />
-          Option 2 — Type Sections
+          Option 2 — Type Chapters
         </button>
       </div>
 
@@ -260,18 +292,20 @@ function PaperReview({
       {submissionMode === 'manual' && (
         <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
           <p className="text-xs text-gray-500 -mt-1">
-            No PDF yet? Paste or type your thesis sections below — fill in as many as you have.
+            No PDF yet? Paste or type each chapter below — fill in as many as you have. Each
+            box lists the subsections it should cover so we can check them individually.
           </p>
-          {MANUAL_SECTIONS.map(({ key, label }) => (
+          {MANUAL_SECTIONS.map(({ key, label, hint }) => (
             <div key={key} className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {label}
               </label>
+              <p className="text-[11px] text-gray-400 leading-snug">{hint}</p>
               <textarea
                 value={manualSections[key]}
                 onChange={(e) => handleManualSectionChange(key, e.target.value)}
-                placeholder={`Type or paste your ${label.toLowerCase()} here...`}
-                rows={4}
+                placeholder={`Paste ${label.toLowerCase()} here...`}
+                rows={6}
                 className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500 resize-y"
                 style={{ borderColor: 'rgba(0,0,0,0.12)' }}
               />
@@ -300,7 +334,7 @@ function PaperReview({
         <p className="text-xs text-gray-400 -mt-4">
           {submissionMode === 'pdf'
             ? 'Upload a PDF to continue.'
-            : 'Fill in at least one section above to continue.'}
+            : 'Fill in at least one chapter above to continue.'}
         </p>
       )}
 

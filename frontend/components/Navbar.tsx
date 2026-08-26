@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation';
 import gccLogo from '@/assets/gcclogo.png';
 import Image from 'next/image';
-import { Menu, X, LogOut, Shield, ChevronDown, Settings } from 'lucide-react';
+import { Menu, X, LogOut, Shield, ChevronDown, Settings, Bookmark } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { authUserStore } from '@/Stores/authStores';
 
@@ -135,9 +135,23 @@ function Navbar() {
                   </div>
                   <div className='p-1.5'>
                     <Link
+                      href='/saved'
+                      className={`flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg transition-colors ${
+                        pathname === '/saved'
+                          ? "text-amber-400 bg-amber-400/10"
+                          : "text-white/70 hover:text-white hover:bg-white/8"
+                      }`}
+                    >
+                      <Bookmark size={14} />
+                      Saved
+                    </Link>
+                    <Link
                       href='/settings'
-                      onClick={() => setOpenUserMenu(false)}
-                      className='w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/8 hover:text-white transition-all duration-200 text-sm font-medium'
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
+                        pathname === '/settings'
+                          ? "text-amber-400 bg-amber-400/10"
+                          : "text-white/70 hover:bg-white/8 hover:text-white"
+                      }`}
                     >
                       <Settings size={14} />
                       Settings
@@ -255,16 +269,38 @@ function Navbar() {
           {/* Divider */}
           <div className='h-px bg-white/10 my-2' />
 
+
+        {user && (
+            <Link
+              href='/saved'
+              onClick={() => setOpenMenu(false)}
+              className={`flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg transition-colors ${
+                pathname === '/saved'
+                  ? "text-amber-400 bg-amber-400/10"
+                  : "text-white/70 hover:text-white hover:bg-white/8"
+              }`}
+            >
+              <Bookmark size={14} />
+              Saved
+            </Link>
+          )}
+
           {user && (
             <Link
               href='/settings'
               onClick={() => setOpenMenu(false)}
-              className='flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg text-white/70 hover:text-white hover:bg-white/8 transition-colors'
+              className={`flex items-center gap-2.5 font-medium text-sm px-4 py-3 rounded-lg transition-colors ${
+                pathname === '/settings'
+                  ? "text-amber-400 bg-amber-400/10"
+                  : "text-white/70 hover:text-white hover:bg-white/8"
+              }`}
             >
               <Settings size={14} />
               Settings
             </Link>
           )}
+
+
 
           {user && (
             <button

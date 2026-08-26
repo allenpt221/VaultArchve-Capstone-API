@@ -199,12 +199,13 @@ export function DataCollectionStage({
             Research gap
             {/* <span className="normal-case font-normal">(optional, from your Literature Review)</span> */}
           </p>
-          <input
+          <textarea
             value={gapStatement}
             onChange={(e) => onGapStatementChange(e.target.value)}
             placeholder="e.g. Prior studies haven't examined..."
             className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
+            rows={1}
           />
         </div>
 

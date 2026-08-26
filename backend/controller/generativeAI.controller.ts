@@ -6,11 +6,11 @@ import { PDFParse } from "pdf-parse";
 
 
 
-const openai = new OpenAI({
+export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const DAILY_PROMPT_LIMIT = 5;
+export const DAILY_PROMPT_LIMIT = 5;
 const MIN_RESEARCH_QUESTIONS_DA = 1;
 const MAX_RESEARCH_QUESTIONS_DA = 6;
 
@@ -75,7 +75,7 @@ function auditCitations(rawText: string): {
   };
 }
 
-function isGibberish(text: string): boolean {
+export function isGibberish(text: string): boolean {
   if (!text || text.trim().length === 0) return false;
 
   const words = text.trim().split(/\s+/);
@@ -102,7 +102,7 @@ function isGibberish(text: string): boolean {
  * - `required: false` (default) — empty text passes (field is optional, like chatPrompt)
  * - `required: true` — empty text fails (field is mandatory, like topic)
  */
-function checkMeaningfulText(
+export function checkMeaningfulText(
   text: string | undefined | null,
   { required = false }: { required?: boolean } = {}
 ): { valid: boolean; error?: string; message?: string } {
@@ -135,7 +135,7 @@ function checkMeaningfulText(
 
 
 
-function extractRequestedCount(text: string): number | null {
+export function extractRequestedCount(text: string): number | null {
   // "10 titles", "8 recommendations", "12 thesis suggestions"
   const digitMatch = text.match(/\b(\d{1,3})\s*(?:titles?|recommendations?|suggestions?|thesis(?:es)?|topics?)\b/i);
   if (digitMatch) return parseInt(digitMatch[1], 10);
@@ -1525,7 +1525,6 @@ export async function DeleteTopicSelections(req: Request, res: Response) {
       supabase.from("methodology_responses").delete().eq("topic", topic).eq("user_id", user_id),
       supabase.from("data_analysis_responses").delete().eq("topic", topic).eq("user_id", user_id),
       supabase.from("full_paper_reviews").delete().eq("topic", topic).eq("user_id", user_id),
-
     ]);
 
     cascadeResults.forEach((result, i) => {

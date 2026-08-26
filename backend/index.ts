@@ -8,6 +8,8 @@ import AuthRouter from './route/auth.route';
 import RepoRouter from './route/repository.route';
 import AiRouter from './route/generativeAI.router';
 import SavedThesisRouter from './route/saveThesis.route'
+import EntrepAiRouter from './route/EntrepGenerative.route'
+
 
 dotenv.config();
 
@@ -38,6 +40,8 @@ nextApp.prepare().then(() => {
   app.use('/api/saved-thesis', SavedThesisRouter);
   app.use('/api/repository', RepoRouter);
   app.use('/api/ai', AiRouter);
+  app.use('/api/entrep-ai', EntrepAiRouter);
+
 
   // ── Next.js handles all non-API routes ──
   app.all(/^\/(?!api).*/, (req: any, res: any) => {
