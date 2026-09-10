@@ -22,6 +22,9 @@ function Navbar() {
     { name: "About", link: "/about" },
   ];
 
+  console.log(user?.role)
+
+
   const handleLogOut = () => {
     logOut();
     setOpenUserMenu(false);
@@ -81,17 +84,17 @@ function Navbar() {
           ))}
 
           {/* Admin link */}
-          {user?.role === "admin" && (
+          {(user?.role === "admin" || user?.role === "faculty") && (
             <Link
-              href='/admin'
+              href='/dashboard'
               className={`flex items-center gap-1.5 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 ${
-                pathname.startsWith('/admin')
+                pathname.startsWith('/dashboard')
                   ? "text-black bg-yellow-400 shadow-lg shadow-yellow-500/20"
                   : "text-yellow-400/80 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-400/20"
               }`}
             >
               <Shield size={13} />
-              Admin
+              Dashboard
             </Link>
           )}
 
@@ -251,18 +254,19 @@ function Navbar() {
             </Link>
           ))}
 
-          {user?.role === "admin" && (
+
+          {(user?.role === "admin" || user?.role === "faculty") && (
             <Link
-              href='/admin'
+              href='/dashboard'
               onClick={() => setOpenMenu(false)}
               className={`flex items-center gap-2 font-medium text-sm px-4 py-3 rounded-lg transition-colors ${
-                pathname.startsWith('/admin')
+                pathname.startsWith('/dashboard')
                   ? "bg-yellow-400 text-black"
                   : "text-yellow-400/80 hover:text-yellow-400 hover:bg-yellow-400/10 border border-yellow-400/20"
               }`}
             >
               <Shield size={14} />
-              Admin Panel
+              Dashboard
             </Link>
           )}
 

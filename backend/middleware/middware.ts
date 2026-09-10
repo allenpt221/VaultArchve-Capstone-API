@@ -36,11 +36,31 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export function facultyOnly(req: Request, res: Response, next: NextFunction) {
+  const user = req.user;
+
+  if (!user || user.role !== "faculty") {
+    return res.status(403).json({ message: "Faculty access required" });
+  }
+
+  next();
+}
+
 export function adminOnly(req: Request, res: Response, next: NextFunction) {
   const user = req.user;
 
   if (!user || user.role !== "admin") {
     return res.status(403).json({ message: "Admin access required" });
+  }
+
+  next();
+}
+
+export function adminOrFaculty(req: Request, res: Response, next: NextFunction) {
+  const user = req.user;
+
+  if (!user || (user.role !== "admin" && user.role !== "faculty")) {
+    return res.status(403).json({ message: "Admin or faculty access required" });
   }
 
   next();

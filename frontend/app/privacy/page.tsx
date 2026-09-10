@@ -1,32 +1,32 @@
-import React from "react";
 import {
-  FileText,
-  ShieldCheck,
-  Users,
+  Lock,
+  Database,
+  Settings,
   Sparkles,
-  Ban,
+  Server,
+  Share2,
+  UserCheck,
   RefreshCw,
-  AlertTriangle,
   Mail,
-  Scale,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 
-export default function TermsPage() {
+export default function PrivacyPage() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-12 space-y-10">
 
       {/* ── Hero ── */}
       <section className="relative bg-[#0f1b35] rounded-2xl px-10 py-16 text-center overflow-hidden">
         <span className="inline-flex items-center gap-2 text-[#EAA800] text-sm border border-[#EAA800]/30 bg-[#EAA800]/10 px-4 py-1.5 rounded-full mb-5">
-          <Scale size={14} />
+          <Lock size={14} />
           Legal
         </span>
         <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
-          Terms & <span className="text-[#EAA800]">Conditions</span>
+          Privacy <span className="text-[#EAA800]">Policy</span>
         </h1>
         <p className="text-white/55 max-w-xl mx-auto text-sm leading-relaxed">
-          Please read these terms carefully before using VaultArchve, the
+          How VaultArchve collects, uses, and protects your information as the
           official digital thesis repository of Guagua Community College.
         </p>
         <p className="text-white/30 text-xs mt-5">
@@ -34,56 +34,54 @@ export default function TermsPage() {
         </p>
       </section>
 
-      {/* ── Intro ── */}
+      {/* ── Overview ── */}
       <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl p-8">
         <p className="text-[#EAA800] text-xs font-semibold uppercase tracking-widest mb-2">
-          Acceptance of terms
+          Overview
         </p>
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-5">
-          Using VaultArchve means agreeing to these terms
+          Protecting your information on VaultArchve
         </h2>
 
         <p className="border-l-4 border-[#EAA800] pl-5 text-gray-800 dark:text-gray-200 text-base leading-relaxed mb-6">
-          By accessing or using VaultArchve ("the Platform"), operated by
-          Guagua Community College ("GCC", "we", "us"), you agree to be bound
-          by these Terms & Conditions. If you do not agree, please do not use
-          the Platform.
+          This Privacy Policy explains how VaultArchve, operated by Guagua
+          Community College ("GCC", "we", "us"), collects, uses, and protects
+          your information when you use the Platform.
         </p>
 
-        <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-4">
-          The Platform is intended for GCC students, faculty, staff, and
-          researchers. Some features — such as browsing and reading published
-          theses — may be available to the public, while submission, review,
-          and administrative features are restricted to authorized accounts.
+        <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+          We collect only what's needed to run the archive well — your account
+          details, the theses and metadata you submit, and basic usage data
+          that helps us keep the Platform reliable and secure.
         </p>
       </section>
 
-      {/* ── Account & Content pillars ── */}
+      {/* ── What we collect ── */}
       <section>
         <p className="text-[#EAA800] text-xs font-semibold uppercase tracking-widest mb-4">
-          Your responsibilities
+          What we collect
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             {
-              icon: <ShieldCheck size={20} />,
-              title: "Account security",
-              desc: "Keep your login credentials confidential and accurate.",
+              icon: <UserCheck size={20} />,
+              title: "Account info",
+              desc: "Name, email, role, and course/program.",
             },
             {
-              icon: <FileText size={20} />,
-              title: "Original work",
-              desc: "Submitted theses must be your own and free of plagiarism.",
+              icon: <Database size={20} />,
+              title: "Submitted content",
+              desc: "Thesis files, titles, abstracts, and metadata.",
             },
             {
-              icon: <Ban size={20} />,
-              title: "Acceptable use",
-              desc: "No unauthorized access, scraping, or misuse of AI features.",
+              icon: <Settings size={20} />,
+              title: "Usage data",
+              desc: "Pages visited, searches, and AI interactions.",
             },
             {
-              icon: <Users size={20} />,
-              title: "Community respect",
-              desc: "Content and conduct should stay respectful and academic.",
+              icon: <Server size={20} />,
+              title: "Technical data",
+              desc: "IP address, browser, and device information.",
             },
           ].map((f) => (
             <div
@@ -102,18 +100,18 @@ export default function TermsPage() {
         </div>
       </section>
 
-      {/* ── IP + AI ── */}
+      {/* ── AI processing + Data sharing ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {[
           {
-            icon: <FileText size={22} />,
-            title: "Intellectual property",
-            body: "Theses uploaded to VaultArchve remain the intellectual property of their respective authors. By submitting a thesis, you grant GCC a non-exclusive, royalty-free license to store, index, display, and make the work available for academic and research purposes through the Platform.",
+            icon: <Sparkles size={22} />,
+            title: "AI features & third parties",
+            body: "When you use the Thesis Title Recommendation or Progressive Trail assistants, the text you enter is sent to Link third-party AI provider to generate Link response. Avoid entering personal data beyond your academic topic or course when using these features.",
           },
           {
-            icon: <Sparkles size={22} />,
-            title: "AI-assisted features",
-            body: "The Platform includes AI-generated features such as thesis title recommendations and the Progressive Trail guidance tool. These outputs are suggestions only, may contain inaccuracies, and should be verified with your adviser or faculty before being relied upon academically.",
+            icon: <Share2 size={22} />,
+            title: "Data sharing",
+            body: "We do not sell your personal information. Approved theses may be made publicly visible as part of GCC's academic repository. We share data with service providers only to operate the Platform, and where required by law.",
           },
         ].map((item) => (
           <div
@@ -131,37 +129,44 @@ export default function TermsPage() {
         ))}
       </div>
 
-      {/* ── Availability & Liability ── */}
+      {/* ── Security & Your rights ── */}
       <section className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-2xl p-8">
         <p className="text-[#EAA800] text-xs font-semibold uppercase tracking-widest mb-2">
           Good to know
         </p>
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-5">
-          Availability, changes & liability
+          Security, your rights & updates
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
           <div>
             <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold text-sm mb-2">
-              <RefreshCw size={16} className="text-[#EAA800]" />
-              Changes to the Platform
+              <Lock size={16} className="text-[#EAA800]" />
+              Storage & security
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              We may modify, suspend, or discontinue any part of the Platform
-              at any time. We may also update these Terms periodically;
-              continued use after changes means you accept the revised Terms.
+              Passwords are one-way hashed and never stored in plain text.
+              Access is limited to authorized personnel.
             </p>
           </div>
           <div>
             <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold text-sm mb-2">
-              <AlertTriangle size={16} className="text-[#EAA800]" />
-              Limitation of liability
+              <UserCheck size={16} className="text-[#EAA800]" />
+              Your rights
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              VaultArchve is provided "as is." GCC is not liable for any
-              indirect, incidental, or consequential damages arising from your
-              use of the Platform, including reliance on AI-generated
-              suggestions.
+              You may request access to, correction of, or deletion of your
+              account information, subject to academic record-keeping needs.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold text-sm mb-2">
+              <RefreshCw size={16} className="text-[#EAA800]" />
+              Policy updates
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              We may update this policy over time. Material changes are
+              reflected in the "Last updated" date above.
             </p>
           </div>
         </div>
@@ -170,25 +175,23 @@ export default function TermsPage() {
       {/* ── CTA ── */}
       <section className="bg-[#0f1b35] rounded-2xl px-8 py-12 text-center">
         <h2 className="text-2xl font-bold text-white mb-3">
-          Questions about these terms?
+          Questions about your privacy?
         </h2>
         <p className="text-white/50 text-sm mb-8 max-w-md mx-auto leading-relaxed">
           Reach out to the GCC library team and we'll be glad to help.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           
-            <Link href="mailto:library@gcc.edu.ph"
+           <Link href="mailto:library@gcc.edu.ph"
             className="inline-flex items-center gap-2 bg-[#EAA800] text-[#2a1a00] font-semibold px-6 py-2.5 rounded-xl text-sm hover:bg-yellow-400 transition-colors"
           >
             <Mail size={15} />
             library@gcc.edu.ph
-          </Link>
-          
-            <Link href="/privacy"
-            className="inline-flex items-center gap-2 border border-white/20 text-white px-6 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors"
-          >
+          </Link>      
+            <Link href="/terms"
+            className="inline-flex items-center gap-2 border border-white/20 text-white px-6 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
             <ShieldCheck size={15} />
-            Privacy Policy
+            Terms & Conditions
           </Link>
         </div>
       </section>

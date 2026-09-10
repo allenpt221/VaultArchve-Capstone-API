@@ -28,14 +28,14 @@ function AdminContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const activePage = searchParams.get("dashboard") ?? "data-analytics"; 
+  const activePage = searchParams.get("tab") ?? "data-analytics"; 
   const getInitials = (email: string) => email?.charAt(0).toUpperCase() ?? "U";
 
 
 
  
   const setActivePage = (page: string) => {
-    router.push(`/admin?dashboard=${page}`);
+    router.push(`/dashboard?tab=${page}`);
   };
 
   const handleLogout = async () => {
@@ -49,21 +49,23 @@ function AdminContent() {
     }
   };
 
-  useEffect(() => {
-    if (checkingAuth) return;
-    if (!user || user.role !== "admin") {
-      router.replace('/');
-    }
-  }, [user, checkingAuth]);
+useEffect(() => {
+  if (checkingAuth) return;
+  if (!user || (user.role !== "admin" && user.role !== "faculty")) {
+    router.replace('/');
+  }
+}, [user, checkingAuth]);
 
-  if (checkingAuth) return null;
-  if (!user || user.role !== "admin") return null;
+if (checkingAuth) return null;
+if (!user || (user.role !== "admin" && user.role !== "faculty")) return null;
 
-  const menuItems = [
-    { id: "data-analytics", label: "Analytics Dashboard", icon: LayoutDashboard },
-    { id: "submit-thesis", label: "Publish Thesis", icon: FileText },
-    { id: "users-management", label: "User Management", icon: Users  },
-  ];
+const menuItems = [
+  { id: "data-analytics", label: "Analytics Dashboard", icon: LayoutDashboard },
+  { id: "submit-thesis", label: "Publish Thesis", icon: FileText },
+  ...(user?.role === "admin"
+    ? [{ id: "users-management", label: "User Management", icon: Users }]
+    : []),
+];
 
   return (
     <div className="flex min-h-screen bg-gray-50 relative">
@@ -227,7 +229,7 @@ function AdminContent() {
         <div className="">
           {activePage === "data-analytics" && <DataAnalytics isCollapsed={collapsed} />}
           {activePage === "submit-thesis" && <ThesisSubmit />}
-          {activePage === "users-management" && <UserManagement />}
+          {activePage === "users-management" && user?.role === "admin" && <UserManagement />}
 
           {activePage === "settings" && (
             <div className="bg-white rounded-lg shadow p-6 transition-all duration-300">

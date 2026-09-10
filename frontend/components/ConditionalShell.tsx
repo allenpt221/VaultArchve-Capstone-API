@@ -15,7 +15,7 @@ export default function ConditionalShell({
 
   // Hide everything on these pages
   const hideShell =
-    pathname.startsWith("/admin") ||
+    pathname.startsWith("/dashboard") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");

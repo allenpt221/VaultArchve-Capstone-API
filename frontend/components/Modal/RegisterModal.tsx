@@ -225,6 +225,7 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="faculty">Faculty</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
