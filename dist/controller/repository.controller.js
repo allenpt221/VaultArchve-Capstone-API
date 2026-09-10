@@ -12,6 +12,7 @@ exports.getRepoViewAndDownloads = getRepoViewAndDownloads;
 exports.deleteId = deleteId;
 const supa_client_1 = require("../supabase/supa-client");
 const ioredis_1 = __importDefault(require("../lib/ioredis"));
+const cache_1 = require("../lib/cache");
 async function SumbitThesis(req, res) {
     try {
         const user_id = req.user?.id;
@@ -120,10 +121,7 @@ async function SumbitThesis(req, res) {
             },
         ]);
         // CACHE CLEAR
-        const keys = await ioredis_1.default.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await ioredis_1.default.del(...keys);
-        }
+        await (0, cache_1.invalidateCacheByPrefix)("thesis:page");
         return res.status(200).json({
             status: true,
             message: "Thesis created successfully",
@@ -220,10 +218,7 @@ async function UpdateThesis(req, res) {
                 console.log("Old file removed:", oldFileRemoveData);
             }
         }
-        const keys = await ioredis_1.default.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await ioredis_1.default.del(...keys);
-        }
+        await (0, cache_1.invalidateCacheByPrefix)("thesis:page");
         return res.status(200).json({ message: "Thesis updated successfully", data: updatedRow });
     }
     catch (error) {
@@ -366,10 +361,7 @@ async function deleteId(req, res) {
         if (deleteError) {
             return res.status(500).json({ error: "Failed to delete thesis" });
         }
-        const keys = await ioredis_1.default.keys("thesis:page:*");
-        if (keys.length > 0) {
-            await ioredis_1.default.del(...keys);
-        }
+        await (0, cache_1.invalidateCacheByPrefix)("thesis:page");
         return res.status(200).json({ success: true, message: "Thesis deleted successfully" });
     }
     catch (error) {

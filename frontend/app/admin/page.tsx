@@ -272,9 +272,17 @@ function AdminContent() {
 
         {user && (
           <div className='mx-4 mt-4 p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3'>
-            <div className='h-9 w-9 rounded-full bg-linear-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black font-bold text-sm shrink-0'>
-              {getInitials(user.email)}
-            </div>
+              <div className="shrink-0 w-8 h-8 rounded-full bg-amber-400 text-[#0B1C33] font-bold flex items-center justify-center text-sm">
+                {user?.profile ? (
+                  <img
+                    src={user.profile}
+                    alt={user?.email ?? "User"}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  (user?.email?.[0] || "A").toUpperCase()
+                )}
+              </div>
             <div className='min-w-0'>
               <p className='text-white/40 text-xs'>Signed in as</p>
               <p className='text-white text-sm font-medium truncate'>{user.email}</p>

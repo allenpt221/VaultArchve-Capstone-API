@@ -33,9 +33,12 @@ const normalizeMethodology = (data: any): SavedMethodology => ({
 });
 
 
-interface RecommendedProps{
-    course: string;
-    chatPrompt: string;
+interface RecommendedProps {
+  course: string;
+  chatPrompt: string;
+  // Omit to start a new chat thread; pass the current session's id to
+  // continue it. The backend mints one and hands it back if omitted.
+  session_id?: string;
 }
 
 interface TopicSelectionProps{
@@ -112,8 +115,6 @@ interface MethodologyResult {
   limitations: string[];
 }
 
-
-
 interface SavedLiteratureReview {
   id: string;
   user_id: string;
@@ -156,6 +157,22 @@ interface SavedMethodology {
   created_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Thesis recommendation chat (session-based) types
+// ---------------------------------------------------------------------------
+
+export type ThesisChatMessage =
+  | { id: string; role: "user"; text: string; course: string }
+  | { id: string; role: "assistant"; kind: "results"; results: any[] };
+
+export interface ThesisChatSession {
+  id: string; // session_id (or legacy row id for pre-migration rows)
+  title: string;
+  course: string;
+  updatedAt: number;
+  messages: ThesisChatMessage[];
+}
+
 interface generativeAiProps {
   RecommendedAI: (data: RecommendedProps) => Promise<void>;
   TopicSelectionAI: (data: TopicSelectionProps) => Promise<void>;
@@ -189,10 +206,6 @@ interface generativeAiProps {
   fullPaperReviewsOffset: number
   fullPaperReviewLoading: boolean
   fullPaperReviewHistoryLoading: boolean
-  // `topic` is now sent alongside the file/manual sections so the saved
-  // review can be matched back to the current topic later, the same way
-  // Topic Selection / Literature Review / Methodology / Data Collection
-  // records are matched.
   FullPaperReviewAI: (file: File | null, manualSections?: Record<string, string>, topic?: string) => Promise<void>
   GetFullPaperReviews: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
@@ -208,9 +221,15 @@ interface generativeAiProps {
   methodologyHistoryLoading: boolean;
   loading: boolean;
   message: string | null;
+
+  // ---- Thesis chat / session state ----
+  currentThesisSessionId: string | null;
+  thesisSessions: ThesisChatSession[];
+  thesisHistoryLoading: boolean;
+  GetThesisHistory: (params?: { limit?: number; offset?: number }) => Promise<void>;
+  StartNewThesisChat: () => void;
+  SelectThesisSession: (sessionId: string) => void;
 }
-
-
 
 export const generativeStore = create<generativeAiProps>((set, get) => ({
     result: [],
@@ -241,18 +260,72 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     loading: false,
     message: "",
 
+    // ---- Thesis chat / session state ----
+    currentThesisSessionId: null,
+    thesisSessions: [],
+    thesisHistoryLoading: false,
+
   // POST METHOD
-  RecommendedAI: async ({ chatPrompt, course }: RecommendedProps): Promise<void> => {
+  RecommendedAI: async ({ chatPrompt, course, session_id }: RecommendedProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
+
+      // Continue the current chat unless the caller explicitly passed a
+      // session_id (or explicitly started a new one via StartNewThesisChat,
+      // which clears currentThesisSessionId first).
+      const resolvedSessionId = session_id ?? get().currentThesisSessionId ?? undefined;
 
       const res = await axios.post('/ai/recommendation', {
         course,
         chatPrompt,
+        session_id: resolvedSessionId,
+      });
+
+      const {
+        id,
+        session_id: returnedSessionId,
+        title,
+        created_at,
+        recommendations,
+      } = res.data;
+
+      // Append this turn to the local session list so the UI updates
+      // immediately without waiting on a GetThesisHistory refetch.
+      set((state) => {
+        const sessions = [...state.thesisSessions];
+        const idx = sessions.findIndex((s) => s.id === returnedSessionId);
+
+        const newMessages: ThesisChatMessage[] = [
+          { id: `${id}-user`, role: "user", text: chatPrompt, course },
+          { id: `${id}-assistant`, role: "assistant", kind: "results", results: recommendations },
+        ];
+
+        if (idx === -1) {
+          sessions.unshift({
+            id: returnedSessionId,
+            title: title || (chatPrompt?.length > 48 ? `${chatPrompt.slice(0, 48)}…` : chatPrompt || "New chat"),
+            course,
+            updatedAt: new Date(created_at).getTime(),
+            messages: newMessages,
+          });
+        } else {
+          const existing = sessions[idx];
+          sessions[idx] = {
+            ...existing,
+            course,
+            updatedAt: new Date(created_at).getTime(),
+            messages: [...existing.messages, ...newMessages],
+          };
+          // Bump most-recently-updated session to the front
+          sessions.splice(idx, 1);
+          sessions.unshift(sessions[idx] ?? { ...existing, messages: [...existing.messages, ...newMessages] });
+        }
+
+        return { thesisSessions: sessions, currentThesisSessionId: returnedSessionId };
       });
 
       set({
-        result: res.data.recommendations,
+        result: recommendations,
         loading: false,
         message: "AI recommendations generated successfully!",
       });
@@ -287,6 +360,66 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
       set({ message: error.message || "An unexpected error occurred." });
     }
   },
+
+  // GET METHOD — hydrates the chat history drawer from the server
+  GetThesisHistory: async (params): Promise<void> => {
+    try {
+      set({ thesisHistoryLoading: true, message: "" });
+
+      const res = await axios.get('/ai/thesis-history', {
+        params: {
+          limit: params?.limit ?? 200,
+          offset: params?.offset ?? 0,
+        },
+      });
+
+      set({
+        thesisSessions: res.data.sessions,
+        thesisHistoryLoading: false,
+      });
+
+    } catch (error: any) {
+      set({ thesisHistoryLoading: false });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Could not load your thesis chat history." });
+        return;
+      }
+
+      console.error("Get Thesis History Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+
+  // Clears the active session pointer so the next RecommendedAI call mints
+  // a brand-new session_id instead of continuing the current thread.
+  StartNewThesisChat: () => {
+    set({ currentThesisSessionId: null, result: [] });
+  },
+
+  // Switch the active thread (e.g. user clicks a past chat in the drawer).
+  SelectThesisSession: (sessionId: string) => {
+    const session = get().thesisSessions.find((s) => s.id === sessionId);
+    if (!session) return;
+
+    const lastResults = [...session.messages].reverse().find(
+      (m): m is Extract<ThesisChatMessage, { role: "assistant" }> => m.role === "assistant"
+    );
+
+    set({
+      currentThesisSessionId: sessionId,
+      result: lastResults?.results ?? [],
+    });
+  },
+
   // POST METHOD
   TopicSelectionAI: async ({ topic, context }: TopicSelectionProps): Promise<void> => {
     try {
@@ -491,14 +624,9 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
           formData.append(key, value)
         })
       }
-      // Sent so the backend can persist/associate this review with the
-      // current topic — needed for auto-matching it back on later visits,
-      // the same way Topic Selection / Literature Review / Methodology /
-      // Data Collection records are matched.
       if (topic) {
         formData.append('topic', topic)
       }
-
 
       const res = await axios.post('/ai/paper-reviews', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

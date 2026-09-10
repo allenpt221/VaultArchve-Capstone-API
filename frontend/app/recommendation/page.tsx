@@ -21,7 +21,7 @@ function page() {
   }, [selectedAssistant])
 
   return (
-    <div className='sm:h-[89vh] w-full flex flex-col bg-background px-3'>
+    <div className='sm:h-[89vh] w-full flex flex-col bg-background sm:px-3'>
       <header className="shrink-0 border-b border-border/60 h-14 flex justify-between items-center lg:px-50 px-2">
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-full bg-amber-400 flex items-center justify-center">
@@ -29,7 +29,7 @@ function page() {
           </div>
           <span className="font-body text-sm font-semibold text-foreground">Thesis Assistant</span>
         </div>
-        
+
 
         <div className='hidden sm:flex'>
           <Select value={selectedAssistant} onValueChange={setSelectedAssistant}>
@@ -45,11 +45,27 @@ function page() {
         </div>
       </header>
 
+      {/* Mobile selector */}
+      <div className="sm:hidden shrink-0 border-b border-border/60 px-2 py-2">
+        <div className="flex gap-1 rounded-lg bg-muted p-1">
+          {AssistantAI.map((item, key) => (
+            <button
+              key={key}
+              onClick={() => setSelectedAssistant(item)}
+              className={`flex-1 rounded-md py-1.5 text-xs font-medium font-body transition-colors ${
+                selectedAssistant === item
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {selectedAssistant === "Title recommendation" && <AIrecommendation />}
       {selectedAssistant === "Progressive Trail" && <ProgressiveTrial />}
-
-
 
     </div>
   )

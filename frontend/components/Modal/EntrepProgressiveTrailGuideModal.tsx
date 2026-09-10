@@ -3,11 +3,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Target,
-  BookOpenText,
-  FlaskConical,
-  BarChart3,
-  FileCheck2,
+  Lightbulb,
+  ClipboardList,
+  LineChart,
+  Factory,
+  Calculator,
   CheckCircle2,
 } from 'lucide-react'
 
@@ -20,68 +20,68 @@ type Stage = {
   youGet: string
 }
 
-// Content mirrors the actual Progressive Trail stages — keep this in sync
-// if a stage's scope or output artifact changes.
+// Content mirrors the actual Entrep Progressive Trail stages — keep this in
+// sync if a stage's scope or output artifact changes.
 const STAGES: Stage[] = [
   {
-    key: 'topic',
-    icon: Target,
-    title: 'Topic & Problem Definition',
+    key: 'concept',
+    icon: Lightbulb,
+    title: 'Concept',
     summary:
-      "Start with whatever interest or idea you have, even a rough one. We'll help you narrow it into a real problem statement.",
+      "Start with your business idea, even a rough one. We'll help you shape it into a clear, sellable concept.",
     youDo: [
-      'Answer guided prompts that test your idea for specificity, feasibility, originality, and relevance',
-      'See common pitfalls flagged as you go, before an adviser has to point them out',
+      'Describe your idea and any context you already have',
+      'Get AI-generated name, tagline, and positioning options to choose from and refine',
     ],
-    youGet: 'A draft problem statement + 3 research questions',
+    youGet: 'A concept statement, name, and tagline you can carry into every later stage',
   },
   {
-    key: 'literature',
-    icon: BookOpenText,
-    title: 'Literature Review',
+    key: 'swot',
+    icon: ClipboardList,
+    title: 'SWOT Analysis',
     summary:
-      'Give us your topic and the trail searches the web for real sources, verifies each one, and builds your annotated bibliography for you.',
+      "See your concept from every angle before you commit resources to it — what's working in your favor, and what could work against you.",
     youDo: [
-      'Get a numbered list of verified sources — each with its citation, link to the original, and a summary of what it found and how it relates to your topic',
-      "See only sources that were checked as real, not made up — anything unverified gets dropped",
+      'Add your own notes and observations about your concept',
+      'Get an AI-generated breakdown of strengths, weaknesses, opportunities, and threats',
     ],
-    youGet: 'An annotated bibliography of verified sources',
+    youGet: 'A SWOT analysis grounded in your concept statement',
   },
   {
-    key: 'methodology',
-    icon: FlaskConical,
-    title: 'Methodology',
+    key: 'market',
+    icon: LineChart,
+    title: 'Market Research',
     summary:
-      'Decide how you\'ll actually answer your research questions — qualitative, quantitative, or mixed — with reasoning you can defend.',
+      'Find out whether people actually want what you\'re building, and who your target market really is.',
     youDo: [
-      'Work through a decision tree tied directly to your research questions',
-      'Justify your population and sampling, then plan your instrument and data collection with validity in mind',
+      'Log your market notes and any survey results you\'ve gathered',
+      'Get an AI interpretation of your survey data and target market fit',
     ],
-    youGet: 'A methodology draft, mapped to each research question',
+    youGet: 'A market research summary with your target market defined',
   },
   {
-    key: 'data',
-    icon: BarChart3,
-    title: 'Data Collection & Analysis',
+    key: 'production',
+    icon: Factory,
+    title: 'Production',
     summary:
-      "Once your data is in, get guidance matched to your method — thematic coding for qualitative, statistical tests for quantitative.",
+      'Plan how you\'ll actually make and deliver your product — suppliers, capacity, and variants.',
     youDo: [
-      'Work through a data cleaning and organization checklist',
-      'Get prompts that connect your findings back to the gap you identified in your literature review',
+      'Add your suppliers, daily output, and operating days per week',
+      'Define your product variants and get an AI-generated production plan',
     ],
-    youGet: 'A results summary with suggested visualizations',
+    youGet: 'A production plan mapped to your real capacity and suppliers',
   },
   {
-    key: 'paper-review',
-    icon: FileCheck2,
-    title: 'Full Paper Review',
+    key: 'financial',
+    icon: Calculator,
+    title: 'Financial',
     summary:
-      "Upload your full draft (or type your chapters in directly) and get it checked against everything from the earlier stages.",
+      "Turn your concept and production plan into numbers — what it costs to start, what it costs to run, and what it needs to sell for.",
     youDo: [
-      "See which chapters and required sections were found, and which are unclear or missing",
-      "Get flagged on anything that doesn't match your saved topic, research questions, or methodology, plus a citation audit",
+      'Enter startup costs, fixed monthly costs, and variable cost per unit',
+      'Set your price per unit and get an AI-generated financial outlook',
     ],
-    youGet: 'An overall readiness score with your top priority fixes',
+    youGet: 'A financial outlook covering costs, pricing, and breakeven',
   },
 ]
 
@@ -91,7 +91,7 @@ type Props = {
   onGetStarted?: () => void
 }
 
-function ProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
+function EntrepProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
   const [stepIndex, setStepIndex] = useState(0)
 
   if (!isOpen) return null
@@ -117,7 +117,7 @@ function ProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
       className="h-full fixed inset-0 z-50 flex items-center justify-center px-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="progressive-trail-guide-title"
+      aria-labelledby="entrep-progressive-trail-guide-title"
     >
       {/* Backdrop */}
       <div
@@ -135,11 +135,11 @@ function ProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
               How it works
             </p>
             <h2
-              id="progressive-trail-guide-title"
+              id="entrep-progressive-trail-guide-title"
               className="text-lg font-semibold mt-0.5"
               style={{ color: '#0B1C33' }}
             >
-              The Progressive Trail
+              The Business Plan Trail
             </h2>
           </div>
           <button
@@ -231,6 +231,7 @@ function ProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
             Back
           </button>
 
+
           <button
             type="button"
             onClick={goNext}
@@ -246,4 +247,4 @@ function ProgressiveTrailGuideModal({ isOpen, onClose, onGetStarted }: Props) {
   )
 }
 
-export default ProgressiveTrailGuideModal
+export default EntrepProgressiveTrailGuideModal

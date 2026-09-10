@@ -1,8 +1,8 @@
 'use client'
-import { Bot, ChevronDown, ChevronRight, CircleX, Clock, GraduationCap, Loader2, PenSquare, Send, SparklesIcon, User } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, CircleX, Clock, GraduationCap, History, Loader2, MessageSquare, PenSquare, Send, SparklesIcon, User, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
-import { generativeStore } from "@/Stores/generativeStore";
+import { generativeStore, ThesisChatMessage, ThesisChatSession } from "@/Stores/generativeStore";
 
 const courseInterest = ['Accountancy', 'Accounting Information System', 'Entrepreneurship', 'Public Administration']
 
@@ -47,6 +47,35 @@ function formatCountdown(ms: number) {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+// Relative time for the history list ("just now", "5m ago", "3d ago", or a date)
+function formatRelativeTime(ts: number) {
+  const diffMs = Date.now() - ts;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Converts a server-side session (ThesisChatMessage[], role user/assistant
+// only) into the richer local ChatMessage shape this component renders.
+// Transient states (warnings, errors, rate-limit notices, course-switch
+// notes) never round-trip through the server, so loading a saved session
+// only ever reconstructs 'results' turns — which matches what the backend
+// actually persists.
+function sessionToMessages(session: ThesisChatSession): ChatMessage[] {
+  return session.messages.map((m: ThesisChatMessage) => {
+    if (m.role === 'user') {
+      return { id: m.id, role: 'user', text: m.text, course: m.course };
+    }
+    return { id: m.id, role: 'assistant', kind: 'results', results: m.results };
+  });
+}
+
 function TypingIndicator() {
   return (
     <div className="w-full py-6 px-4 sm:px-6 bg-muted/30">
@@ -72,11 +101,23 @@ function AIrecommendation() {
   const [isShow, setIsShow] = useState(true);
   const [limitedUntil, setLimitedUntil] = useState<number | null>(null); // epoch ms
   const [countdown, setCountdown] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyEntered, setHistoryEntered] = useState(false); // drives the slide/fade transition
 
+  const {
+    RecommendedAI,
+    loading,
+    thesisSessions,
+    thesisHistoryLoading,
+    currentThesisSessionId,
+    GetThesisHistory,
+    StartNewThesisChat,
+    SelectThesisSession,
+  } = generativeStore();
 
-  const { RecommendedAI, loading } = generativeStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const historyFetched = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -89,26 +130,30 @@ function AIrecommendation() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [chatPrompt]);
 
-
   useEffect(() => {
-  const mediaQuery = window.matchMedia("(min-width: 640px)");
+    const mediaQuery = window.matchMedia("(min-width: 640px)");
 
-  const handleResize = (e: MediaQueryListEvent | MediaQueryList) => {
-    if (e.matches) {
-      setIsShow(true);
-    }
-  };
+    const handleResize = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        setIsShow(true);
+      }
+    };
 
-  // Initial check
-  handleResize(mediaQuery);
+    handleResize(mediaQuery);
+    mediaQuery.addEventListener("change", handleResize);
 
-  // Listen for changes
-  mediaQuery.addEventListener("change", handleResize);
+    return () => {
+      mediaQuery.removeEventListener("change", handleResize);
+    };
+  }, []);
 
-  return () => {
-    mediaQuery.removeEventListener("change", handleResize);
-  };
-}, []);
+  // Hydrate the history drawer from the server once on mount, replacing the
+  // old localStorage load.
+  useEffect(() => {
+    if (historyFetched.current) return;
+    historyFetched.current = true;
+    GetThesisHistory();
+  }, [GetThesisHistory]);
 
   // Countdown ticker — updates every second while locked, clears the lock once time's up
   useEffect(() => {
@@ -129,6 +174,24 @@ function AIrecommendation() {
     return () => clearInterval(interval);
   }, [limitedUntil]);
 
+  // Drives the enter animation: once the drawer mounts (showHistory true),
+  // flip historyEntered on the next frame so the transition actually plays
+  // instead of starting already in its final state.
+  useEffect(() => {
+    if (showHistory) {
+      const raf = requestAnimationFrame(() => setHistoryEntered(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setHistoryEntered(false);
+  }, [showHistory]);
+
+  // Closes the drawer with an exit animation: flip historyEntered off first
+  // (plays the slide/fade-out), then unmount after the transition duration.
+  const closeHistory = () => {
+    setHistoryEntered(false);
+    setTimeout(() => setShowHistory(false), 200);
+  };
+
   const sendMessage = async (promptText: string, courseOverride?: string) => {
     if (!promptText.trim() || loading || disabled || limitedUntil) return;
 
@@ -144,7 +207,13 @@ function AIrecommendation() {
     setChatPrompt('');
     setDisabled(true);
 
-    await RecommendedAI({ chatPrompt: promptText, course: courseForThisMessage });
+    // Pass the active session id (if any) so this turn continues the same
+    // server-side thread instead of starting a new one every message.
+    await RecommendedAI({
+      chatPrompt: promptText,
+      course: courseForThisMessage,
+      session_id: currentThesisSessionId ?? undefined,
+    });
 
     const state = generativeStore.getState();
     const latestResult = state.result ?? [];
@@ -185,6 +254,21 @@ function AIrecommendation() {
   const startNewChat = () => {
     setMessages([]);
     setChatPrompt('');
+    StartNewThesisChat(); // clears currentThesisSessionId in the store
+    closeHistory();
+  };
+
+  // Load a saved conversation back into the active thread. The transcript
+  // comes from the server session; only the 'results' turns can be
+  // reconstructed (see sessionToMessages), so a reopened chat won't show
+  // any of the old transient warning/limit banners — that matches what's
+  // actually persisted server-side.
+  const loadChat = (session: ThesisChatSession) => {
+    setMessages(sessionToMessages(session));
+    setSelectedInterest(session.course);
+    SelectThesisSession(session.id);
+    setChatPrompt('');
+    closeHistory();
   };
 
   // When the course changes, drop a small system note into the thread so the
@@ -209,7 +293,88 @@ function AIrecommendation() {
   const hasStarted = messages.length > 0;
 
   return (
-    <div className="sm:h-[89vh] w-full flex flex-col bg-background">
+    <div className="h-dvhs sm:h-[89vh] w-full flex flex-col bg-background relative overflow-hidden">
+
+      {/* History panel — slide-in drawer with backdrop */}
+      {showHistory && (
+        <div className="fixed inset-0 z-100 flex sm:absolute sm:z-50">
+          <div
+            className={`absolute inset-0 bg-black/30 transition-opacity duration-200 ease-out ${
+              historyEntered ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={closeHistory}
+          />
+          <div
+            className={`relative w-70 sm:w-72 sm:max-w-[85%] h-full bg-background sm:border-r border-border shadow-xl flex flex-col transition-transform duration-200 ease-out ${
+              historyEntered ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-display text-sm font-semibold text-foreground">Chat history</h2>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={closeHistory}
+                className="h-7 w-7 rounded-full cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="shrink-0 px-3 py-2 border-b border-border/60">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={startNewChat}
+                className="w-full justify-start gap-2 text-xs rounded-full cursor-pointer"
+              >
+                <PenSquare className="h-3.5 w-3.5" />
+                New chat
+              </Button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto py-2">
+              {thesisHistoryLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : thesisSessions.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center px-4 py-6">
+                  No previous chats yet. Start a conversation and it'll show up here.
+                </p>
+              ) : (
+                <div className="space-y-0.5 px-2">
+                  {thesisSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      onClick={() => loadChat(session)}
+                      className={`w-full text-left group flex items-start gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-colors ${
+                        session.id === currentThesisSessionId ? "bg-amber-50" : "hover:bg-muted/60"
+                      }`}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {session.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">{session.course}</span>
+                          <span className="text-[10px] text-muted-foreground">·</span>
+                          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active course awareness strip */}
       {hasStarted && (
@@ -222,7 +387,7 @@ function AIrecommendation() {
       )}
 
       {/* Message area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {!hasStarted ? (
           <div className="h-full flex flex-col items-center justify-center px-4">
             <div className="h-12 w-12 rounded-full bg-amber-400 flex items-center justify-center mb-4">
@@ -242,6 +407,17 @@ function AIrecommendation() {
               <span className="font-semibold">{selectedInterest}</span>
               </div>
             </div>
+            {(thesisHistoryLoading || thesisSessions.length > 0) && (
+              <button
+                onClick={() => setShowHistory(true)}
+                className="cursor-pointer flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 underline underline-offset-2"
+              >
+                <History className="h-3.5 w-3.5" />
+                {thesisHistoryLoading
+                  ? "Loading previous chats…"
+                  : `View ${thesisSessions.length} previous chat${thesisSessions.length > 1 ? 's' : ''}`}
+              </button>
+            )}
             <div className="grid sm:grid-cols-2 gap-2 max-w-lg w-full">
               {suggestions.map((s) => (
                 <button
@@ -269,9 +445,6 @@ function AIrecommendation() {
                 );
               }
 
-              // ChatGPT-style: every message is a full-width row, avatar on the
-              // left, plain text — no bubbles. Assistant rows get a faint
-              // background tint to separate turns, matching ChatGPT's stripe.
               const isUser = msg.role === 'user';
 
               return (
@@ -329,8 +502,6 @@ function AIrecommendation() {
                         </div>
                       )}
 
-                      {/* Results as a plain numbered list — no card, no bubble,
-                          just structured text the way ChatGPT renders lists */}
                       {msg.kind === 'results' && (
                         <div className="space-y-4 pt-1">
                           {msg.results?.map((item, index) => (
@@ -383,6 +554,16 @@ function AIrecommendation() {
         <div className="max-w-3xl mx-auto px-4 pt-3">
             <div className="flex sm:flex-row flex-col">
               <div className="sm:hidden flex items-center gap-2">
+                    <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowHistory(true)}
+                    className="h-9 w-9 rounded-full hover:bg-amber-100 transition-colors"
+                    title="Chat history"
+                    >
+                    <History className="h-4 w-4" />
+                    </Button>
                     <Button
                     type="button"
                     variant="ghost"
@@ -440,8 +621,18 @@ function AIrecommendation() {
                     type="button"
                     variant="ghost"
                     size="icon"
+                    onClick={() => setShowHistory(true)}
+                    className="h-9 w-9 rounded-full hover:bg-amber-100 transition-colors cursor-pointer"
+                    title="Chat history"
+                    >
+                    <History className="h-4 w-4" />
+                    </Button>
+                    <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={startNewChat}
-                    className="h-9 w-9 rounded-full hover:bg-amber-100 transition-colors"
+                    className="h-9 w-9 rounded-full hover:bg-amber-100 transition-colors cursor-pointer"
                     title="New chat"
                     >
                     <PenSquare className="h-4 w-4" />

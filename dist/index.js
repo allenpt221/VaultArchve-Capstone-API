@@ -11,6 +11,8 @@ const path_1 = __importDefault(require("path"));
 const auth_route_1 = __importDefault(require("./route/auth.route"));
 const repository_route_1 = __importDefault(require("./route/repository.route"));
 const generativeAI_router_1 = __importDefault(require("./route/generativeAI.router"));
+const saveThesis_route_1 = __importDefault(require("./route/saveThesis.route"));
+const EntrepGenerative_route_1 = __importDefault(require("./route/EntrepGenerative.route"));
 dotenv_1.default.config();
 const isProd = process.env.NODE_ENV === 'production';
 const nextApp = require('next')({
@@ -30,8 +32,10 @@ nextApp.prepare().then(() => {
     const PORT = process.env.PORT || 3000;
     // ── API routes ──
     app.use('/api/auth', auth_route_1.default);
+    app.use('/api/saved-thesis', saveThesis_route_1.default);
     app.use('/api/repository', repository_route_1.default);
     app.use('/api/ai', generativeAI_router_1.default);
+    app.use('/api/entrep-ai', EntrepGenerative_route_1.default);
     // ── Next.js handles all non-API routes ──
     app.all(/^\/(?!api).*/, (req, res) => {
         return handle(req, res);

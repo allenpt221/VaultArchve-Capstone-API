@@ -18,7 +18,7 @@ router.delete('/thesis/delete/:id', repository_controller_1.deleteId);
 router.put('/thesis/update/:id', middware_1.verifyToken, middware_1.adminOnly, upload.any(), repository_controller_1.UpdateThesis);
 // dataAnalytics
 router.put('/views/:id', middware_1.verifyToken, dataAnalytics_controller_1.incrementView);
-router.get('/download/:thesis_id', dataAnalytics_controller_1.downloadThesis);
+router.get('/download/:thesis_id', middware_1.verifyToken, dataAnalytics_controller_1.downloadThesis);
 router.get('/features', repository_controller_1.getRandomThesis);
 router.get('/viewsdownloads', repository_controller_1.getRepoViewAndDownloads);
 exports.default = router;

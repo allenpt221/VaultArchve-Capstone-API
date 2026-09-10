@@ -9,6 +9,7 @@ import {
   Gauge,
   PenLine,
   History,
+  Lightbulb,
 } from 'lucide-react'
 import { CONSISTENCY_STYLES, MAX_PDF_SIZE_MB } from '@/hooks/constants'
 import type { FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types'
@@ -68,6 +69,17 @@ const EMPTY_MANUAL_SECTIONS: ManualSectionValues = {
 
 type SubmissionMode = 'pdf' | 'manual'
 
+// Status → color mapping for the per-section breakdown (sectionCheck).
+// Kept local to this file since it's only used here, unlike
+// CONSISTENCY_STYLES which is shared via hooks/constants.
+const SECTION_STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+  Present: { bg: '#EAF3DE', color: '#27500A' },
+  Partial: { bg: '#FDF3E3', color: '#8A5A00' },
+  Missing: { bg: '#FBEAEA', color: '#7A2020' },
+  Unclear: { bg: '#FDF3E3', color: '#8A5A00' },
+  'Not Applicable': { bg: '#F1F1F1', color: '#666666' },
+}
+
 // This component now receives everything from useProgressiveTrial() via
 // props from the parent (ProgressiveTrial.tsx), instead of calling the
 // hook itself. useProgressiveTrial is a plain custom hook (not backed by
@@ -113,7 +125,8 @@ function PaperReview({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Which submission method is currently shown — only one at a time.
-  const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('pdf')
+  // "manual" (Type Chapters) is now Option 1 / the default.
+  const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('manual')
 
   // Manual section text — an alternative (or supplement) to uploading a PDF.
   const [manualSections, setManualSections] = useState<ManualSectionValues>(EMPTY_MANUAL_SECTIONS)
@@ -171,6 +184,18 @@ function PaperReview({
     handleUploadPaperReview(nonEmptyManualSections)
   }
 
+  // displayedPaperReview is always in the camelCase display shape by the
+  // time it reaches this component — useProgressiveTrial's displayedPaperReview
+  // useMemo converts the snake_case DB row into this shape for saved reviews,
+  // and a fresh upload is already in this shape. structuralCompliance is a
+  // ready-made summary { missing: string[], requiredSectionsTotal,
+  // requiredSectionsPresent } — there's no separate `sectionCheck` array to
+  // derive it from.
+  const structuralCompliance = displayedPaperReview?.structuralCompliance ?? null
+  const requiredSectionsTotal = structuralCompliance?.requiredSectionsTotal ?? 0
+  const requiredSectionsPresent = structuralCompliance?.requiredSectionsPresent ?? 0
+  const missingSections = structuralCompliance?.missing ?? []
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -213,20 +238,6 @@ function PaperReview({
         <button
           type="button"
           role="tab"
-          aria-selected={submissionMode === 'pdf'}
-          onClick={() => setSubmissionMode('pdf')}
-          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-          style={{
-            background: submissionMode === 'pdf' ? '#0B1C33' : 'transparent',
-            color: submissionMode === 'pdf' ? '#FFFFFF' : '#444441',
-          }}
-        >
-          <UploadCloud size={14} />
-          Option 1 — Upload PDF
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={submissionMode === 'manual'}
           onClick={() => setSubmissionMode('manual')}
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
@@ -236,9 +247,49 @@ function PaperReview({
           }}
         >
           <PenLine size={14} />
-          Option 2 — Type Chapters
+          Option 1 — Type Chapters
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={submissionMode === 'pdf'}
+          onClick={() => setSubmissionMode('pdf')}
+          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+          style={{
+            background: submissionMode === 'pdf' ? '#0B1C33' : 'transparent',
+            color: submissionMode === 'pdf' ? '#FFFFFF' : '#444441',
+          }}
+        >
+          <UploadCloud size={14} />
+          Option 2 — Upload PDF
         </button>
       </div>
+
+      {/* Manual section entry — only rendered in manual mode */}
+      {submissionMode === 'manual' && (
+        <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
+          <p className="text-xs text-gray-500 -mt-1">
+            No PDF yet? Paste or type each chapter below — fill in as many as you have. Each
+            box lists the subsections it should cover so we can check them individually.
+          </p>
+          {MANUAL_SECTIONS.map(({ key, label, hint }) => (
+            <div key={key} className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {label}
+              </label>
+              <p className="text-[11px] text-gray-400 leading-snug">{hint}</p>
+              <textarea
+                value={manualSections[key]}
+                onChange={(e) => handleManualSectionChange(key, e.target.value)}
+                placeholder={`Paste ${label.toLowerCase()} here...`}
+                rows={6}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500 resize-y"
+                style={{ borderColor: 'rgba(0,0,0,0.12)' }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Upload zone — only rendered in PDF mode */}
       {submissionMode === 'pdf' && (
@@ -288,32 +339,6 @@ function PaperReview({
         </div>
       )}
 
-      {/* Manual section entry — only rendered in manual mode */}
-      {submissionMode === 'manual' && (
-        <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
-          <p className="text-xs text-gray-500 -mt-1">
-            No PDF yet? Paste or type each chapter below — fill in as many as you have. Each
-            box lists the subsections it should cover so we can check them individually.
-          </p>
-          {MANUAL_SECTIONS.map(({ key, label, hint }) => (
-            <div key={key} className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {label}
-              </label>
-              <p className="text-[11px] text-gray-400 leading-snug">{hint}</p>
-              <textarea
-                value={manualSections[key]}
-                onChange={(e) => handleManualSectionChange(key, e.target.value)}
-                placeholder={`Paste ${label.toLowerCase()} here...`}
-                rows={6}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500 resize-y"
-                style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
       <button
         type="button"
         onClick={handleSubmit}
@@ -358,21 +383,66 @@ function PaperReview({
                 </p>
               </div>
             </div>
+            {displayedPaperReview.overallReadiness?.label && (
+              <span
+                className="text-xs px-3 py-1 rounded-full font-medium"
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#FFFFFF' }}
+              >
+                {displayedPaperReview.overallReadiness.label}
+              </span>
+            )}
           </div>
 
-          {displayedPaperReview.overallReadiness?.topPriorityFixes?.length > 0 && (
+          {displayedPaperReview.overallReadiness?.summary && (
+            <p className="text-sm text-gray-600 -mt-3">
+              {displayedPaperReview.overallReadiness.summary}
+            </p>
+          )}
+
+          {(displayedPaperReview.overallReadiness?.topPriorityFixes?.length ?? 0) > 0 && (
             <div className="rounded-xl border border-gray-200 p-5">
-              <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
-                Top Priority Fixes
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: '#0B1C33' }}>
+                <Lightbulb size={16} style={{ color: '#BA7517' }} />
+                Top Priority Improvements
               </h3>
               <ul className="flex flex-col gap-2">
-                {displayedPaperReview.overallReadiness.topPriorityFixes.map((fix, i) => (
+                {displayedPaperReview.overallReadiness?.topPriorityFixes?.map((fix, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                    <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
+                    <span
+                      className="flex items-center justify-center shrink-0 rounded-full text-[10px] font-semibold mt-0.5"
+                      style={{ width: 16, height: 16, backgroundColor: '#FDF3E3', color: '#8A5A00' }}
+                    >
+                      {i + 1}
+                    </span>
                     {fix}
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Document stage */}
+          {displayedPaperReview.documentStage && (
+            <div className="rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold mb-2" style={{ color: '#0B1C33' }}>
+                Document Stage
+              </h3>
+              <div className="flex items-center gap-2 mb-2">
+                <span
+                  className="text-xs px-2.5 py-1 rounded-full font-medium"
+                  style={{ backgroundColor: '#EAF3DE', color: '#27500A' }}
+                >
+                  {displayedPaperReview.documentStage.detected}
+                </span>
+                {displayedPaperReview.documentStage.confidence && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                    {displayedPaperReview.documentStage.confidence} confidence
+                  </span>
+                )}
+              </div>
+              {displayedPaperReview.documentStage.reason && (
+                <p className="text-xs text-gray-500">{displayedPaperReview.documentStage.reason}</p>
+              )}
             </div>
           )}
 
@@ -392,9 +462,9 @@ function PaperReview({
                 </span>
               ))}
             </div>
-            {displayedPaperReview.chapterDetection?.missingOrUnclear?.length > 0 && (
+            {(displayedPaperReview.chapterDetection?.missingOrUnclear?.length ?? 0) > 0 && (
               <div className="flex flex-wrap gap-2">
-                {displayedPaperReview.chapterDetection.missingOrUnclear.map((ch, i) => (
+                {displayedPaperReview.chapterDetection?.missingOrUnclear?.map((ch, i) => (
                   <span
                     key={i}
                     className="text-xs px-2.5 py-1 rounded-full"
@@ -407,11 +477,70 @@ function PaperReview({
             )}
           </div>
 
-          {/* Consistency check */}
+          {/* Section-by-section check */}
+          {(displayedPaperReview.sectionCheck?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
+                Section-by-Section Check
+              </h3>
+              <div className="flex flex-col gap-3">
+                {displayedPaperReview.sectionCheck?.map((entry, i) => {
+                  const style = SECTION_STATUS_STYLES[entry.status] ?? {
+                    bg: '#F1F1F1',
+                    color: '#444444',
+                  }
+                  return (
+                    <div key={i} className="border border-gray-100 rounded-lg p-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-sm font-medium" style={{ color: '#0B1C33' }}>
+                          {entry.section}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {entry.severity && entry.severity !== 'None' && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                              {entry.severity}
+                            </span>
+                          )}
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: style.bg, color: style.color }}
+                          >
+                            {entry.status}
+                          </span>
+                        </div>
+                      </div>
+                      {entry.finding && (
+                        <p className="text-xs text-gray-500 mb-1">{entry.finding}</p>
+                      )}
+                      {entry.recommendation && entry.recommendation !== 'None.' && entry.recommendation !== 'None' && (
+                        <p className="text-xs" style={{ color: '#BA7517' }}>
+                          → {entry.recommendation}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Coherence improvements — renamed from "Consistency With Your
+              Earlier Stages". The AI prompt now writes consistencyCheck
+              entries as improvements to make ("Aligning the system title
+              used throughout the paper") rather than "X vs Y" mismatch
+              comparisons, so the heading and copy here reflect that: this
+              reads as a punch list of fixes, not a pass/fail diff. The
+              underlying data shape (check/result/severity/detail) and the
+              CONSISTENCY_STYLES color mapping are unchanged — only the
+              framing text changed. */}
           <div className="rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
-              Consistency With Your Earlier Stages
+            <h3 className="text-sm font-semibold mb-1" style={{ color: '#0B1C33' }}>
+              Coherence Improvements
             </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Places where the paper isn't holding together as one coherent
+              document yet, and what to change to fix it.
+            </p>
             <div className="flex flex-col gap-3">
               {displayedPaperReview.consistencyCheck?.map((entry, i) => {
                 const style = CONSISTENCY_STYLES[entry.result]
@@ -421,12 +550,21 @@ function PaperReview({
                       <span className="text-sm font-medium" style={{ color: '#0B1C33' }}>
                         {entry.check}
                       </span>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full shrink-0"
-                        style={{ backgroundColor: style.bg, color: style.color }}
-                      >
-                        {style.label}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* severity is newer on some rows and may be absent
+                            on older saved reviews — only render if present */}
+                        {entry.severity && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                            {entry.severity}
+                          </span>
+                        )}
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: style.bg, color: style.color }}
+                        >
+                          {style.label}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-500">{entry.detail}</p>
                   </div>
@@ -434,6 +572,45 @@ function PaperReview({
               })}
             </div>
           </div>
+
+          {/* Methodology check */}
+          {displayedPaperReview.methodologyCheck && (
+            <div className="rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold mb-1" style={{ color: '#0B1C33' }}>
+                Methodology Check
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                {displayedPaperReview.methodologyCheck.status}
+              </p>
+
+              {(displayedPaperReview.methodologyCheck.issues?.length ?? 0) > 0 && (
+                <ul className="flex flex-col gap-2 mb-3">
+                  {displayedPaperReview.methodologyCheck.issues?.map((issue, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {(displayedPaperReview.methodologyCheck.recommendations?.length ?? 0) > 0 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
+                    <Lightbulb size={12} style={{ color: '#BA7517' }} />
+                    How to Improve
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.methodologyCheck.recommendations?.map((rec, i) => (
+                      <li key={i} className="text-xs text-gray-600">
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Citation audit */}
           <div className="rounded-xl border border-gray-200 p-5">
@@ -457,39 +634,152 @@ function PaperReview({
                 </li>
               )}
             </ul>
+
+            {/* recommendations is a newer field alongside issuesFound —
+                render it as a separate list when present */}
+            {(displayedPaperReview.citationAudit?.recommendations?.length ?? 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
+                  <Lightbulb size={12} style={{ color: '#BA7517' }} />
+                  How to Improve
+                </h4>
+                <ul className="flex flex-col gap-1.5">
+                  {displayedPaperReview.citationAudit?.recommendations?.map((rec, i) => (
+                    <li key={i} className="text-xs text-gray-600">
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
-          {/* Structural compliance */}
+          {/* Content quality */}
+          {displayedPaperReview.contentQuality && (
+            <div className="rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
+                Content Quality
+              </h3>
+
+              {(displayedPaperReview.contentQuality.strengths?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    Strengths
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.contentQuality.strengths?.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#27500A' }}>
+                        <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(displayedPaperReview.contentQuality.weaknesses?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    Weaknesses
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.contentQuality.weaknesses?.map((w, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(displayedPaperReview.contentQuality.contradictions?.length ?? 0) > 0 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    Contradictions
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.contentQuality.contradictions?.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#7A2020' }}>
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Writing quality */}
+          {displayedPaperReview.writingQuality && (
+            <div className="rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
+                Writing Quality
+              </h3>
+
+              {(displayedPaperReview.writingQuality.majorIssues?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    Major Issues
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.writingQuality.majorIssues?.map((issue, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#7A2020' }} />
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(displayedPaperReview.writingQuality.minorIssues?.length ?? 0) > 0 && (
+                <div className="pt-3 border-t border-gray-100">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    Minor Issues
+                  </h4>
+                  <ul className="flex flex-col gap-1.5">
+                    {displayedPaperReview.writingQuality.minorIssues?.map((issue, i) => (
+                      <li key={i} className="text-xs text-gray-600">
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Structural compliance — read directly from structuralCompliance
+              (missing[], requiredSectionsTotal, requiredSectionsPresent)
+              rather than derived from a sectionCheck array, since that's
+              the summary useProgressiveTrial actually provides. */}
           <div className="rounded-xl border border-gray-200 p-5">
             <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
               Structural Compliance
             </h3>
             <p className="text-sm text-gray-600 mb-2">
-              {displayedPaperReview.structuralCompliance?.requiredSectionsPresent} of{' '}
-              {displayedPaperReview.structuralCompliance?.requiredSectionsTotal} required sections present
+              {requiredSectionsPresent} of {requiredSectionsTotal} required sections present
             </p>
             <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
               <div
                 className="h-2 rounded-full"
                 style={{
                   backgroundColor: '#BA7517',
-                  width: `${
-                    ((displayedPaperReview.structuralCompliance?.requiredSectionsPresent ?? 0) /
-                      Math.max(1, displayedPaperReview.structuralCompliance?.requiredSectionsTotal ?? 1)) *
-                    100
-                  }%`,
+                  width: `${(requiredSectionsPresent / Math.max(1, requiredSectionsTotal)) * 100}%`,
                 }}
               />
             </div>
-            {displayedPaperReview.structuralCompliance?.missing?.length > 0 && (
+            {missingSections.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {displayedPaperReview.structuralCompliance.missing.map((s, i) => (
+                {missingSections.map((section, i) => (
                   <span
                     key={i}
                     className="text-xs px-2.5 py-1 rounded-full"
                     style={{ backgroundColor: '#FBEAEA', color: '#7A2020' }}
                   >
-                    Missing: {s}
+                    Missing: {section}
                   </span>
                 ))}
               </div>
@@ -498,57 +788,6 @@ function PaperReview({
         </div>
       )}
 
-      {/* History */}
-      <div className="mt-4">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
-          Past Reviews
-        </h3>
-
-        {fullPaperReviewHistoryLoading && fullPaperReviewHistory.length === 0 ? (
-          <p className="text-sm text-gray-400">Loading history...</p>
-        ) : fullPaperReviewHistory.length === 0 ? (
-          <p className="text-sm text-gray-400">No paper reviews yet.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {fullPaperReviewHistory.map((review) => (
-              <div
-                key={review.id}
-                onClick={() => handleSelectSavedPaperReview(review.id)}
-                className="flex items-center justify-between border rounded-lg px-4 py-3 cursor-pointer transition-colors"
-                style={{
-                  borderColor: selectedPaperReviewId === review.id ? '#BA7517' : '#E5E7EB',
-                  backgroundColor: selectedPaperReviewId === review.id ? '#FDF6EC' : 'white',
-                }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText size={16} style={{ color: '#0B1C33' }} className="shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: '#0B1C33' }}>
-                      {review.file_name}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(review.created_at).toLocaleDateString()} ·{' '}
-                      {review.overall_readiness?.score}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {hasMorePaperReviews && (
-              <button
-                type="button"
-                onClick={handleLoadMorePaperReviews}
-                disabled={fullPaperReviewHistoryLoading}
-                className="text-sm font-medium mt-2 self-start"
-                style={{ color: '#BA7517' }}
-              >
-                {fullPaperReviewHistoryLoading ? 'Loading...' : 'Load more'}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

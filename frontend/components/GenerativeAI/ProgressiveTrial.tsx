@@ -9,6 +9,7 @@ import { MethodologyStage } from './Progressive-components/Methodology'
 import { DataCollectionStage } from './Progressive-components/DataCollection'
 import PaperReview from './Progressive-components/PaperReview'
 import ProgressiveTrailGuideModal from '../Modal/Progressivetrailguidemodal '
+import EntrepProgressiveTrailGuideModal from '../Modal/EntrepProgressiveTrailGuideModal'
 import EntrepProgressive from './EntrepProgressive'
 // import EntrepProgressive from '../EntrepProgressive'
 
@@ -22,7 +23,7 @@ function ProgressiveTrial() {
   const stageLocked = t.isStageLocked(t.activeStage)
 
   return (
-    <div className="sm:px-4 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="sm:px-4 px-3 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* ── Hero ── */}
       <div className="text-center space-y-3">
         <div className="flex items-center justify-center gap-2">
@@ -44,19 +45,16 @@ function ProgressiveTrial() {
             : 'A step-by-step roadmap to build and validate your business plan — with AI assistance at every stage.'}
         </p>
 
-
         <div>
-          {track === 'research' && (
-            <button
-              type="button"
-              onClick={() => setShowGuide(true)}
-              className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium mx-auto"
-              style={{ color: '#0B1C33' }}
-            >
-              <HelpCircle className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-              How does this work?
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowGuide(true)}
+            className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium mx-auto"
+            style={{ color: '#0B1C33' }}
+          >
+            <HelpCircle className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+            How does this work?
+          </button>
         </div>
 
         {/* ── Track switcher ── */}
@@ -89,11 +87,18 @@ function ProgressiveTrial() {
         </div>
       </div>
 
-      <ProgressiveTrailGuideModal
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onGetStarted={() => t.setActiveStage('topic')}
-      />
+      {track === 'research' ? (
+        <ProgressiveTrailGuideModal
+          isOpen={showGuide}
+          onClose={() => setShowGuide(false)}
+          onGetStarted={() => t.setActiveStage('topic')}
+        />
+      ) : (
+        <EntrepProgressiveTrailGuideModal
+          isOpen={showGuide}
+          onClose={() => setShowGuide(false)}
+        />
+      )}
 
       {track === 'entrep' ? (
         <EntrepProgressive />
