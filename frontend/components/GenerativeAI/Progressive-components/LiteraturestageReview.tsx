@@ -48,13 +48,15 @@ export function LiteratureReviewStage({
   onContinue,
 }: Props) {
   return (
-    <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+    <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FAEEDA' }}>
           <BookOpen className="w-4 h-4" style={{ color: '#BA7517' }} />
         </div>
         <div>
-          <h2 className="font-semibold text-lg leading-tight">Literature Review</h2>
+          <h2 className="font-semibold text-lg leading-tight tracking-tight" style={{ color: '#0B1C33' }}>
+            Literature Review
+          </h2>
           <p className="text-xs text-muted-foreground">
             AI searches the web for real sources on your topic and builds an annotated bibliography.
           </p>
@@ -63,8 +65,11 @@ export function LiteratureReviewStage({
 
 
       {topic && (
-        <div className="rounded-lg px-3.5 py-2.5" style={{ background: 'rgba(11,28,51,0.04)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+        <div
+          className="rounded-xl px-3.5 py-2.5 border"
+          style={{ background: 'rgba(11,28,51,0.03)', borderColor: 'rgba(11,28,51,0.08)' }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
             Reviewing literature for
           </p>
           <p className="text-sm font-medium" style={{ color: '#0B1C33' }}>
@@ -74,7 +79,7 @@ export function LiteratureReviewStage({
       )}
 
       {errorMessage && !review && (
-        <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
+        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
           {errorMessage}
         </div>
       )}
@@ -82,7 +87,7 @@ export function LiteratureReviewStage({
       <button
         onClick={onGenerateReview}
         disabled={!topic.trim() || isLoading}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
         {isLoading ? (
@@ -102,19 +107,25 @@ export function LiteratureReviewStage({
       {review && (
         <div className="pt-4 space-y-5 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           {selectedReviewId && (
-            <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#633806' }}>
+            <div
+              className="flex items-center gap-1.5 text-xs font-medium w-fit px-3 py-1.5 rounded-full"
+              style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+            >
               <History className="w-3.5 h-3.5" />
               Viewing a saved review from your history
             </div>
           )}
 
           {typeof sourceCount === 'number' && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
               <span>
                 Found and verified {sourceCount} real source{sourceCount === 1 ? '' : 's'} via web search.
               </span>
               {!!unverifiedDropped && (
-                <span className="inline-flex items-center gap-1" style={{ color: '#BA7517' }}>
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                  style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+                >
                   {unverifiedDropped} unverifiable {unverifiedDropped === 1 ? 'entry' : 'entries'} dropped
                 </span>
               )}
@@ -128,7 +139,7 @@ export function LiteratureReviewStage({
                   Annotated Bibliography
                 </p>
                 <span
-                  className="text-xs font-semibold rounded-full px-2 py-0.5"
+                  className="text-xs font-semibold rounded-full px-2.5 py-0.5"
                   style={{ background: '#FAEEDA', color: '#BA7517' }}
                 >
                   {review.annotatedBibliography.length} source{review.annotatedBibliography.length === 1 ? '' : 's'}
@@ -200,7 +211,11 @@ export function LiteratureReviewStage({
             </div>
           )}
 
-          <button onClick={onContinue} className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#0B1C33' }}>
+          <button
+            onClick={onContinue}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+            style={{ color: '#0B1C33' }}
+          >
             Continue to Research Question
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

@@ -46,27 +46,29 @@ export function MethodologyStage({
   methodology,
   onContinue,
 }: Props) {
-  
+
   return (
-    <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+    <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FAEEDA' }}>
           <FlaskConical className="w-4 h-4" style={{ color: '#BA7517' }} />
         </div>
         <div>
-          <h2 className="font-semibold text-lg leading-tight">Methodology</h2>
+          <h2 className="font-semibold text-lg leading-tight tracking-tight" style={{ color: '#0B1C33' }}>
+            Methodology
+          </h2>
           <p className="text-xs text-muted-foreground">
             List your research questions and AI will design a methodology mapped to each one.
           </p>
         </div>
       </div>
-      
-
-
 
       {topic && (
-        <div className="rounded-lg px-3.5 py-2.5" style={{ background: 'rgba(11,28,51,0.04)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+        <div
+          className="rounded-xl px-3.5 py-2.5 border"
+          style={{ background: 'rgba(11,28,51,0.03)', borderColor: 'rgba(11,28,51,0.08)' }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
             Designing methodology for
           </p>
           <p className="text-sm font-medium" style={{ color: '#0B1C33' }}>
@@ -76,7 +78,7 @@ export function MethodologyStage({
       )}
 
       {/* ── Research question builder ── */}
-      <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: 'rgba(0,0,0,0.1)', background: 'rgba(11,28,51,0.02)' }}>
+      <div className="rounded-xl border p-4 space-y-3 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.1)', background: 'rgba(11,28,51,0.02)' }}>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Research questions</p>
 
         <div className="flex gap-2">
@@ -92,13 +94,13 @@ export function MethodologyStage({
             }}
             rows={1}
             placeholder="e.g. How does mobile learning affect senior high school students' test scores?"
-            className="w-full flex-1 rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+            className="w-full flex-1 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white transition-shadow"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
           />
           <button
             onClick={onAddResearchQuestion}
             disabled={!researchQuestionInput.trim() || researchQuestions.length >= MAX_RESEARCH_QUESTIONS}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold shrink-0 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold shrink-0 shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             style={{ background: '#0B1C33', color: '#FFFFFF' }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -111,7 +113,7 @@ export function MethodologyStage({
             {researchQuestions.map((q, i) => (
               <li
                 key={i}
-                className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+                className="flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-sm bg-white hover:border-gray-200 transition-colors"
                 style={{ borderColor: 'rgba(0,0,0,0.08)' }}
               >
                 <span className="min-w-0">
@@ -147,13 +149,13 @@ export function MethodologyStage({
           onChange={(e) => onContextChange(e.target.value)}
           placeholder="Constraints, setting, timeframe, or anything else that should shape the methodology..."
           rows={3}
-          className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-muted/30 resize-none"
+          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-muted/30 resize-none transition-shadow"
           style={{ borderColor: 'rgba(0,0,0,0.12)' }}
         />
       </div>
 
       {errorMessage && !methodology && (
-        <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
+        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
           {errorMessage}
         </div>
       )}
@@ -161,7 +163,7 @@ export function MethodologyStage({
       <button
         onClick={onGenerateMethodology}
         disabled={researchQuestions.length < MIN_RESEARCH_QUESTIONS || isLoading}
-        className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
         {isLoading ? (
@@ -181,13 +183,16 @@ export function MethodologyStage({
       {methodology && (
         <div className="pt-4 space-y-5 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           {selectedMethodologyId && (
-            <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#633806' }}>
+            <div
+              className="flex items-center gap-1.5 text-xs font-medium w-fit px-3 py-1.5 rounded-full"
+              style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+            >
               <History className="w-3.5 h-3.5" />
               Viewing a saved methodology from your history
             </div>
           )}
 
-          <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start justify-between gap-3 flex-wrap rounded-xl border border-gray-100 p-4 bg-white shadow-sm">
             <p className="text-sm leading-relaxed flex-1 min-w-[200px]">{methodology.approachRationale}</p>
             <span
               className="text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap"
@@ -201,11 +206,11 @@ export function MethodologyStage({
           </div>
 
           {/* Population & sampling */}
-          <div className="rounded-lg px-3.5 py-3 space-y-2" style={{ background: '#FAEEDA' }}>
+          <div className="rounded-xl px-4 py-3.5 space-y-2 shadow-sm" style={{ background: '#FAEEDA' }}>
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
               Population &amp; sampling
             </p>
-            
+
             <div className="grid sm:grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground">Target population</p>
@@ -243,7 +248,11 @@ export function MethodologyStage({
               </p>
               <div className="space-y-2">
                 {methodology.instruments.map((inst, i) => (
-                  <div key={i} className="rounded-lg border p-3 space-y-1" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                  <div
+                    key={i}
+                    className="rounded-xl border p-3.5 space-y-1 hover:border-gray-200 transition-colors"
+                    style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                  >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <p className="text-sm font-semibold">{inst.name}</p>
                       <span className="text-xs text-muted-foreground">{inst.type}</span>
@@ -267,11 +276,11 @@ export function MethodologyStage({
 
           {/* Data collection / analysis */}
           <div className="grid sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="rounded-xl border border-gray-100 p-4 space-y-1.5 bg-white shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data collection plan</p>
               <p className="text-sm leading-relaxed">{methodology.dataCollectionPlan}</p>
             </div>
-            <div className="space-y-1.5">
+            <div className="rounded-xl border border-gray-100 p-4 space-y-1.5 bg-white shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data analysis plan</p>
               <p className="text-sm leading-relaxed">{methodology.dataAnalysisPlan}</p>
             </div>
@@ -285,7 +294,11 @@ export function MethodologyStage({
               </p>
               <div className="space-y-2">
                 {methodology.questionMapping.map((row, i) => (
-                  <div key={i} className="rounded-lg border px-3 py-2.5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                  <div
+                    key={i}
+                    className="rounded-xl border px-4 py-3 hover:border-gray-200 transition-colors"
+                    style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                  >
                     <p className="text-sm font-medium mb-1">
                       <span style={{ color: '#BA7517' }}>RQ{row.researchQuestionNumber}.</span> {row.researchQuestion}
                     </p>
@@ -308,7 +321,7 @@ export function MethodologyStage({
 
           {/* Limitations */}
           {methodology.limitations.length > 0 && (
-            <div className="space-y-2">
+            <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Limitations</p>
               <ul className="space-y-1.5">
                 {methodology.limitations.map((l, i) => (
@@ -321,7 +334,11 @@ export function MethodologyStage({
             </div>
           )}
 
-          <button onClick={onContinue} className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#0B1C33' }}>
+          <button
+            onClick={onContinue}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+            style={{ color: '#0B1C33' }}
+          >
             Continue to Data Collection & Analysis
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

@@ -5,7 +5,15 @@ import { repoStores } from '@/Stores/repoStores';
 import NotFound from '@/app/not-found';
 import { PageLoader } from './loading';
 import Link from 'next/link';
-import { Eye, Download, Calendar, ArrowLeft, CircleAlert } from 'lucide-react';
+import {
+  Eye,
+  Download,
+  Calendar,
+  ArrowLeft,
+  CircleAlert,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { Card } from './ui/card';
 import axios from '@/lib/axios';
 
@@ -16,8 +24,9 @@ function ThesisDetail({ id }: { id: string }) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-
   const [hasFetched, setHasFetched] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +40,11 @@ function ThesisDetail({ id }: { id: string }) {
       cancelled = true;
     };
   }, [id]);
+
+  // Reset to first section whenever a new thesis loads
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [id, thesisData?.id]);
 
   if (loading || !hasFetched) return <PageLoader />;
   if (notFound || !thesisData) return <NotFound />;
@@ -59,7 +73,16 @@ function ThesisDetail({ id }: { id: string }) {
         { title: 'References', content: thesisData.thesis_references },
       ];
 
-async function handleDownload(id: string, file_url: string) {
+  const totalPages = sections.length;
+  const safePage = Math.min(currentPage, totalPages - 1);
+  const activeSection = sections[safePage];
+
+  function goToPage(page: number) {
+    if (page < 0 || page > totalPages - 1) return;
+    setCurrentPage(page);
+  }
+
+  async function handleDownload(id: string, file_url: string) {
     try {
       setIsDownloading(true);
       setDownloadError(null);
@@ -111,7 +134,7 @@ async function handleDownload(id: string, file_url: string) {
     .join('');
 
   return (
-    <div className="w-full mx-auto sm:px-10 px-5 py-8">
+    <div className="w-full mx-auto sm:px-10 px-4 py-8">
       <div className="w-full">
         {/* Back */}
         <Link
@@ -134,17 +157,17 @@ async function handleDownload(id: string, file_url: string) {
         </div>
 
         {/* Title */}
-        <h1 className="sm:text-3xl text-xl font-medium text-gray-900 mb-4 leading-snug">
+        <h1 className="sm:text-3xl text-lg font-medium text-gray-900 mb-4 leading-snug">
           {thesisData.title}
         </h1>
 
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-3 text-base text-gray-500 pb-5 mb-6 border-b">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-xs font-medium text-amber-800">
+            <div className="w-7 h-7 sm:text-xs text-[10px] rounded-full bg-amber-100 flex items-center justify-center font-medium text-amber-800">
               {initials}
             </div>
-            <span className="font-medium text-gray-800">
+            <span className="font-medium sm:text-[17px] text-xs text-gray-800">
               {thesisData.author}
             </span>
           </div>
@@ -174,18 +197,72 @@ async function handleDownload(id: string, file_url: string) {
         {/* Body */}
         <div className="flex flex-col sm:flex-row gap-8 items-start w-full">
           <Card className="p-4 flex-1">
-            <div className="space-y-7">
-              {sections.map(({ title, content }) => (
-                <div key={title}>
-                  <h2 className="text-base font-medium text-gray-900 mb-2">
-                    {title}
-                  </h2>
-                  <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line">
-                    {content ?? 'N/A'}
-                  </p>
-                </div>
+            {/* Section tabs (jump directly to a section) */}
+            <div className="flex flex-wrap gap-2 mb-5 pb-4 border-b">
+              {sections.map(({ title }, idx) => (
+                <button
+                  key={title}
+                  onClick={() => goToPage(idx)}
+                  className={`cursor-pointer text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${
+                    idx === safePage
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {title}
+                </button>
               ))}
             </div>
+
+            {/* Active section content */}
+            <div>
+              <h2 className="text-base font-medium text-gray-900 mb-2">
+                {activeSection.title}
+              </h2>
+              <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line min-h-[8rem]">
+                {activeSection.content ?? 'N/A'}
+              </p>
+            </div>
+
+            {/* Pagination controls */}
+            <div className="flex items-center justify-between mt-7 pt-4 border-t">
+              <button
+                onClick={() => goToPage(safePage - 1)}
+                disabled={safePage === 0}
+                className="cursor-pointer flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-600 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                {sections.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => goToPage(idx)}
+                    aria-label={`Go to page ${idx + 1}`}
+                    className={`cursor-pointer rounded-full transition-all ${
+                      idx === safePage
+                        ? 'w-5 h-1.5 bg-amber-600'
+                        : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={() => goToPage(safePage + 1)}
+                disabled={safePage === totalPages - 1}
+                className="cursor-pointer flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-600 transition-colors"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-gray-400 mt-3">
+              {safePage + 1} of {totalPages}
+            </p>
           </Card>
 
           {/* Sidebar */}

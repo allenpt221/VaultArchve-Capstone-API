@@ -79,13 +79,15 @@ export function DataCollectionStage({
   const canGenerate = !!topic.trim() && !!approach && researchQuestions.length > 0 && !!rawFindings.trim()
 
   return (
-    <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+    <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FAEEDA' }}>
           <Database className="w-4 h-4" style={{ color: '#BA7517' }} />
         </div>
         <div>
-          <h2 className="font-semibold text-lg leading-tight">Data Collection &amp; Analysis</h2>
+          <h2 className="font-semibold text-lg leading-tight tracking-tight" style={{ color: '#0B1C33' }}>
+            Data Collection &amp; Analysis
+          </h2>
           <p className="text-xs text-muted-foreground">
             Bring your raw findings — AI suggests a cleaning checklist, analysis method, and charts to run.
           </p>
@@ -93,8 +95,11 @@ export function DataCollectionStage({
       </div>
 
       {topic && (
-        <div className="rounded-lg px-3.5 py-2.5" style={{ background: 'rgba(11,28,51,0.04)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+        <div
+          className="rounded-xl px-3.5 py-2.5 border"
+          style={{ background: 'rgba(11,28,51,0.03)', borderColor: 'rgba(11,28,51,0.08)' }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
             Collecting Data & Analysis for
           </p>
           <p className="text-sm font-medium" style={{ color: '#0B1C33' }}>
@@ -122,7 +127,7 @@ export function DataCollectionStage({
         <button
           onClick={onLoadMore}
           disabled={historyLoading}
-          className="text-xs font-semibold disabled:opacity-50"
+          className="text-xs font-semibold disabled:opacity-50 hover:opacity-80 transition-opacity"
           style={{ color: '#BA7517' }}
         >
           {historyLoading ? 'Loading...' : 'Load more history'}
@@ -138,11 +143,12 @@ export function DataCollectionStage({
               <button
                 key={a.value}
                 onClick={() => onApproachChange(a.value)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors"
+                className="rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all"
                 style={{
                   borderColor: approach === a.value ? '#BA7517' : 'rgba(0,0,0,0.08)',
                   background: approach === a.value ? '#FAEEDA' : '#FFFFFF',
                   color: approach === a.value ? '#BA7517' : '#444441',
+                  boxShadow: approach === a.value ? '0 1px 2px rgba(186,117,23,0.15)' : 'none',
                 }}
               >
                 {a.label}
@@ -164,12 +170,12 @@ export function DataCollectionStage({
                 }
               }}
               placeholder="Type a research question and press Enter"
-              className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500"
+              className="flex-1 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 transition-shadow"
               style={{ borderColor: 'rgba(0,0,0,0.12)' }}
             />
             <button
               onClick={onAddResearchQuestion}
-              className="inline-flex items-center justify-center rounded-lg px-3 border shrink-0"
+              className="inline-flex items-center justify-center rounded-xl px-3 border shrink-0 hover:bg-gray-50 transition-colors"
               style={{ borderColor: 'rgba(0,0,0,0.12)' }}
               title="Add question"
             >
@@ -181,11 +187,11 @@ export function DataCollectionStage({
               {researchQuestions.map((q, i) => (
                 <li
                   key={i}
-                  className="flex items-start justify-between gap-2 text-sm rounded-lg px-3 py-2"
+                  className="flex items-start justify-between gap-2 text-sm rounded-xl px-3.5 py-2.5"
                   style={{ background: 'rgba(11,28,51,0.04)' }}
                 >
                   <span className="leading-snug">{i + 1}. {q}</span>
-                  <button onClick={() => onRemoveResearchQuestion(i)} className="shrink-0 text-muted-foreground hover:text-red-600">
+                  <button onClick={() => onRemoveResearchQuestion(i)} className="shrink-0 text-muted-foreground hover:text-red-600 transition-colors">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </li>
@@ -197,13 +203,12 @@ export function DataCollectionStage({
         <div className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Research gap
-            {/* <span className="normal-case font-normal">(optional, from your Literature Review)</span> */}
           </p>
           <textarea
             value={gapStatement}
             onChange={(e) => onGapStatementChange(e.target.value)}
             placeholder="e.g. Prior studies haven't examined..."
-            className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500"
+            className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 transition-shadow"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
             rows={1}
           />
@@ -216,13 +221,13 @@ export function DataCollectionStage({
             onChange={(e) => onRawFindingsChange(e.target.value)}
             placeholder="Paste or describe your raw data, survey responses, interview notes, etc."
             rows={5}
-            className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500 resize-y"
+            className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 resize-y transition-shadow"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
           />
         </div>
 
         {errorMessage && !result && (
-          <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
+          <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
             {errorMessage}
           </div>
         )}
@@ -230,7 +235,7 @@ export function DataCollectionStage({
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isLoading}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           style={{ background: '#F5B841', color: '#1A1A1A' }}
         >
           {isLoading ? (
@@ -251,13 +256,16 @@ export function DataCollectionStage({
       {result && (
         <div className="pt-4 space-y-5 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           {selectedId && (
-            <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#633806' }}>
+            <div
+              className="flex items-center gap-1.5 text-xs font-medium w-fit px-3 py-1.5 rounded-full"
+              style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+            >
               <History className="w-3.5 h-3.5" />
               Viewing a saved analysis from your history
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
             <div className="flex items-center gap-1.5">
               <ClipboardCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data cleaning checklist</p>
@@ -271,7 +279,7 @@ export function DataCollectionStage({
             </ul>
           </div>
 
-          <div className="rounded-lg px-3.5 py-3" style={{ background: '#FAEEDA' }}>
+          <div className="rounded-xl px-4 py-3.5 shadow-sm" style={{ background: '#FAEEDA' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
               {result.analysisMethod}
             </p>
@@ -293,7 +301,11 @@ export function DataCollectionStage({
               </div>
               <ul className="space-y-1.5">
                 {result.literatureConnectionPrompts.map((p, i) => (
-                  <li key={i} className="text-sm italic text-muted-foreground rounded-lg border px-3 py-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                  <li
+                    key={i}
+                    className="text-sm italic text-muted-foreground rounded-xl border px-3.5 py-2.5 hover:border-gray-200 transition-colors"
+                    style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                  >
                     {p}
                   </li>
                 ))}
@@ -301,7 +313,7 @@ export function DataCollectionStage({
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results summary (template)</p>
             <p className="text-sm leading-relaxed">{result.resultsSummary}</p>
           </div>
@@ -314,7 +326,11 @@ export function DataCollectionStage({
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
                 {result.visualizations.map((v, i) => (
-                  <div key={i} className="rounded-lg border p-3 space-y-1" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                  <div
+                    key={i}
+                    className="rounded-xl border p-3.5 space-y-1 hover:border-gray-200 transition-colors"
+                    style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                  >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold">{v.title}</p>
                       <span className="text-[10px] font-semibold uppercase rounded-full px-2 py-0.5" style={{ background: '#FAEEDA', color: '#BA7517' }}>
@@ -329,7 +345,11 @@ export function DataCollectionStage({
             </div>
           )}
 
-          <button onClick={onContinue} className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#0B1C33' }}>
+          <button
+            onClick={onContinue}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+            style={{ color: '#0B1C33' }}
+          >
             Continue Paper Review
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

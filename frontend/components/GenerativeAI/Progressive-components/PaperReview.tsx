@@ -10,6 +10,7 @@ import {
   PenLine,
   History,
   Lightbulb,
+  Sparkles,
 } from 'lucide-react'
 import { CONSISTENCY_STYLES, MAX_PDF_SIZE_MB } from '@/hooks/constants'
 import type { FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types'
@@ -125,8 +126,11 @@ function PaperReview({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Which submission method is currently shown — only one at a time.
-  // "manual" (Type Chapters) is now Option 1 / the default.
-  const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('manual')
+  // "pdf" (Upload PDF) is now Option 1 / the default.
+  const [submissionMode, setSubmissionMode] = useState<SubmissionMode>('pdf')
+
+  // Whether the dropzone is being actively dragged over, for hover styling.
+  const [isDragActive, setIsDragActive] = useState(false)
 
   // Manual section text — an alternative (or supplement) to uploading a PDF.
   const [manualSections, setManualSections] = useState<ManualSectionValues>(EMPTY_MANUAL_SECTIONS)
@@ -163,6 +167,7 @@ function PaperReview({
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    setIsDragActive(false)
     validateAndSetFile(e.dataTransfer.files?.[0])
   }
 
@@ -195,14 +200,17 @@ function PaperReview({
   const requiredSectionsTotal = structuralCompliance?.requiredSectionsTotal ?? 0
   const requiredSectionsPresent = structuralCompliance?.requiredSectionsPresent ?? 0
   const missingSections = structuralCompliance?.missing ?? []
+  const compliancePct = Math.round(
+    (requiredSectionsPresent / Math.max(1, requiredSectionsTotal)) * 100
+  )
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold" style={{ color: '#0B1C33' }}>
+        <h2 className="text-lg font-semibold tracking-tight" style={{ color: '#0B1C33' }}>
           Review & Submit
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 mt-1 leading-relaxed">
           Upload your full thesis draft as a PDF, or type in your chapters manually. We'll
           check its structure, cross-check it against your earlier stages, and audit
           citations before you submit.
@@ -210,8 +218,11 @@ function PaperReview({
       </div>
 
       {topic && (
-        <div className="rounded-lg px-3.5 py-2.5" style={{ background: 'rgba(11,28,51,0.04)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-0.5">
+        <div
+          className="rounded-xl px-4 py-3 border"
+          style={{ background: 'rgba(11,28,51,0.03)', borderColor: 'rgba(11,28,51,0.08)' }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5">
             Reviewing paper for
           </p>
           <p className="text-sm font-medium" style={{ color: '#0B1C33' }}>
@@ -221,84 +232,75 @@ function PaperReview({
       )}
 
       {selectedPaperReviewId && (
-        <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#633806' }}>
+        <div
+          className="flex items-center gap-1.5 text-xs font-medium w-fit px-3 py-1.5 rounded-full"
+          style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+        >
           <History className="w-3.5 h-3.5" />
           Showing a saved review for this topic
         </div>
       )}
 
       {/* Option 1 / Option 2 toggle — only one submission method is shown
-          and submitted at a time. */}
+          and submitted at a time. PDF upload is Option 1 / the default. */}
       <div
-        className="inline-flex self-start rounded-lg border p-1 gap-1"
-        style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+        className="inline-flex self-start rounded-xl border p-1 gap-1 shadow-sm"
+        style={{ borderColor: 'rgba(0,0,0,0.08)', background: '#FAFAF9' }}
         role="tablist"
         aria-label="Choose submission method"
       >
         <button
           type="button"
           role="tab"
-          aria-selected={submissionMode === 'manual'}
-          onClick={() => setSubmissionMode('manual')}
-          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+          aria-selected={submissionMode === 'pdf'}
+          onClick={() => setSubmissionMode('pdf')}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all duration-150"
           style={{
-            background: submissionMode === 'manual' ? '#0B1C33' : 'transparent',
-            color: submissionMode === 'manual' ? '#FFFFFF' : '#444441',
+            background: submissionMode === 'pdf' ? '#0B1C33' : 'transparent',
+            color: submissionMode === 'pdf' ? '#FFFFFF' : '#57534E',
+            boxShadow: submissionMode === 'pdf' ? '0 1px 3px rgba(11,28,51,0.35)' : 'none',
           }}
         >
-          <PenLine size={14} />
-          Option 1 — Type Chapters
+          <UploadCloud size={14} />
+          Option 1 — Upload PDF
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={submissionMode === 'pdf'}
-          onClick={() => setSubmissionMode('pdf')}
-          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+          aria-selected={submissionMode === 'manual'}
+          onClick={() => setSubmissionMode('manual')}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all duration-150"
           style={{
-            background: submissionMode === 'pdf' ? '#0B1C33' : 'transparent',
-            color: submissionMode === 'pdf' ? '#FFFFFF' : '#444441',
+            background: submissionMode === 'manual' ? '#0B1C33' : 'transparent',
+            color: submissionMode === 'manual' ? '#FFFFFF' : '#57534E',
+            boxShadow: submissionMode === 'manual' ? '0 1px 3px rgba(11,28,51,0.35)' : 'none',
           }}
         >
-          <UploadCloud size={14} />
-          Option 2 — Upload PDF
+          <PenLine size={14} />
+          Option 2 — Type Chapters
         </button>
       </div>
-
-      {/* Manual section entry — only rendered in manual mode */}
-      {submissionMode === 'manual' && (
-        <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
-          <p className="text-xs text-gray-500 -mt-1">
-            No PDF yet? Paste or type each chapter below — fill in as many as you have. Each
-            box lists the subsections it should cover so we can check them individually.
-          </p>
-          {MANUAL_SECTIONS.map(({ key, label, hint }) => (
-            <div key={key} className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {label}
-              </label>
-              <p className="text-[11px] text-gray-400 leading-snug">{hint}</p>
-              <textarea
-                value={manualSections[key]}
-                onChange={(e) => handleManualSectionChange(key, e.target.value)}
-                placeholder={`Paste ${label.toLowerCase()} here...`}
-                rows={6}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-amber-500 resize-y"
-                style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Upload zone — only rendered in PDF mode */}
       {submissionMode === 'pdf' && (
         <div>
           <div
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragActive(true)
+            }}
+            onDragLeave={() => setIsDragActive(false)}
             onDrop={handleDrop}
-            className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center gap-3 cursor-pointer transition-colors"
-            style={{ borderColor: paperFile ? '#BA7517' : '#D1D5DB' }}
+            className="relative overflow-hidden border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3 cursor-pointer transition-all duration-200"
+            style={{
+              borderColor: isDragActive ? '#BA7517' : paperFile ? '#BA7517' : '#D9D6D0',
+              background: isDragActive
+                ? 'linear-gradient(180deg, rgba(186,117,23,0.08), rgba(186,117,23,0.02))'
+                : paperFile
+                  ? 'rgba(186,117,23,0.04)'
+                  : '#FCFCFB',
+              transform: isDragActive ? 'scale(1.01)' : 'scale(1)',
+            }}
             onClick={() => fileInputRef.current?.click()}
           >
             <input
@@ -311,15 +313,25 @@ function PaperReview({
 
             {!paperFile ? (
               <>
-                <UploadCloud size={32} style={{ color: '#0B1C33' }} />
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(11,28,51,0.06)' }}
+                >
+                  <UploadCloud size={26} style={{ color: '#0B1C33' }} />
+                </div>
                 <p className="text-sm font-medium" style={{ color: '#0B1C33' }}>
                   Drag & drop your thesis PDF, or click to browse
                 </p>
                 <p className="text-xs text-gray-400">PDF only, up to {MAX_PDF_SIZE_MB}MB</p>
               </>
             ) : (
-              <div className="flex items-center gap-3">
-                <FileText size={24} style={{ color: '#BA7517' }} />
+              <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-gray-100 shadow-sm">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: 'rgba(186,117,23,0.12)' }}
+                >
+                  <FileText size={18} style={{ color: '#BA7517' }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: '#0B1C33' }}>
                   {paperFile.name}
                 </span>
@@ -329,7 +341,7 @@ function PaperReview({
                     e.stopPropagation()
                     setPaperFile(null)
                   }}
-                  className="text-gray-400 hover:text-red-500"
+                  className="text-gray-400 hover:text-red-500 transition-colors"
                 >
                   <X size={16} />
                 </button>
@@ -339,11 +351,52 @@ function PaperReview({
         </div>
       )}
 
+      {/* Manual section entry — only rendered in manual mode */}
+      {submissionMode === 'manual' && (
+        <div className="rounded-2xl border border-gray-200 p-5 flex flex-col gap-5 bg-white shadow-sm">
+          <p className="text-xs text-gray-500 -mt-1 leading-relaxed">
+            No PDF yet? Paste or type each chapter below — fill in as many as you have. Each
+            box lists the subsections it should cover so we can check them individually.
+          </p>
+          {MANUAL_SECTIONS.map(({ key, label, hint }, idx) => (
+            <div
+              key={key}
+              className="space-y-1.5 pb-5"
+              style={{
+                borderBottom:
+                  idx < MANUAL_SECTIONS.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0"
+                  style={{ background: 'rgba(11,28,51,0.08)', color: '#0B1C33' }}
+                >
+                  {idx + 1}
+                </span>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  {label}
+                </label>
+              </div>
+              <p className="text-[11px] text-gray-400 leading-snug pl-7">{hint}</p>
+              <textarea
+                value={manualSections[key]}
+                onChange={(e) => handleManualSectionChange(key, e.target.value)}
+                placeholder={`Paste ${label.toLowerCase()} here...`}
+                rows={6}
+                className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 resize-y transition-shadow"
+                style={{ borderColor: 'rgba(0,0,0,0.12)' }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={handleSubmit}
         disabled={!canSubmit}
-        className="self-start px-5 py-2.5 rounded-lg text-sm font-medium text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="self-start px-6 py-3 rounded-xl text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-transform active:scale-[0.98] shadow-sm"
         style={{ backgroundColor: '#0B1C33' }}
       >
         {isPaperReviewLoading ? (
@@ -352,7 +405,10 @@ function PaperReview({
             Reviewing your paper...
           </>
         ) : (
-          'Run Full Paper Review'
+          <>
+            <Sparkles size={16} className="text-amber-400" />
+            Run Full Paper Review
+          </>
         )}
       </button>
       {!canSubmit && !isPaperReviewLoading && (
@@ -364,7 +420,10 @@ function PaperReview({
       )}
 
       {message && (
-        <p className="text-sm" style={{ color: '#7A2020' }}>
+        <p
+          className="text-sm px-4 py-2.5 rounded-lg w-fit"
+          style={{ color: '#7A2020', backgroundColor: '#FBEAEA' }}
+        >
           {message}
         </p>
       )}
@@ -373,20 +432,28 @@ function PaperReview({
       {displayedPaperReview && (
         <div className="flex flex-col gap-6 mt-2">
           {/* Overall readiness */}
-          <div className="rounded-xl p-5 flex items-center justify-between" style={{ backgroundColor: '#0B1C33' }}>
-            <div className="flex items-center gap-3">
-              <Gauge size={22} className="text-amber-400" />
+          <div
+            className="rounded-2xl p-6 flex items-center justify-between shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #0B1C33 0%, #16294A 100%)' }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+              >
+                <Gauge size={22} className="text-amber-400" />
+              </div>
               <div>
-                <p className="text-xs text-gray-300">Overall Readiness</p>
-                <p className="text-2xl font-semibold text-white">
+                <p className="text-xs text-gray-300 uppercase tracking-wide">Overall Readiness</p>
+                <p className="text-3xl font-semibold text-white leading-tight">
                   {displayedPaperReview.overallReadiness?.score}
                 </p>
               </div>
             </div>
             {displayedPaperReview.overallReadiness?.label && (
               <span
-                className="text-xs px-3 py-1 rounded-full font-medium"
-                style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#FFFFFF' }}
+                className="text-xs px-3.5 py-1.5 rounded-full font-medium"
+                style={{ backgroundColor: 'rgba(255,255,255,0.14)', color: '#FFFFFF' }}
               >
                 {displayedPaperReview.overallReadiness.label}
               </span>
@@ -394,23 +461,23 @@ function PaperReview({
           </div>
 
           {displayedPaperReview.overallReadiness?.summary && (
-            <p className="text-sm text-gray-600 -mt-3">
+            <p className="text-sm text-gray-600 -mt-3 leading-relaxed">
               {displayedPaperReview.overallReadiness.summary}
             </p>
           )}
 
           {(displayedPaperReview.overallReadiness?.topPriorityFixes?.length ?? 0) > 0 && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: '#0B1C33' }}>
                 <Lightbulb size={16} style={{ color: '#BA7517' }} />
                 Top Priority Improvements
               </h3>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-2.5">
                 {displayedPaperReview.overallReadiness?.topPriorityFixes?.map((fix, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700 leading-relaxed">
                     <span
                       className="flex items-center justify-center shrink-0 rounded-full text-[10px] font-semibold mt-0.5"
-                      style={{ width: 16, height: 16, backgroundColor: '#FDF3E3', color: '#8A5A00' }}
+                      style={{ width: 18, height: 18, backgroundColor: '#FDF3E3', color: '#8A5A00' }}
                     >
                       {i + 1}
                     </span>
@@ -423,7 +490,7 @@ function PaperReview({
 
           {/* Document stage */}
           {displayedPaperReview.documentStage && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-2" style={{ color: '#0B1C33' }}>
                 Document Stage
               </h3>
@@ -441,13 +508,13 @@ function PaperReview({
                 )}
               </div>
               {displayedPaperReview.documentStage.reason && (
-                <p className="text-xs text-gray-500">{displayedPaperReview.documentStage.reason}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{displayedPaperReview.documentStage.reason}</p>
               )}
             </div>
           )}
 
           {/* Chapter detection */}
-          <div className="rounded-xl border border-gray-200 p-5">
+          <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
             <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
               Chapter Detection
             </h3>
@@ -479,7 +546,7 @@ function PaperReview({
 
           {/* Section-by-section check */}
           {(displayedPaperReview.sectionCheck?.length ?? 0) > 0 && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
                 Section-by-Section Check
               </h3>
@@ -490,7 +557,10 @@ function PaperReview({
                     color: '#444444',
                   }
                   return (
-                    <div key={i} className="border border-gray-100 rounded-lg p-3">
+                    <div
+                      key={i}
+                      className="border border-gray-100 rounded-xl p-3.5 hover:border-gray-200 transition-colors"
+                    >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-sm font-medium" style={{ color: '#0B1C33' }}>
                           {entry.section}
@@ -510,7 +580,7 @@ function PaperReview({
                         </div>
                       </div>
                       {entry.finding && (
-                        <p className="text-xs text-gray-500 mb-1">{entry.finding}</p>
+                        <p className="text-xs text-gray-500 mb-1 leading-relaxed">{entry.finding}</p>
                       )}
                       {entry.recommendation && entry.recommendation !== 'None.' && entry.recommendation !== 'None' && (
                         <p className="text-xs" style={{ color: '#BA7517' }}>
@@ -533,11 +603,11 @@ function PaperReview({
               underlying data shape (check/result/severity/detail) and the
               CONSISTENCY_STYLES color mapping are unchanged — only the
               framing text changed. */}
-          <div className="rounded-xl border border-gray-200 p-5">
+          <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
             <h3 className="text-sm font-semibold mb-1" style={{ color: '#0B1C33' }}>
               Coherence Improvements
             </h3>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
               Places where the paper isn't holding together as one coherent
               document yet, and what to change to fix it.
             </p>
@@ -545,7 +615,10 @@ function PaperReview({
               {displayedPaperReview.consistencyCheck?.map((entry, i) => {
                 const style = CONSISTENCY_STYLES[entry.result]
                 return (
-                  <div key={i} className="border border-gray-100 rounded-lg p-3">
+                  <div
+                    key={i}
+                    className="border border-gray-100 rounded-xl p-3.5 hover:border-gray-200 transition-colors"
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-sm font-medium" style={{ color: '#0B1C33' }}>
                         {entry.check}
@@ -566,7 +639,7 @@ function PaperReview({
                         </span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500">{entry.detail}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed">{entry.detail}</p>
                   </div>
                 )
               })}
@@ -575,18 +648,18 @@ function PaperReview({
 
           {/* Methodology check */}
           {displayedPaperReview.methodologyCheck && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-1" style={{ color: '#0B1C33' }}>
                 Methodology Check
               </h3>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
                 {displayedPaperReview.methodologyCheck.status}
               </p>
 
               {(displayedPaperReview.methodologyCheck.issues?.length ?? 0) > 0 && (
                 <ul className="flex flex-col gap-2 mb-3">
                   {displayedPaperReview.methodologyCheck.issues?.map((issue, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
                       <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
                       {issue}
                     </li>
@@ -602,7 +675,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.methodologyCheck.recommendations?.map((rec, i) => (
-                      <li key={i} className="text-xs text-gray-600">
+                      <li key={i} className="text-xs text-gray-600 leading-relaxed">
                         {rec}
                       </li>
                     ))}
@@ -613,16 +686,16 @@ function PaperReview({
           )}
 
           {/* Citation audit */}
-          <div className="rounded-xl border border-gray-200 p-5">
+          <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
             <h3 className="text-sm font-semibold mb-1" style={{ color: '#0B1C33' }}>
               Citation Audit
             </h3>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
               {displayedPaperReview.citationAudit?.status}
             </p>
             <ul className="flex flex-col gap-2">
               {displayedPaperReview.citationAudit?.issuesFound?.map((issue, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
                   <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
                   {issue}
                 </li>
@@ -645,7 +718,7 @@ function PaperReview({
                 </h4>
                 <ul className="flex flex-col gap-1.5">
                   {displayedPaperReview.citationAudit?.recommendations?.map((rec, i) => (
-                    <li key={i} className="text-xs text-gray-600">
+                    <li key={i} className="text-xs text-gray-600 leading-relaxed">
                       {rec}
                     </li>
                   ))}
@@ -656,7 +729,7 @@ function PaperReview({
 
           {/* Content quality */}
           {displayedPaperReview.contentQuality && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
                 Content Quality
               </h3>
@@ -668,7 +741,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.contentQuality.strengths?.map((s, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#27500A' }}>
+                      <li key={i} className="flex items-start gap-2 text-sm leading-relaxed" style={{ color: '#27500A' }}>
                         <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
                         {s}
                       </li>
@@ -684,7 +757,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.contentQuality.weaknesses?.map((w, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
                         <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#BA7517' }} />
                         {w}
                       </li>
@@ -700,7 +773,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.contentQuality.contradictions?.map((c, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#7A2020' }}>
+                      <li key={i} className="flex items-start gap-2 text-sm leading-relaxed" style={{ color: '#7A2020' }}>
                         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                         {c}
                       </li>
@@ -713,7 +786,7 @@ function PaperReview({
 
           {/* Writing quality */}
           {displayedPaperReview.writingQuality && (
-            <div className="rounded-xl border border-gray-200 p-5">
+            <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
               <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
                 Writing Quality
               </h3>
@@ -725,7 +798,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.writingQuality.majorIssues?.map((issue, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-700 leading-relaxed">
                         <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#7A2020' }} />
                         {issue}
                       </li>
@@ -741,7 +814,7 @@ function PaperReview({
                   </h4>
                   <ul className="flex flex-col gap-1.5">
                     {displayedPaperReview.writingQuality.minorIssues?.map((issue, i) => (
-                      <li key={i} className="text-xs text-gray-600">
+                      <li key={i} className="text-xs text-gray-600 leading-relaxed">
                         {issue}
                       </li>
                     ))}
@@ -755,19 +828,24 @@ function PaperReview({
               (missing[], requiredSectionsTotal, requiredSectionsPresent)
               rather than derived from a sectionCheck array, since that's
               the summary useProgressiveTrial actually provides. */}
-          <div className="rounded-xl border border-gray-200 p-5">
+          <div className="rounded-2xl border border-gray-200 p-5 bg-white shadow-sm">
             <h3 className="text-sm font-semibold mb-3" style={{ color: '#0B1C33' }}>
               Structural Compliance
             </h3>
-            <p className="text-sm text-gray-600 mb-2">
-              {requiredSectionsPresent} of {requiredSectionsTotal} required sections present
-            </p>
-            <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-gray-600">
+                {requiredSectionsPresent} of {requiredSectionsTotal} required sections present
+              </p>
+              <span className="text-xs font-semibold" style={{ color: '#BA7517' }}>
+                {compliancePct}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
               <div
-                className="h-2 rounded-full"
+                className="h-2 rounded-full transition-all duration-500"
                 style={{
                   backgroundColor: '#BA7517',
-                  width: `${(requiredSectionsPresent / Math.max(1, requiredSectionsTotal)) * 100}%`,
+                  width: `${compliancePct}%`,
                 }}
               />
             </div>
