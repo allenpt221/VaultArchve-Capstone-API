@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { repoStores } from '@/Stores/repoStores';
+import { useSavedThesisStore } from '@/Stores/savedThesisStore';
 import NotFound from '@/app/not-found';
 import { PageLoader } from './loading';
 import Link from 'next/link';
@@ -13,16 +14,29 @@ import {
   CircleAlert,
   ChevronLeft,
   ChevronRight,
+  Bookmark,
 } from 'lucide-react';
 import { Card } from './ui/card';
 import axios from '@/lib/axios';
 
 function ThesisDetail({ id }: { id: string }) {
-  const { ThesisById, thesisData, loading, notFound, incrementDownloads } =
-    repoStores();
+  const {
+    ThesisById,
+    thesisData,
+    loading,
+    notFound,
+    incrementDownloads,
+    incrementSaves,
+    decrementSaves,
+  } = repoStores();
+
+  const { saveStatusMap, checkSaveStatus, saveThesis, unsaveThesis } =
+    useSavedThesisStore();
 
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
 
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -45,6 +59,12 @@ function ThesisDetail({ id }: { id: string }) {
   useEffect(() => {
     setCurrentPage(0);
   }, [id, thesisData?.id]);
+
+  useEffect(() => {
+    if (id && saveStatusMap[id] === undefined) {
+      checkSaveStatus(id);
+    }
+  }, [id, saveStatusMap, checkSaveStatus]);
 
   if (loading || !hasFetched) return <PageLoader />;
   if (notFound || !thesisData) return <NotFound />;
@@ -80,6 +100,24 @@ function ThesisDetail({ id }: { id: string }) {
   function goToPage(page: number) {
     if (page < 0 || page > totalPages - 1) return;
     setCurrentPage(page);
+  }
+
+  function triggerAlert() {
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
+  }
+
+  async function handleToggleSave() {
+    const isSaved = saveStatusMap[id];
+    setIsSaving(true);
+    const result = isSaved ? await unsaveThesis(id) : await saveThesis(id);
+    setIsSaving(false);
+
+    if (result.success) {
+      isSaved ? decrementSaves(id) : incrementSaves(id);
+    } else {
+      triggerAlert();
+    }
   }
 
   async function handleDownload(id: string, file_url: string) {
@@ -133,6 +171,8 @@ function ThesisDetail({ id }: { id: string }) {
     .slice(0, 2)
     .join('');
 
+  const isSaved = saveStatusMap[id] ?? false;
+
   return (
     <div className="w-full mx-auto sm:px-10 px-4 py-8">
       <div className="w-full">
@@ -156,10 +196,31 @@ function ThesisDetail({ id }: { id: string }) {
           </span>
         </div>
 
-        {/* Title */}
-        <h1 className="sm:text-3xl text-lg font-medium text-gray-900 mb-4 leading-snug">
-          {thesisData.title}
-        </h1>
+        {/* Title + Save button */}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h1 className="sm:text-3xl text-lg font-medium text-gray-900 leading-snug">
+            {thesisData.title}
+          </h1>
+
+          <button
+            onClick={handleToggleSave}
+            disabled={isSaving}
+            aria-label={isSaved ? 'Unsave thesis' : 'Save thesis'}
+            className={`cursor-pointer shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+              isSaved
+                ? 'bg-amber-600 border-amber-600 text-white hover:bg-amber-700'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-amber-600 hover:text-amber-600'
+            }`}
+          >
+            <Bookmark
+              className="w-4 h-4"
+              fill={isSaved ? 'currentColor' : 'none'}
+            />
+            <span className="hidden sm:inline">
+              {isSaved ? 'Saved' : 'Save'}
+            </span>
+          </button>
+        </div>
 
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-3 text-base text-gray-500 pb-5 mb-6 border-b">
@@ -191,6 +252,13 @@ function ThesisDetail({ id }: { id: string }) {
           <span className="flex items-center gap-1">
             <Download className="w-4 h-4" />
             {thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0} downloads
+          </span>
+
+          <span className="text-gray-300">·</span>
+
+          <span className="flex items-center gap-1">
+            <Bookmark className="w-4 h-4" />
+            {thesisData.ThesisDataAnalytics?.[0]?.saves ?? 0} saves
           </span>
         </div>
 
@@ -350,6 +418,20 @@ function ThesisDetail({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {showAlert && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-100 w-[90%] max-w-md px-6 py-4 shadow-lg rounded-xl border border-red-500 bg-red-100">
+          <div className="flex items-start gap-3">
+            <CircleAlert className="text-red-500 w-5 h-5 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-red-600 font-semibold">Login Required</p>
+              <p className="text-red-600 text-xs">
+                Log in to save this thesis.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

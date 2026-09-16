@@ -22,6 +22,31 @@ function cleanText(text: string): string {
     .trim();
 }
 
+
+const COURSE_KEYWORDS: Record<string, RegExp> = {
+  "Accountancy": /\baccountancy\b/i,
+  "Public Administration": /\bpublic\s+administration\b/i,
+  "Accounting Information System": /\baccounting\s+information\s+system(s)?\b|\bAIS\b/i,
+  "Entrepreneurship": /\bentrepreneurship\b|\bentrep\b/i,
+};
+
+function checkCourseMismatch(promptText: string, selectedCourse: string) {
+  const normalizedSelected = Object.keys(COURSE_KEYWORDS).find((key) =>
+    selectedCourse.toLowerCase().includes(key.toLowerCase())
+  );
+
+  for (const [courseName, pattern] of Object.entries(COURSE_KEYWORDS)) {
+    if (courseName === normalizedSelected) continue; // skip the user's own course
+    if (pattern.test(promptText)) {
+      return {
+        valid: false,
+        message: `You're generating recommendations for "${selectedCourse}", but your prompt mentions "${courseName}". Please select "${courseName}" as your course, or rephrase your prompt to stay within "${selectedCourse}".`,
+      };
+    }
+  }
+  return { valid: true };
+}
+
 function limitText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
 
@@ -306,6 +331,34 @@ export function checkMeaningfulText(
   return { valid: true };
 }
 
+// --- shared image-request detection, used across every endpoint that
+// accepts free text (chatPrompt, topic, context, researchQuestions,
+// rawFindings, gapStatement) so a user can't smuggle an image request
+// through a field that previously wasn't checked. ---
+const IMAGE_REQUEST_REGEX =
+  /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i;
+
+const VIDEO_REQUEST_REGEX =
+/(can\s+you\s+(make|create|generate|produce|render|edit|animate|show|give|send)|please\s+(make|create|generate|produce|render|edit|animate|show|give|send)).*?(video|clip|movie|animation|footage|reel|trailer|screencast|vlog|mp4)|^(generate|create|make|render|produce|edit|animate|show|give|send)\s.*(video|clip|movie|animation|footage|reel|trailer|screencast|mp4)|\b(video|videos|clip|movie|animation|footage|mp4|trailer|screencast|vlog)\b/i;
+
+export function isVideoRequest(text: string | undefined | null): boolean {
+  if (!text) return false;
+  return VIDEO_REQUEST_REGEX.test(text.trim().toLowerCase());
+}
+
+export function isImageRequest(text: string | undefined | null): boolean {
+  if (!text) return false;
+  return IMAGE_REQUEST_REGEX.test(text.trim().toLowerCase());
+}
+
+export function isUnsupportedMediaRequest(text: string | undefined | null): boolean {
+  return isImageRequest(text) || isVideoRequest(text);
+}
+
+const IMAGE_REQUEST_ERROR = "Unsupported request";
+const IMAGE_REQUEST_MESSAGE =
+  "Sorry, I can only help with thesis-relate d text. I'm not able to create images, videos, photos, or any visual content. Please rephrase your input as a thesis-related instruction.";
+
 export function extractRequestedCount(text: string): number | null {
   // "10 titles", "8 recommendations", "12 thesis suggestions"
   const digitMatch = text.match(/\b(\d{1,3})\s*(?:titles?|recommendations?|suggestions?|thesis(?:es)?|topics?)\b/i);
@@ -344,18 +397,12 @@ export async function RecommendedAI(req: Request, res: Response) {
 
     const promptText = (chatPrompt || "").trim().toLowerCase();
 
-    const isImageRequest =
-      /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i.test(
-        promptText
-      );
-
-    if (isImageRequest) {
-      return res.status(400).json({
-        error: "Unsupported request",
-        message:
-          "Sorry, I can only generate thesis title recommendations. I'm not able to create images, photos, or any visual content. Please enter a thesis-related instruction instead.",
-      });
-    }
+  if(isUnsupportedMediaRequest(promptText)) {
+    return res.status(400).json({
+      error: IMAGE_REQUEST_ERROR,
+      message: IMAGE_REQUEST_MESSAGE,
+    });
+  }
 
     const isOffTopicRequest =
       /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
@@ -367,6 +414,14 @@ export async function RecommendedAI(req: Request, res: Response) {
         error: "Unsupported request",
         message:
           "I can only generate thesis title recommendations and their features. Writing literature reviews, abstracts, introductions, or any thesis content is not supported here.",
+      });
+    }
+
+        const courseMismatch = checkCourseMismatch(promptText, course);
+    if (!courseMismatch.valid) {
+      return res.status(400).json({
+        error: "Course mismatch",
+        message: courseMismatch.message,
       });
     }
 
@@ -683,6 +738,14 @@ export async function TopicSelection(req: Request, res: Response) {
       return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
     }
 
+  if(isImageRequest(topic) || isImageRequest(context)) {
+    return res.status(400).json({
+      error: IMAGE_REQUEST_ERROR,
+      message: IMAGE_REQUEST_MESSAGE,
+    });
+  }
+
+
     const { allowed } = await checkDailyLimit(user_id, "topicSelection", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
@@ -772,6 +835,14 @@ export async function LiteratureReview(req: Request, res: Response) {
     if (!topicCheck.valid) {
       return res.status(400).json({ error: topicCheck.error, message: topicCheck.message });
     }
+
+  if(isImageRequest(topic)) {
+    return res.status(400).json({
+      error: IMAGE_REQUEST_ERROR,
+      message: IMAGE_REQUEST_MESSAGE,
+    });
+  }
+
 
     const { allowed } = await checkDailyLimit(user_id, "literatureReview", DAILY_PROMPT_LIMIT);
     if (!allowed) {
@@ -937,6 +1008,17 @@ export async function Methodology(req: Request, res: Response) {
     const contextCheck = checkMeaningfulText(context);
     if (!contextCheck.valid) {
       return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
+    }
+
+    if (
+      isImageRequest(topic) ||
+      isImageRequest(context) ||
+      researchQuestions.some((q: string) => isImageRequest(q))
+    ) {
+      return res.status(400).json({
+        error: IMAGE_REQUEST_ERROR,
+        message: IMAGE_REQUEST_MESSAGE,
+      });
     }
 
     const { allowed } = await checkDailyLimit(user_id, "methodology", DAILY_PROMPT_LIMIT);
@@ -1171,6 +1253,18 @@ export async function DataAnalysis(req: Request, res: Response) {
     const gapCheck = checkMeaningfulText(gapStatement);
     if (!gapCheck.valid) {
       return res.status(400).json({ error: gapCheck.error, message: gapCheck.message });
+    }
+
+    if (
+      isImageRequest(topic) ||
+      isImageRequest(gapStatement) ||
+      isImageRequest(rawFindings) ||
+      researchQuestions.some((q: string) => isImageRequest(q))
+    ) {
+      return res.status(400).json({
+        error: IMAGE_REQUEST_ERROR,
+        message: IMAGE_REQUEST_MESSAGE,
+      });
     }
 
     const { allowed } = await checkDailyLimit(user_id, "dataAnalysis", DAILY_PROMPT_LIMIT);

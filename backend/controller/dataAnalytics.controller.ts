@@ -206,12 +206,24 @@ export async function saveThesis(req: Request, res: Response) {
             return res.status(500).json({ message: "Failed to save thesis", error: insertError });
         }
 
-        const { error: rpcError } = await supabase.rpc("increment_thesis_saves", {
-            thesis_id_input: thesisId,
-        });
+        // Same proven pattern as incrementView/downloadThesis instead of an RPC call
+        const { data: analyticsData, error: fetchError } = await supabase
+            .from("ThesisDataAnalytics")
+            .select("saves")
+            .eq("thesis_id", thesisId)
+            .single();
 
-        if (rpcError) {
-            console.error("Failed to increment saves count:", rpcError);
+        if (fetchError || !analyticsData) {
+            console.error("Failed to fetch saves count:", fetchError);
+        } else {
+            const { error: updateError } = await supabase
+                .from("ThesisDataAnalytics")
+                .update({ saves: (analyticsData.saves || 0) + 1 })
+                .eq("thesis_id", thesisId);
+
+            if (updateError) {
+                console.error("Failed to increment saves count:", updateError);
+            }
         }
 
         return res.status(200).json({ message: "Thesis saved" });
@@ -248,12 +260,24 @@ export async function unsaveThesis(req: Request, res: Response) {
         }
 
         if (deleted && deleted.length > 0) {
-            const { error: rpcError } = await supabase.rpc("decrement_thesis_saves", {
-                thesis_id_input: thesisId,
-            });
+            // Same proven pattern as incrementView/downloadThesis instead of an RPC call
+            const { data: analyticsData, error: fetchError } = await supabase
+                .from("ThesisDataAnalytics")
+                .select("saves")
+                .eq("thesis_id", thesisId)
+                .single();
 
-            if (rpcError) {
-                console.error("Failed to decrement saves count:", rpcError);
+            if (fetchError || !analyticsData) {
+                console.error("Failed to fetch saves count:", fetchError);
+            } else {
+                const { error: updateError } = await supabase
+                    .from("ThesisDataAnalytics")
+                    .update({ saves: Math.max((analyticsData.saves || 0) - 1, 0) })
+                    .eq("thesis_id", thesisId);
+
+                if (updateError) {
+                    console.error("Failed to decrement saves count:", updateError);
+                }
             }
         }
 

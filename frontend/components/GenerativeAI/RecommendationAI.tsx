@@ -18,19 +18,33 @@ type ChatMessage = {
   role: 'user' | 'assistant' | 'system';
   text?: string;
   course?: string;
-  kind?: 'info' | 'warning' | 'error' | 'results' | 'course-switch' | 'limit';
+  kind?: 'info' | 'warning' | 'error' | 'results' | 'course-switch' | 'limit' | 'course-mismatch';
   results?: any[];
+  suggestedCourse?: string;
 };
 
 const isValidationMsg = (msg: string) =>
   msg.includes("random or meaningless") ||
   msg.includes("too short") ||
-  msg.includes("Image generation") ||
-  msg.includes("not supported") ||
+  msg.includes("or any visual content") || // survives "images, photos" vs "images, videos, photos" wording changes
   msg.includes("Unsupported");
 
 const isDailyLimitMsg = (msg: string) =>
   msg.includes("Daily limit reached") || msg.includes("daily limit of");
+
+// Course-mismatch messages come from the backend's checkCourseMismatch
+// validation — fixed phrasing: `...but your prompt mentions "X". Please select...`
+const isCourseMismatchMsg = (msg: string) =>
+  msg.includes("but your prompt mentions");
+
+// Pulls the suggested course out of the fixed message format the backend
+// returns, e.g. `mentions "Entrepreneurship". Please select`. If the backend
+// wording changes, update this regex (or better — have the backend return a
+// dedicated `suggestedCourse` field instead of parsing it out of the string).
+function extractSuggestedCourse(msg: string): string | null {
+  const match = msg.match(/but your prompt mentions "([^"]+)"/);
+  return match ? match[1] : null;
+}
 
 // Reset happens at local midnight, matching the backend's per-day window
 function getMsUntilMidnight() {
@@ -64,9 +78,9 @@ function formatRelativeTime(ts: number) {
 // Converts a server-side session (ThesisChatMessage[], role user/assistant
 // only) into the richer local ChatMessage shape this component renders.
 // Transient states (warnings, errors, rate-limit notices, course-switch
-// notes) never round-trip through the server, so loading a saved session
-// only ever reconstructs 'results' turns — which matches what the backend
-// actually persists.
+// notes, course-mismatch notices) never round-trip through the server, so
+// loading a saved session only ever reconstructs 'results' turns — which
+// matches what the backend actually persists.
 function sessionToMessages(session: ThesisChatSession): ChatMessage[] {
   return session.messages.map((m: ThesisChatMessage) => {
     if (m.role === 'user') {
@@ -78,7 +92,7 @@ function sessionToMessages(session: ThesisChatSession): ChatMessage[] {
 
 function TypingIndicator() {
   return (
-    <div className="w-full py-6 px-4 sm:px-6 bg-muted/30">
+    <div className="w-full py-6 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto flex items-start gap-4">
         <div className="h-8 w-8 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
           <Bot className="h-4 w-4 text-black" />
@@ -223,6 +237,14 @@ function AIrecommendation() {
     if (isDailyLimitMsg(latestMessage)) {
       assistantMsg = { id: crypto.randomUUID(), role: 'assistant', kind: 'limit', text: latestMessage };
       setLimitedUntil(Date.now() + getMsUntilMidnight());
+    } else if (isCourseMismatchMsg(latestMessage)) {
+      assistantMsg = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        kind: 'course-mismatch',
+        text: latestMessage,
+        suggestedCourse: extractSuggestedCourse(latestMessage) ?? undefined,
+      };
     } else if (isValidationMsg(latestMessage)) {
       assistantMsg = { id: crypto.randomUUID(), role: 'assistant', kind: 'warning', text: latestMessage };
     } else if (latestMessage.includes("Unauthorized")) {
@@ -261,8 +283,8 @@ function AIrecommendation() {
   // Load a saved conversation back into the active thread. The transcript
   // comes from the server session; only the 'results' turns can be
   // reconstructed (see sessionToMessages), so a reopened chat won't show
-  // any of the old transient warning/limit banners — that matches what's
-  // actually persisted server-side.
+  // any of the old transient warning/limit/mismatch banners — that matches
+  // what's actually persisted server-side.
   const loadChat = (session: ThesisChatSession) => {
     setMessages(sessionToMessages(session));
     setSelectedInterest(session.course);
@@ -432,7 +454,7 @@ function AIrecommendation() {
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-border/40">
+          <div className="pb-2">
             {messages.map((msg) => {
               if (msg.kind === 'course-switch') {
                 return (
@@ -445,35 +467,36 @@ function AIrecommendation() {
                 );
               }
 
-              const isUser = msg.role === 'user';
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`w-full py-6 px-4 sm:px-6 ${!isUser ? "bg-muted/30" : ""}`}
-                >
-                  <div className="max-w-3xl mx-auto flex items-start gap-4">
-                    <div
-                      className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                        isUser ? "bg-foreground" : "bg-amber-400"
-                      }`}
-                    >
-                      {isUser ? (
+              // User turns: right-aligned bubble, avatar on the right
+              if (msg.role === 'user') {
+                return (
+                  <div key={msg.id} className="w-full py-3 px-4 sm:px-6">
+                    <div className="max-w-3xl mx-auto flex items-start justify-end gap-3">
+                      <div className="min-w-0 flex flex-col items-end gap-1">
+                        <p className="text-[11px] font-medium text-muted-foreground">{msg.course}</p>
+                        <div className="rounded-2xl rounded-tr-md bg-amber-400 text-black px-4 py-2.5 max-w-[85%] sm:max-w-[75%]">
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                            {msg.text}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="h-8 w-8 rounded-full bg-foreground flex items-center justify-center shrink-0 mt-5">
                         <User className="h-4 w-4 text-background" />
-                      ) : (
-                        <Bot className="h-4 w-4 text-black" />
-                      )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Assistant turns: full-width, left-aligned
+              return (
+                <div key={msg.id} className="w-full py-6 px-4 sm:px-6">
+                  <div className="max-w-3xl mx-auto flex items-start gap-4">
+                    <div className="h-8 w-8 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
+                      <Bot className="h-4 w-4 text-black" />
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-2 pt-0.5">
-                      {isUser && (
-                        <p className="text-[11px] font-medium text-muted-foreground">{msg.course}</p>
-                      )}
-
-                      {isUser && (
-                        <p className="text-sm leading-relaxed text-foreground">{msg.text}</p>
-                      )}
-
                       {msg.kind === 'results' && (
                         <p className="text-sm text-foreground">Here's what I found for you:</p>
                       )}
@@ -492,6 +515,26 @@ function AIrecommendation() {
                         <div className="flex items-start gap-2">
                           <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                           <p className="text-sm leading-relaxed text-amber-800">{msg.text}</p>
+                        </div>
+                      )}
+
+                      {msg.kind === 'course-mismatch' && (
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <GraduationCap className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <p className="text-sm leading-relaxed text-amber-800">{msg.text}</p>
+                          </div>
+                          {msg.suggestedCourse && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCourseChange(msg.suggestedCourse!)}
+                              className="rounded-full text-xs cursor-pointer"
+                            >
+                              Switch to {msg.suggestedCourse}
+                            </Button>
+                          )}
                         </div>
                       )}
 

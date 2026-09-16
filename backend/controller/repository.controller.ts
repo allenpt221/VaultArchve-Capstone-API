@@ -344,7 +344,7 @@ export async function getRandomThesis(req: Request, res: Response){
     try {  
         const { data, error } = await supabase
         .from("Thesis")
-        .select("*, ThesisDataAnalytics(views, downloads)")
+        .select("*, ThesisDataAnalytics(views, downloads, saves)")
         .order("created_at", { ascending: Math.random() < 0.5 })
         .limit(4);
 

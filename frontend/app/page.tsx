@@ -1,5 +1,5 @@
 'use client'
-import { BookOpen, Bot, CircleAlert, GraduationCap, Search, TrendingUp, Users } from "lucide-react";
+import { BookOpen, Bookmark, Bot, CircleAlert, Download, GraduationCap, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ export default function Home() {
     const [isClickable, setIsClickable] = useState(true);
     const totalViews = dataAnalytics.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
     const totalDownloads = dataAnalytics.reduce((sum, repo) => sum + (Number(repo.downloads) || 0), 0);
+    const totalSaves = dataAnalytics.reduce((sum, item) => sum + (Number(item.saves) || 0), 0);
 
 
     
@@ -39,9 +40,10 @@ export default function Home() {
 
     const stats = [
       { icon: BookOpen, label: "Total Theses", value: dataAnalytics.length },
-      { icon: Users, label: "Contributors", value: formatViews(totalDownloads)},
+      { icon: Download, label: "Downloads", value: formatViews(totalDownloads)},
       { icon: GraduationCap, label: "Courses", value: "4" },
       { icon: TrendingUp, label: "Total Views", value: formatViews(totalViews)},
+      { icon: Bookmark, label: "Total Saves", value: formatViews(totalSaves)},
     ];
 
 
@@ -123,7 +125,7 @@ export default function Home() {
           </div>
       </div>
       <div className="relative -mt-12 z-20 max-w-5xl mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-card rounded-xl shadow-md p-5 text-center border border-border">
               <stat.icon className="h-6 w-6 text-amber-400 mx-auto mb-2" />
