@@ -67,6 +67,7 @@ export function useProgressiveTrial() {
     }
   })
   const [researchQuestionInput, setResearchQuestionInput] = useState('')
+  const [methodologyObjective, setMethodologyObjective] = useState('')
   const [methodologyContext, setMethodologyContext] = useState('')
 
   // Data Collection stage — form inputs
@@ -414,9 +415,14 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
   }
 
   const handleGenerateMethodology = async () => {
-    if (researchQuestions.length < MIN_RESEARCH_QUESTIONS || loading) return
+    if (!methodologyObjective.trim() || researchQuestions.length < MIN_RESEARCH_QUESTIONS || loading) return
     setSelectedMethodologyId(null) // a fresh generation takes priority over any selected saved methodology
-    await MethodologyAI({ topic, researchQuestions, context: methodologyContext })
+    await MethodologyAI({
+      topic,
+      objective: methodologyObjective,
+      researchQuestions,
+      context: methodologyContext,
+    })
     if (generativeStore.getState().methodology) {
       markComplete('methodology')
       GetMethodologies() // refresh the saved list so the new one shows up
@@ -428,6 +434,7 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     if (!saved) return
     setSelectedMethodologyId(id)
     setResearchQuestions(saved.research_questions)
+    setMethodologyObjective(saved.objective || '')
     setMethodologyContext(saved.context || '')
     markComplete('methodology')
   }
@@ -447,6 +454,7 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
           dataAnalysisPlan: saved.data_analysis_plan,
           questionMapping: saved.question_mapping,
           limitations: saved.limitations,
+          references: saved.references || [],
         }
       }
     }
@@ -603,6 +611,8 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     setResearchQuestionInput,
     handleAddResearchQuestion,
     handleRemoveResearchQuestion,
+    methodologyObjective,
+    setMethodologyObjective,
     methodologyContext,
     setMethodologyContext,
     handleGenerateMethodology,

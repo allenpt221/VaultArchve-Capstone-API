@@ -85,6 +85,12 @@ export type QuestionMappingEntry = {
   analysisMethod: string
 }
 
+export type MethodologyReference = {
+  title: string
+  url: string
+  relevance: string
+}
+
 export type MethodologyResult = {
   approach: MethodologyApproach
   approachRationale: string
@@ -94,6 +100,7 @@ export type MethodologyResult = {
   dataAnalysisPlan: string
   questionMapping: QuestionMappingEntry[]
   limitations: string[]
+  references: MethodologyReference[]
 }
 
 export type DataAnalysesHistoryResult = {

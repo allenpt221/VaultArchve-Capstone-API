@@ -974,7 +974,7 @@ export async function LiteratureReview(req: Request, res: Response) {
 
 export async function Methodology(req: Request, res: Response) {
   try {
-    const { topic, researchQuestions, context } = req.body;
+    const { topic, objective, researchQuestions, context } = req.body;
     const user_id = req.user?.id;
 
     if (!user_id) {
@@ -984,6 +984,11 @@ export async function Methodology(req: Request, res: Response) {
     const topicCheck = checkMeaningfulText(topic, { required: true });
     if (!topicCheck.valid) {
       return res.status(400).json({ error: topicCheck.error, message: topicCheck.message });
+    }
+
+    const objectiveCheck = checkMeaningfulText(objective, { required: true });
+    if (!objectiveCheck.valid) {
+      return res.status(400).json({ error: objectiveCheck.error, message: `Objective: ${objectiveCheck.message}` });
     }
 
     if (!Array.isArray(researchQuestions) || researchQuestions.length < 1) {
@@ -1012,6 +1017,7 @@ export async function Methodology(req: Request, res: Response) {
 
     if (
       isImageRequest(topic) ||
+      isImageRequest(objective) ||
       isImageRequest(context) ||
       researchQuestions.some((q: string) => isImageRequest(q))
     ) {
@@ -1035,83 +1041,131 @@ export async function Methodology(req: Request, res: Response) {
     const prompt = `
       Thesis topic: ${topic}
 
+      General objective: ${objective}
+
       Research questions:
       ${questionsBlock}
 
       Additional context: ${context?.trim() ? context : "None provided."}
     `;
 
-    const result = await openai.chat.completions.create({
+    // NOTE: response_format / text.format "json_object" cannot be combined
+    // with the web_search tool (OpenAI returns a 400: "Web Search cannot be
+    // used with JSON mode"). So JSON-only output is enforced purely through
+    // prompting here, and parsing below is written to tolerate stray
+    // preamble/fencing the model might still add despite the instruction.
+    const systemInstructions =
+      "You are a thesis advisor helping an undergraduate student design their Methodology chapter. " +
+      "You have a web_search tool — use it to ground your sampling method, sample size justification, " +
+      "and instrument choices in real, citable sources (e.g. established sample size formulas such as " +
+      "Slovin's or Cochran's, published/validated instruments in the topic's domain, or recognized " +
+      "qualitative sampling standards such as data saturation guidance). Do not invent citations — only " +
+      "reference sources you actually retrieved via web_search, using their real title and URL. " +
+      "Given their topic, general objective, and numbered research questions, respond with ONLY a raw JSON " +
+      "object and nothing else — no preamble, no explanation, no markdown code fences, no text before or " +
+      "after the JSON — shaped EXACTLY as this skeleton " +
+      "(pay close attention to which fields are nested inside \"population\" and which are siblings of it — " +
+      "only targetPopulation, samplingMethod, sampleSizeJustification, and inclusionCriteria belong inside " +
+      "population; instruments, dataCollectionPlan, dataAnalysisPlan, questionMapping, limitations, and " +
+      "references are top-level siblings of population, NOT nested inside it):\n" +
+      `{\n` +
+      `  "methodology": {\n` +
+      `    "approach": "qualitative" | "quantitative" | "mixed_methods",\n` +
+      `    "approachRationale": string,\n` +
+      `    "population": {\n` +
+      `      "targetPopulation": string,\n` +
+      `      "samplingMethod": string,\n` +
+      `      "sampleSizeJustification": string,\n` +
+      `      "inclusionCriteria": string[]\n` +
+      `    },\n` +
+      `    "instruments": [{ "name": string, "type": string, "purpose": string, "validityConsiderations": string, "researchQuestionNumbers": number[] }],\n` +
+      `    "dataCollectionPlan": string,\n` +
+      `    "dataAnalysisPlan": string,\n` +
+      `    "questionMapping": [{ "researchQuestionNumber": number, "researchQuestion": string, "approach": string, "instrument": string, "analysisMethod": string }],\n` +
+      `    "limitations": string[],\n` +
+      `    "references": [{ "title": string, "url": string, "relevance": string }]\n` +
+      `  }\n` +
+      `}\n\n` +
+      "First decide the approach using a decision tree based on BOTH the general objective and the research " +
+      "questions together — the objective sets the overall scope and intent of the study, while the research " +
+      "questions operationalize it; they should agree, and if they seem to pull in different directions, treat " +
+      "that as a signal toward 'mixed_methods' rather than picking one and ignoring the other. Choose " +
+      "'quantitative' if the objective and questions ask about measurable variables, relationships, or " +
+      "comparisons between groups; choose 'qualitative' if they ask about lived experiences, meanings, " +
+      "perceptions, or processes; choose 'mixed_methods' if they combine both (e.g. objective is broad/ " +
+      "exploratory but one question is measurable, or vice versa). " +
+      "approachRationale should be 2-3 sentences explaining why, referencing both the general objective and the " +
+      "specific research questions that drove the decision. " +
+      "population.targetPopulation should name who/what will be studied, consistent with the general objective. " +
+      "samplingMethod should name a specific sampling technique (e.g. purposive, stratified random, convenience) " +
+      "appropriate to the approach and explain briefly why it fits. sampleSizeJustification should give a " +
+      "concrete sample size or range and justify it (e.g. saturation for qualitative, power/margin-of-error " +
+      "reasoning for quantitative), citing a real formula or standard found via web_search where applicable. " +
+      "inclusionCriteria should list 2-4 concrete eligibility criteria for participants/respondents. " +
+      "IMPORTANT: close the population object immediately after inclusionCriteria — do not place instruments, " +
+      "dataCollectionPlan, dataAnalysisPlan, questionMapping, limitations, or references inside it. " +
+      "instruments should have 1-3 entries, each a concrete data collection instrument (e.g. structured survey, " +
+      "semi-structured interview guide, validated scale name) with its purpose, and validityConsiderations " +
+      "describing how validity/reliability (or trustworthiness, for qualitative) will be established — e.g. " +
+      "pilot testing, expert validation, triangulation, member checking. Each instrument's " +
+      "researchQuestionNumbers should list which numbered research question(s) it serves. " +
+      "dataCollectionPlan should be 3-5 sentences describing the step-by-step procedure for gathering data, " +
+      "consistent with achieving the general objective. " +
+      "dataAnalysisPlan should be 3-5 sentences describing the specific analysis technique(s) that match the " +
+      "approach (e.g. thematic analysis, regression, descriptive statistics). " +
+      "questionMapping must have exactly one entry per research question, in the same order given, restating " +
+      "the question and summarizing in a few words which approach, instrument, and analysis method address it " +
+      "— this is the artifact that ties the whole methodology back to each research question. " +
+      "limitations should list 2-3 realistic methodological limitations of this design. " +
+      "references should list 2-5 real sources you retrieved via web_search that back up your sampling method, " +
+      "sample size justification, or instrument choices — each with the source's actual title, URL, and a " +
+      "one-sentence note on what it supports. If you cannot find genuinely relevant sources, return an empty " +
+      "array rather than fabricating one. " +
+      "Remember: output ONLY the JSON object above. Do not wrap it in ```json fences, do not add commentary " +
+      "before or after it.";
+
+    const result = await openai.responses.create({
       model: "gpt-5.4-mini",
-      reasoning_effort: "none",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a thesis advisor helping an undergraduate student design their Methodology chapter. " +
-            "Given their topic and numbered research questions, respond ONLY with a JSON object shaped EXACTLY as this skeleton " +
-            "(pay close attention to which fields are nested inside \"population\" and which are siblings of it — " +
-            "only targetPopulation, samplingMethod, sampleSizeJustification, and inclusionCriteria belong inside " +
-            "population; instruments, dataCollectionPlan, dataAnalysisPlan, questionMapping, and limitations are " +
-            "top-level siblings of population, NOT nested inside it):\n" +
-            `{\n` +
-            `  "methodology": {\n` +
-            `    "approach": "qualitative" | "quantitative" | "mixed_methods",\n` +
-            `    "approachRationale": string,\n` +
-            `    "population": {\n` +
-            `      "targetPopulation": string,\n` +
-            `      "samplingMethod": string,\n` +
-            `      "sampleSizeJustification": string,\n` +
-            `      "inclusionCriteria": string[]\n` +
-            `    },\n` +
-            `    "instruments": [{ "name": string, "type": string, "purpose": string, "validityConsiderations": string, "researchQuestionNumbers": number[] }],\n` +
-            `    "dataCollectionPlan": string,\n` +
-            `    "dataAnalysisPlan": string,\n` +
-            `    "questionMapping": [{ "researchQuestionNumber": number, "researchQuestion": string, "approach": string, "instrument": string, "analysisMethod": string }],\n` +
-            `    "limitations": string[]\n` +
-            `  }\n` +
-            `}\n\n` +
-            "First decide the approach using a decision tree based on the research questions themselves: choose " +
-            "'quantitative' if the questions ask about measurable variables, relationships, or comparisons between " +
-            "groups; choose 'qualitative' if the questions ask about lived experiences, meanings, perceptions, or " +
-            "processes; choose 'mixed_methods' if the questions combine both (e.g. one measurable, one experiential). " +
-            "approachRationale should be 2-3 sentences explaining why, referencing the specific research questions " +
-            "that drove the decision. " +
-            "population.targetPopulation should name who/what will be studied. samplingMethod should name a specific " +
-            "sampling technique (e.g. purposive, stratified random, convenience) appropriate to the approach and " +
-            "explain briefly why it fits. sampleSizeJustification should give a concrete sample size or range and " +
-            "justify it (e.g. saturation for qualitative, power/margin-of-error reasoning for quantitative). " +
-            "inclusionCriteria should list 2-4 concrete eligibility criteria for participants/respondents. " +
-            "IMPORTANT: close the population object immediately after inclusionCriteria — do not place instruments, " +
-            "dataCollectionPlan, dataAnalysisPlan, questionMapping, or limitations inside it. " +
-            "instruments should have 1-3 entries, each a concrete data collection instrument (e.g. structured survey, " +
-            "semi-structured interview guide, validated scale name) with its purpose, and validityConsiderations " +
-            "describing how validity/reliability (or trustworthiness, for qualitative) will be established — e.g. " +
-            "pilot testing, expert validation, triangulation, member checking. Each instrument's " +
-            "researchQuestionNumbers should list which numbered research question(s) it serves. " +
-            "dataCollectionPlan should be 3-5 sentences describing the step-by-step procedure for gathering data. " +
-            "dataAnalysisPlan should be 3-5 sentences describing the specific analysis technique(s) that match the " +
-            "approach (e.g. thematic analysis, regression, descriptive statistics). " +
-            "questionMapping must have exactly one entry per research question, in the same order given, restating " +
-            "the question and summarizing in a few words which approach, instrument, and analysis method address it " +
-            "— this is the artifact that ties the whole methodology back to each research question. " +
-            "limitations should list 2-3 realistic methodological limitations of this design.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
+      reasoning: { effort: "none" },
+      tools: [{ type: "web_search" }],
+      input: [
+        { role: "system", content: systemInstructions },
+        { role: "user", content: prompt },
       ],
     });
 
-    const rawText = result.choices[0].message.content || "";
+    const rawText = result.output_text || "";
+
+    const verifiedUrls = new Set<string>();
+    for (const item of result.output ?? []) {
+      if (item.type === "message") {
+        for (const content of item.content ?? []) {
+          if (content.type === "output_text") {
+            for (const annotation of content.annotations ?? []) {
+              if (annotation.type === "url_citation" && annotation.url) {
+                verifiedUrls.add(annotation.url);
+              }
+            }
+          }
+        }
+      }
+    }
 
     let parsed;
     try {
-      const cleaned = rawText.replace(/```json|```/g, "").trim();
+      // Strip markdown fences if present, then fall back to extracting the
+      // outermost {...} span in case the model still adds stray preamble
+      // or trailing commentary despite the instruction not to — this is
+      // the tolerance we lose by not having json_object mode enforce it.
+      let cleaned = rawText.replace(/```json|```/g, "").trim();
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+      }
       parsed = JSON.parse(cleaned);
     } catch {
+      console.log("Failed to parse methodology JSON, raw:", rawText);
       return res.status(500).json({
         error: "AI returned invalid JSON. Please try again.",
       });
@@ -1119,8 +1173,6 @@ export async function Methodology(req: Request, res: Response) {
 
     const { methodology } = parsed;
 
-    // Guard against a missing or malformed wrapper before it silently
-    // becomes null columns in the database.
     if (!methodology || typeof methodology !== "object") {
       console.log("Malformed methodology response, raw:", rawText);
       return res.status(500).json({
@@ -1153,8 +1205,13 @@ export async function Methodology(req: Request, res: Response) {
       });
     }
 
-    // Also validate that population itself isn't missing its own required
-    // sub-fields (e.g. if the model nests something differently again).
+    if (!methodology.population || typeof methodology.population !== "object") {
+      console.log("Methodology response has malformed population object, raw:", rawText);
+      return res.status(500).json({
+        error: "AI response was incomplete (missing population data). Please try again.",
+      });
+    }
+
     const requiredPopulationFields = [
       "targetPopulation",
       "samplingMethod",
@@ -1176,9 +1233,17 @@ export async function Methodology(req: Request, res: Response) {
       });
     }
 
+    const rawReferences = Array.isArray(methodology.references) ? methodology.references : [];
+    const verifiedReferences = rawReferences.filter(
+      (r: any) => r?.url && verifiedUrls.has(r.url)
+    );
+
+    const responseMethodology = { ...methodology, references: verifiedReferences };
+
     const { error: saveError } = await supabase.from("methodology_responses").insert({
       user_id,
       topic,
+      objective,
       research_questions: researchQuestions,
       context: context?.trim() ? context : null,
       approach: methodology.approach,
@@ -1189,6 +1254,7 @@ export async function Methodology(req: Request, res: Response) {
       data_analysis_plan: methodology.dataAnalysisPlan,
       question_mapping: methodology.questionMapping,
       limitations: methodology.limitations,
+      references: verifiedReferences,
     });
 
     if (saveError) {
@@ -1196,7 +1262,7 @@ export async function Methodology(req: Request, res: Response) {
       // Not returning an error here — the AI response is still valid even if the save fails
     }
 
-    return res.status(200).json(parsed);
+    return res.status(200).json({ methodology: responseMethodology });
   } catch (error: any) {
     console.log(error);
     return res.status(500).json({ error: error.message });

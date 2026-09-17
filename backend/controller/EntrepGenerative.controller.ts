@@ -437,7 +437,7 @@ export async function EntrepProduction(req: Request, res: Response) {
 
 export async function EntrepFinancial(req: Request, res: Response) {
   try {
-    const { idea, conceptStatement, startupCosts, fixedCostsPerMonth, variableCostPerUnit, pricePerUnit } = req.body;
+    const { idea, conceptStatement, notes } = req.body;
     const user_id = req.user?.id;
 
     if (!user_id) {
@@ -453,14 +453,9 @@ export async function EntrepFinancial(req: Request, res: Response) {
       return res.status(400).json({ error: conceptCheck.error, message: conceptCheck.message });
     }
 
-    if (!Array.isArray(startupCosts) || startupCosts.length === 0) {
-      return res.status(400).json({ message: "At least one startup cost item is required." });
-    }
-
-    if (!fixedCostsPerMonth || !variableCostPerUnit || !pricePerUnit) {
-      return res.status(400).json({
-        message: "Fixed costs, variable cost per unit, and price per unit are all required.",
-      });
+    const notesCheck = checkMeaningfulText(notes);
+    if (!notesCheck.valid) {
+      return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
     const { allowed } = await checkDailyLimit(user_id, "entrepFinancial", DAILY_PROMPT_LIMIT);
@@ -473,17 +468,10 @@ export async function EntrepFinancial(req: Request, res: Response) {
       });
     }
 
-    const costSummary = startupCosts
-      .map((c: any) => `${c.item} (${c.category}): ${c.cost}`)
-      .join("; ");
-
     const prompt = `
       Business concept statement: ${conceptStatement}
 
-      Startup costs: ${costSummary}
-      Fixed costs per month: ${fixedCostsPerMonth}
-      Variable cost per unit: ${variableCostPerUnit}
-      Price per unit: ${pricePerUnit}
+      Student's rough financial notes: ${notes?.trim() ? notes : "None provided."}
     `;
 
     const result = await openai.chat.completions.create({
@@ -494,16 +482,37 @@ export async function EntrepFinancial(req: Request, res: Response) {
         {
           role: "system",
           content:
-            "You are a business advisor helping an undergraduate student evaluate the financial viability of their " +
-            "business for their entrepreneurship thesis, based on their finalized concept and the real cost/pricing " +
-            "figures they've gathered. Respond ONLY with a JSON object shaped as: " +
-            `{ "guidance": { "pricingStrategy": string, "viabilitySummary": string, "breakEvenNote": string } }. ` +
-            "pricingStrategy should be 2-3 sentences naming and explaining a pricing approach (e.g. cost-plus, " +
-            "value-based, competitive) that fits the given numbers and business type. viabilitySummary should be " +
-            "2-4 sentences assessing whether the margins look sustainable given fixed costs, variable cost per " +
-            "unit, and price per unit, using the actual numbers provided. breakEvenNote should be 1-2 sentences " +
-            "giving an approximate break-even volume (units per month) calculated from fixed costs divided by the " +
-            "contribution margin (price per unit minus variable cost per unit), noting it's an estimate.",
+            "You are a business advisor helping an undergraduate student complete the FINAL stage of their " +
+            "entrepreneurship thesis: the financial plan. This caps off their full business plan (concept, SWOT, " +
+            "market research, production, and now finances), so the guidance should feel like a capstone — " +
+            "thorough enough to drop directly into a thesis chapter, not a quick tip. Respond ONLY with a JSON " +
+            "object shaped as: " +
+            `{ "guidance": { "startupCostCategories": { "category": string, "examples": string[], "note": string }[], ` +
+            `"pricingStrategy": string, "revenueModelNote": string, "viabilitySummary": string, "breakEvenNote": string, ` +
+            `"fundingOptions": { "source": string, "fitNote": string }[], "keyMetricsToTrack": string[], ` +
+            `"riskFlags": string[], "thirtyDayActionPlan": string[], "recommendation": string, "closingSummary": string } }. ` +
+            "startupCostCategories should have 4-6 realistic cost categories for this specific business (e.g. " +
+            "equipment, permits, initial inventory, marketing launch), each with 2-4 concrete examples of line " +
+            "items and a short note on typical scale of cost. pricingStrategy should be 2-3 sentences naming a " +
+            "pricing approach (cost-plus, value-based, competitive, etc.) that fits this business type and why. " +
+            "revenueModelNote should be 2-3 sentences on how the business actually earns money — one-time sales, " +
+            "subscriptions, commissions, etc. — and any secondary revenue streams worth considering. " +
+            "viabilitySummary should be 3-4 sentences on what would make this business financially sustainable, " +
+            "referencing typical margins and cost structures for this kind of business. breakEvenNote should " +
+            "explain in 2-3 sentences the break-even formula (fixed costs divided by contribution margin per " +
+            "unit) and what data the student needs to gather to calculate their real number. fundingOptions " +
+            "should list 2-4 funding sources realistic for a student-run business at this scale (e.g. personal " +
+            "savings, family/friends, small business grants, microloans, crowdfunding), each with a one-sentence " +
+            "note on fit. keyMetricsToTrack should list 3-5 specific financial metrics this business should " +
+            "monitor once operating (e.g. gross margin, customer acquisition cost, monthly burn rate), tailored " +
+            "to the business type. riskFlags should list 2-3 specific financial risks likely for this kind of " +
+            "business. thirtyDayActionPlan should list 3-5 concrete, ordered actions the student should take in " +
+            "the next month to firm up their real numbers (e.g. get quotes from suppliers, survey target " +
+            "customers on willingness to pay). recommendation should be 1-2 sentences of overall next-step " +
+            "advice. closingSummary should be 2-3 sentences summarizing the business's overall financial outlook " +
+            "and tying together how the concept, market position, and production plan support (or challenge) its " +
+            "financial viability, as a fitting close to the full thesis. If the student gave rough notes, refine " +
+            "and build on them instead of ignoring them.",
         },
         {
           role: "user",
@@ -530,13 +539,18 @@ export async function EntrepFinancial(req: Request, res: Response) {
       user_id,
       idea,
       concept_statement: conceptStatement,
-      startup_costs: startupCosts,
-      fixed_costs_per_month: fixedCostsPerMonth,
-      variable_cost_per_unit: variableCostPerUnit,
-      price_per_unit: pricePerUnit,
+      notes: notes?.trim() ? notes : null,
+      startup_cost_categories: guidance.startupCostCategories,
       pricing_strategy: guidance.pricingStrategy,
+      revenue_model_note: guidance.revenueModelNote,
       viability_summary: guidance.viabilitySummary,
       break_even_note: guidance.breakEvenNote,
+      funding_options: guidance.fundingOptions,
+      key_metrics_to_track: guidance.keyMetricsToTrack,
+      risk_flags: guidance.riskFlags,
+      thirty_day_action_plan: guidance.thirtyDayActionPlan,
+      recommendation: guidance.recommendation,
+      closing_summary: guidance.closingSummary,
     });
 
     if (saveError) {

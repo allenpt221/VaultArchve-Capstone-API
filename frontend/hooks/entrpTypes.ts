@@ -110,17 +110,29 @@ export type SavedProduction = {
 }
 
 // ── Financial (Stage 5) ──────────────────────────────────────────────
-export type StartupCostItem = {
-  item: string
+export type StartupCostCategory = {
   category: string
-  cost: string
-  [key: string]: string
+  examples: string[]
+  note: string
+}
+
+export type FundingOption = {
+  source: string
+  fitNote: string
 }
 
 export type FinancialGuidance = {
+  startupCostCategories: StartupCostCategory[]
   pricingStrategy: string
+  revenueModelNote: string
   viabilitySummary: string
   breakEvenNote: string
+  fundingOptions: FundingOption[]
+  keyMetricsToTrack: string[]
+  riskFlags: string[]
+  thirtyDayActionPlan: string[]
+  recommendation: string
+  closingSummary: string
 }
 
 export type SavedFinancial = {
@@ -128,13 +140,18 @@ export type SavedFinancial = {
   user_id: string
   idea: string
   concept_statement: string
-  startup_costs: StartupCostItem[]
-  fixed_costs_per_month: string
-  variable_cost_per_unit: string
-  price_per_unit: string
+  notes: string | null
+  startup_cost_categories: StartupCostCategory[]
   pricing_strategy: string
+  revenue_model_note: string
   viability_summary: string
   break_even_note: string
+  funding_options: FundingOption[]
+  key_metrics_to_track: string[]
+  risk_flags: string[]
+  thirty_day_action_plan: string[]
+  recommendation: string
+  closing_summary: string
   created_at: string
 }
 
@@ -183,13 +200,18 @@ export type ProductionData = {
 }
 
 export type FinancialData = {
-  startupCosts: StartupCostItem[]
+  startupCostCategories: StartupCostCategory[]
   pricingStrategy: string
-  fixedCostsPerMonth: string
-  variableCostPerUnit: string
-  pricePerUnit: string
+  revenueModelNote: string
   viabilitySummary: string
   breakEvenNote: string
+  fundingOptions: FundingOption[]
+  keyMetricsToTrack: string[]
+  riskFlags: string[]
+  thirtyDayActionPlan: string[]
+  recommendation: string
+  closingSummary: string
+  notes: string
 }
 
 export type EntrepTrailData = {

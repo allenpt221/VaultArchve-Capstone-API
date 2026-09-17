@@ -30,6 +30,11 @@ const normalizeMethodology = (data: any): SavedMethodology => ({
     typeof data.limitations === "string"
       ? JSON.parse(data.limitations)
       : data.limitations,
+
+  references:
+    typeof data.references === "string"
+      ? JSON.parse(data.references)
+      : (data.references ?? []),
 });
 
 
@@ -52,6 +57,7 @@ interface LiteratureReviewProps {
 
 interface MethodologyProps {
   topic: string;
+  objective: string;
   researchQuestions: string[];
   context?: string;
 }
@@ -104,6 +110,12 @@ interface QuestionMappingEntry {
   analysisMethod: string;
 }
 
+interface MethodologyReference {
+  title: string;
+  url: string;
+  relevance: string;
+}
+
 interface MethodologyResult {
   approach: "qualitative" | "quantitative" | "mixed_methods";
   approachRationale: string;
@@ -113,6 +125,7 @@ interface MethodologyResult {
   dataAnalysisPlan: string;
   questionMapping: QuestionMappingEntry[];
   limitations: string[];
+  references: MethodologyReference[];
 }
 
 interface SavedLiteratureReview {
@@ -144,6 +157,7 @@ interface SavedMethodology {
   id: string;
   user_id: string;
   topic: string;
+  objective: string;
   research_questions: string[];
   context: string | null;
   approach: "qualitative" | "quantitative" | "mixed_methods";
@@ -154,6 +168,7 @@ interface SavedMethodology {
   data_analysis_plan: string;
   question_mapping: QuestionMappingEntry[];
   limitations: string[];
+  references: MethodologyReference[];
   created_at: string;
 }
 
@@ -182,6 +197,7 @@ interface generativeAiProps {
   GetTopicSelections: (params?: { limit?: number; offset?: number }) => Promise<void>;
   GetMethodologies: (params?: { limit?: number; offset?: number }) => Promise<void>;
   DeleteTopicSelection: (id: string) => Promise<void>;
+  DeleteMethodology: (id: string) => Promise<void>;
   dataAnalysis: DataAnalysisResult | null
   dataAnalysisHistory: SavedDataAnalysis[]
   dataAnalysesTotal: number
@@ -523,12 +539,13 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
   },
 
   // POST METHOD
-  MethodologyAI: async ({ topic, researchQuestions, context }: MethodologyProps): Promise<void> => {
+  MethodologyAI: async ({ topic, objective, researchQuestions, context }: MethodologyProps): Promise<void> => {
     try {
       set({ loading: true, message: "" });
 
       const res = await axios.post('/ai/methodology', {
         topic,
+        objective,
         researchQuestions,
         context,
       });

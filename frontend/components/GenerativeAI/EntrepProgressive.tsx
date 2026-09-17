@@ -172,16 +172,8 @@ function EntrepProgressive() {
         <FinancialStage
           idea={t.idea}
           conceptStatement={t.selectedConceptStatement}
-          startupCosts={t.startupCosts}
-          onAddStartupCost={t.handleAddStartupCost}
-          onRemoveStartupCost={t.handleRemoveStartupCost}
-          onUpdateStartupCost={t.handleUpdateStartupCost}
-          fixedCostsPerMonth={t.fixedCostsPerMonth}
-          onFixedCostsPerMonthChange={t.setFixedCostsPerMonth}
-          variableCostPerUnit={t.variableCostPerUnit}
-          onVariableCostPerUnitChange={t.setVariableCostPerUnit}
-          pricePerUnit={t.pricePerUnit}
-          onPricePerUnitChange={t.setPricePerUnit}
+          notes={t.financialNotes}
+          onNotesChange={t.setFinancialNotes}
           onGenerateFinancial={t.handleGenerateFinancial}
           isLoading={t.isFinancialLoading}
           errorMessage={t.message}

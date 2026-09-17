@@ -12,7 +12,6 @@ import type {
   SavedProduction,
   SavedFinancial,
   Supplier,
-  StartupCostItem,
 } from '@/hooks/entrpTypes'
 
 interface ConceptProps {
@@ -44,10 +43,7 @@ interface ProductionProps {
 interface FinancialProps {
   idea: string
   conceptStatement: string
-  startupCosts: StartupCostItem[]
-  fixedCostsPerMonth: string
-  variableCostPerUnit: string
-  pricePerUnit: string
+  notes?: string
 }
 
 interface EntrepGenerativeProps {
@@ -359,17 +355,10 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   },
 
   // ── Financial ────────────────────────────────────────────────────
-  EntrepFinancialAI: async ({ idea, conceptStatement, startupCosts, fixedCostsPerMonth, variableCostPerUnit, pricePerUnit }) => {
+  EntrepFinancialAI: async ({ idea, conceptStatement, notes }) => {
     try {
       set({ loading: true, message: '' })
-      const res = await axios.post('/entrep-ai/financial', {
-        idea,
-        conceptStatement,
-        startupCosts,
-        fixedCostsPerMonth,
-        variableCostPerUnit,
-        pricePerUnit,
-      })
+      const res = await axios.post('/entrep-ai/financial', { idea, conceptStatement, notes })
       set({
         financialGuidance: res.data.guidance,
         loading: false,

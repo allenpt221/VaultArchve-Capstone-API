@@ -1,7 +1,8 @@
 'use client'
 import { APPROACH_STYLES, MAX_RESEARCH_QUESTIONS, MIN_RESEARCH_QUESTIONS } from '@/hooks/constants';
 import { MethodologyResult } from '@/hooks/types';
-import { FlaskConical, Sparkles, Loader2, History, Clock, Plus, X, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { FlaskConical, Sparkles, Loader2, History, Clock, Plus, X, ArrowRight, CheckCircle2, Link2 } from 'lucide-react'
+import Link from 'next/link';
 
 type SavedMethodology = { id: string; topic: string; created_at: string }
 
@@ -12,6 +13,9 @@ type Props = {
   savedMethodologiesLoading: boolean
   selectedMethodologyId: string | null
   onSelectSavedMethodology: (id: string) => void
+
+  objective: string
+  onObjectiveChange: (v: string) => void
 
   researchQuestions: string[]
   researchQuestionInput: string
@@ -33,6 +37,8 @@ type Props = {
 export function MethodologyStage({
   topic,
   selectedMethodologyId,
+  objective,
+  onObjectiveChange,
   researchQuestions,
   researchQuestionInput,
   onResearchQuestionInputChange,
@@ -47,6 +53,13 @@ export function MethodologyStage({
   onContinue,
 }: Props) {
 
+  const safeObjective = objective ?? ''
+
+  const canGenerate =
+    safeObjective.trim().length > 0 &&
+    researchQuestions.length >= MIN_RESEARCH_QUESTIONS &&
+    !isLoading
+
   return (
     <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
@@ -58,7 +71,7 @@ export function MethodologyStage({
             Methodology
           </h2>
           <p className="text-xs text-muted-foreground">
-            List your research questions and AI will design a methodology mapped to each one.
+            List your objective and research questions, and AI will design a methodology mapped to each one.
           </p>
         </div>
       </div>
@@ -76,6 +89,26 @@ export function MethodologyStage({
           </p>
         </div>
       )}
+
+      {/* ── General objective ── */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">
+          General objective <span className="text-muted-foreground font-normal">(required)</span>
+        </label>
+        <textarea
+          value={safeObjective}
+          onChange={(e) => onObjectiveChange(e.target.value)}
+          placeholder="e.g. This study aims to determine the effectiveness of..."
+          rows={2}
+          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white resize-none transition-shadow"
+          style={{ borderColor: 'rgba(0,0,0,0.12)' }}
+        />
+        {safeObjective.trim().length === 0 && (
+          <p className="text-xs" style={{ color: '#633806' }}>
+            Add a general objective — it grounds the approach decision alongside your research questions.
+          </p>
+        )}
+      </div>
 
       {/* ── Research question builder ── */}
       <div className="rounded-xl border p-4 space-y-3 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.1)', background: 'rgba(11,28,51,0.02)' }}>
@@ -162,7 +195,7 @@ export function MethodologyStage({
 
       <button
         onClick={onGenerateMethodology}
-        disabled={researchQuestions.length < MIN_RESEARCH_QUESTIONS || isLoading}
+        disabled={!canGenerate}
         className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
@@ -328,6 +361,36 @@ export function MethodologyStage({
                   <li key={i} className="text-sm text-muted-foreground flex gap-2">
                     <span style={{ color: '#BA7517' }}>•</span>
                     {l}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* References */}
+          {methodology.references?.length > 0 && (
+            <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Sources referenced
+              </p>
+              <ul className="space-y-2">
+                {methodology.references.map((ref, i) => (
+                  <li key={i} className="text-sm flex gap-2">
+                    <Link2 className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#BA7517' }} />
+                    <span>
+                      
+                      <Link  href={ref.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium underline hover:opacity-80"
+                        style={{ color: '#0B1C33' }}
+                      >
+                        {ref.title}
+                      </Link>
+                      {ref.relevance && (
+                        <span className="text-muted-foreground"> — {ref.relevance}</span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -24,6 +24,8 @@ type Props = {
 
   guidance: TopicGuidance | null
   onContinue: () => void
+
+  onSendToPaper: (text: string) => void
 }
 
 export function TopicSelectionStage({
@@ -41,6 +43,7 @@ export function TopicSelectionStage({
   onDeleteSavedTopic,
   guidance,
   onContinue,
+  onSendToPaper,
 }: Props) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
 
@@ -48,6 +51,7 @@ export function TopicSelectionStage({
     e.stopPropagation()
     try {
       await navigator.clipboard.writeText(text)
+      onSendToPaper(text) // should NOT be onTopicChange(text) anymore
       setCopiedIndex(index)
       setTimeout(() => setCopiedIndex(null), 1500)
     } catch (err) {
@@ -69,7 +73,7 @@ export function TopicSelectionStage({
         </div>
       </div>
 
-      {/* ── Saved topics ── */}
+      {/* Saved topics */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <History className="w-3.5 h-3.5 text-muted-foreground" />
@@ -179,8 +183,7 @@ export function TopicSelectionStage({
         )}
       </button>
 
-
-      {/* ── Guidance result ── */}
+      {/* Guidance result */}
       {guidance && (
         <div className="pt-4 space-y-4 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           {selectedTopicId && (

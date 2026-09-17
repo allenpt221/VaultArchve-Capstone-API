@@ -2,7 +2,7 @@
 import { entrepGenerativeStore } from '@/Stores/entrepStores'
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { ENTREP_STAGES, type EntrepStageKey } from './entrepconstant'
-import type { Supplier, StartupCostItem } from './entrpTypes'
+import type { Supplier } from './entrpTypes'
 
 export function useEntrepProgressiveTrial() {
   const [activeStage, setActiveStage] = useState<EntrepStageKey>('concept')
@@ -79,10 +79,7 @@ export function useEntrepProgressiveTrial() {
   const [variants, setVariants] = useState('')
 
   // ── Financial stage form inputs ──
-  const [startupCosts, setStartupCosts] = useState<StartupCostItem[]>([{ item: '', category: '', cost: '' }])
-  const [fixedCostsPerMonth, setFixedCostsPerMonth] = useState('')
-  const [variableCostPerUnit, setVariableCostPerUnit] = useState('')
-  const [pricePerUnit, setPricePerUnit] = useState('')
+  const [financialNotes, setFinancialNotes] = useState('')
 
   // ── Which saved record is currently selected for viewing ──
   const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null)
@@ -255,10 +252,7 @@ export function useEntrepProgressiveTrial() {
         const match = financialHistory.find((f) => (f.idea ?? '').trim().toLowerCase() === normalizedIdea)
         if (match) {
           setSelectedFinancialId(match.id)
-          setStartupCosts(match.startup_costs)
-          setFixedCostsPerMonth(match.fixed_costs_per_month)
-          setVariableCostPerUnit(match.variable_cost_per_unit)
-          setPricePerUnit(match.price_per_unit)
+          setFinancialNotes(match.notes || '')
           markComplete('financial')
           financialStillValid = true
         }
@@ -488,38 +482,10 @@ export function useEntrepProgressiveTrial() {
   }, [selectedProductionId, productionHistory, productionGuidance])
 
   // ── Financial handlers ───────────────────────────────────────────
-  const handleAddStartupCost = () =>
-    setStartupCosts((prev) => [...prev, { item: '', category: '', cost: '' }])
-
-  const handleRemoveStartupCost = (index: number) =>
-    setStartupCosts((prev) => prev.filter((_, i) => i !== index))
-
-  const handleUpdateStartupCost = (index: number, patch: Partial<StartupCostItem>) =>
-    setStartupCosts((prev) =>
-      prev.map((c, i) => (i === index ? ({ ...c, ...patch } as StartupCostItem) : c))
-    )
-
   const handleGenerateFinancial = async () => {
-    if (
-      !idea.trim() ||
-      !selectedConceptStatement.trim() ||
-      startupCosts.every((c) => !c.item.trim()) ||
-      !fixedCostsPerMonth.trim() ||
-      !variableCostPerUnit.trim() ||
-      !pricePerUnit.trim() ||
-      loading
-    ) {
-      return
-    }
+    if (!idea.trim() || !selectedConceptStatement.trim() || loading) return
     setSelectedFinancialId(null)
-    await EntrepFinancialAI({
-      idea,
-      conceptStatement: selectedConceptStatement,
-      startupCosts,
-      fixedCostsPerMonth,
-      variableCostPerUnit,
-      pricePerUnit,
-    })
+    await EntrepFinancialAI({ idea, conceptStatement: selectedConceptStatement, notes: financialNotes })
     if (entrepGenerativeStore.getState().financialGuidance) {
       markComplete('financial')
       GetEntrepFinancials({ limit: 20, offset: 0 })
@@ -532,10 +498,7 @@ export function useEntrepProgressiveTrial() {
     setSelectedFinancialId(id)
     setIdea(saved.idea ?? '')
     setSelectedConceptStatement(saved.concept_statement ?? '')
-    setStartupCosts(saved.startup_costs)
-    setFixedCostsPerMonth(saved.fixed_costs_per_month)
-    setVariableCostPerUnit(saved.variable_cost_per_unit)
-    setPricePerUnit(saved.price_per_unit)
+    setFinancialNotes(saved.notes || '')
     markComplete('financial')
   }
 
@@ -544,9 +507,17 @@ export function useEntrepProgressiveTrial() {
       const saved = financialHistory.find((f) => f.id === selectedFinancialId)
       if (saved) {
         return {
+          startupCostCategories: saved.startup_cost_categories,
           pricingStrategy: saved.pricing_strategy,
+          revenueModelNote: saved.revenue_model_note,
           viabilitySummary: saved.viability_summary,
           breakEvenNote: saved.break_even_note,
+          fundingOptions: saved.funding_options,
+          keyMetricsToTrack: saved.key_metrics_to_track,
+          riskFlags: saved.risk_flags,
+          thirtyDayActionPlan: saved.thirty_day_action_plan,
+          recommendation: saved.recommendation,
+          closingSummary: saved.closing_summary,
         }
       }
     }
@@ -640,17 +611,8 @@ export function useEntrepProgressiveTrial() {
     displayedProduction,
 
     // financial
-    startupCosts,
-    setStartupCosts,
-    handleAddStartupCost,
-    handleRemoveStartupCost,
-    handleUpdateStartupCost,
-    fixedCostsPerMonth,
-    setFixedCostsPerMonth,
-    variableCostPerUnit,
-    setVariableCostPerUnit,
-    pricePerUnit,
-    setPricePerUnit,
+    financialNotes,
+    setFinancialNotes,
     handleGenerateFinancial,
     financialHistory,
     financialHistoryLoading,
