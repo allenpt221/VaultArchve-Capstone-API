@@ -5,17 +5,16 @@ import {
   FlaskConical,
   PenLine,
   ClipboardCheck,
-  FileText,
 } from 'lucide-react'
 import type { MethodologyApproach, TopicGuidance, ConsistencyResult } from './types'
 
 export const STAGES = [
   { key: 'topic', label: 'Topic Selection', icon: Lightbulb },
+  { key: 'objective', label: 'Objective of the Study', icon: Lightbulb },
   { key: 'literature', label: 'Literature Review', icon: BookOpen },
   { key: 'methodology', label: 'Methodology', icon: FlaskConical },
   { key: 'collection', label: 'Data Collection & Analysis', icon: HelpCircle },
   { key: 'paper-review', label: 'Review & Check', icon: PenLine },
-  { key: 'write-paper', label: 'Write Paper', icon: FileText },
 ] as const
 
 export type StageKey = (typeof STAGES)[number]['key']

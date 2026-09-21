@@ -2,6 +2,7 @@
 import { Factory, Sparkles, Loader2, History, ArrowRight, Plus, X } from 'lucide-react'
 import { MAX_SUPPLIERS } from '@/hooks/entrepconstant'
 import type { ProductionGuidance, SavedProduction, Supplier } from '@/hooks/entrpTypes'
+import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
   idea: string
@@ -54,6 +55,11 @@ export function ProductionStage({
 }: Props) {
   const hasValidSupplier = suppliers.some((s) => s.name.trim())
 
+  // Strip any leading "1." / "1.2" numbering the AI included, so we can number them ourselves.
+  const processSteps = (production?.processSteps ?? [])
+    .map((step) => step.replace(/^\s*\d+(\.\d+)*\.?\s*/, '').trim())
+    .filter((step) => step.length > 0)
+
   return (
     <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
@@ -89,10 +95,13 @@ export function ProductionStage({
             <div key={i} className="rounded-lg border bg-white p-3 space-y-2 relative" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
               {suppliers.length > 1 && (
                 <button
+                  type="button"
                   onClick={() => onRemoveSupplier(i)}
-                  className="cursor-pointer absolute top-1 right-1  text-muted-foreground hover:text-red-600 transition-colors"
+                  title="Remove supplier"
+                  aria-label={`Remove supplier ${i + 1}`}
+                  className="cursor-pointer absolute -top-2.5 -right-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-black/10 bg-white text-muted-foreground shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
               <div className="grid sm:grid-cols-2 gap-2">
@@ -132,8 +141,7 @@ export function ProductionStage({
         {suppliers.length < MAX_SUPPLIERS && (
           <button
             onClick={onAddSupplier}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold"
-            style={{ color: '#BA7517' }}
+            className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold hover:text-[#e78700] text-[#BA7517]"
           >
             <Plus className="w-3.5 h-3.5" />
             Add supplier
@@ -216,27 +224,36 @@ export function ProductionStage({
             </div>
           )}
 
-        <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Production / delivery process
-        </p>
-        <ol className="space-y-1.5">
-            {production.processSteps
-            .map((step) => step.replace(/^\s*\d+(\.\d+)*\.?\s*/, '').trim())
-            .filter((step) => step.length > 0)
-            .map((step, i) => (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Production / delivery process
+              </p>
+              {processSteps.length > 0 && (
+                <CopyButton
+                  text={processSteps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+                  label="Copy all"
+                  title="Copy process steps"
+                />
+              )}
+            </div>
+            <ol className="space-y-1.5">
+              {processSteps.map((step, i) => (
                 <li key={i} className="text-sm rounded-lg px-3 py-2 flex gap-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
-                <span className="font-semibold shrink-0" style={{ color: '#BA7517' }}>{i + 1}.</span>
-                {step}
+                  <span className="font-semibold shrink-0" style={{ color: '#BA7517' }}>{i + 1}.</span>
+                  {step}
                 </li>
-            ))}
-        </ol>
-        </div>
+              ))}
+            </ol>
+          </div>
 
           <div className="rounded-lg px-3.5 py-3" style={{ background: '#FAEEDA' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-              Feasibility note
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                Feasibility note
+              </p>
+              <CopyButton text={production.feasibilityNote} title="Copy feasibility note" />
+            </div>
             <p className="text-sm leading-relaxed">{production.feasibilityNote}</p>
           </div>
 

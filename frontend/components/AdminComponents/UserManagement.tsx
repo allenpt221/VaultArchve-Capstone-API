@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import RegisterModal from '../Modal/RegisterModal'
+import DeleteConfirmModal from '../Modal/DeleteConfirmModal'
 
 type SortField = 'name' | 'email' | 'role' | null
 type SortDirection = 'asc' | 'desc'
@@ -44,12 +45,32 @@ function UserManagement() {
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
+  // Pending student targeted for deletion (holds id + display name until confirmed)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const handleDisable = (id: string) => {
     return disableUser(id);
   };
 
+  // Opens the confirmation modal instead of deleting immediately
   const handleDelete = (id: string) => {
-    return deleteUser(id);
+    const target = users.find((u: any) => u.id === id)
+    const name = target
+      ? `${target.firstname ?? ''} ${target.lastname ?? ''}`.trim() || target.email
+      : 'this student'
+    setPendingDelete({ id, name })
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    setIsDeleting(true)
+    try {
+      await deleteUser(pendingDelete.id)
+      setPendingDelete(null)
+    } finally {
+      setIsDeleting(false)
+    }
   };
 
   // Debounced fetch — fires on mount (empty search) and whenever search changes.
@@ -375,6 +396,13 @@ function UserManagement() {
       <RegisterModal
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
+      />
+      <DeleteConfirmModal
+        isOpen={!!pendingDelete}
+        studentName={pendingDelete?.name ?? ''}
+        loading={isDeleting}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
       />
 
     </div>

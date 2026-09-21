@@ -1,4 +1,5 @@
 'use client'
+import { CopyButton } from '@/components/Copybutton';
 import { APPROACH_STYLES, MAX_RESEARCH_QUESTIONS, MIN_RESEARCH_QUESTIONS } from '@/hooks/constants';
 import { MethodologyResult } from '@/hooks/types';
 import { FlaskConical, Sparkles, Loader2, History, Clock, Plus, X, ArrowRight, CheckCircle2, Link2 } from 'lucide-react'
@@ -32,6 +33,74 @@ type Props = {
 
   methodology: MethodologyResult | null
   onContinue: () => void
+}
+
+// ── Plain-text builders for the copy buttons ──────────────────────────────
+
+function populationText(m: MethodologyResult): string {
+  const p = m.population
+  const lines = [
+    'Population and Sampling',
+    `Target population: ${p.targetPopulation}`,
+    `Sampling method: ${p.samplingMethod}`,
+    `Sample size justification: ${p.sampleSizeJustification}`,
+  ]
+  if (p.inclusionCriteria?.length > 0) {
+    lines.push('Inclusion criteria:', ...p.inclusionCriteria.map((c) => `- ${c}`))
+  }
+  return lines.join('\n')
+}
+
+function instrumentsText(m: MethodologyResult): string {
+  const blocks = (m.instruments ?? []).map((inst, i) => {
+    const lines = [
+      `${i + 1}. ${inst.name} (${inst.type})`,
+      `Purpose: ${inst.purpose}`,
+      `Validity: ${inst.validityConsiderations}`,
+    ]
+    if (inst.researchQuestionNumbers?.length > 0) {
+      lines.push(`Addresses RQ: ${inst.researchQuestionNumbers.join(', ')}`)
+    }
+    return lines.join('\n')
+  })
+  return ['Instruments and Validity', ...blocks].join('\n\n')
+}
+
+function questionMappingText(m: MethodologyResult): string {
+  const blocks = (m.questionMapping ?? []).map((row) =>
+    [
+      `RQ${row.researchQuestionNumber}. ${row.researchQuestion}`,
+      `Approach: ${row.approach}`,
+      `Instrument: ${row.instrument}`,
+      `Analysis: ${row.analysisMethod}`,
+    ].join('\n'),
+  )
+  return ['Methodology Mapped to Each Research Question', ...blocks].join('\n\n')
+}
+
+function limitationsText(m: MethodologyResult): string {
+  return ['Limitations', ...(m.limitations ?? []).map((l) => `- ${l}`)].join('\n')
+}
+
+function referencesText(m: MethodologyResult): string {
+  return [
+    'Sources Referenced',
+    ...(m.references ?? []).map((r, i) => `${i + 1}. ${r.title} - ${r.url}`),
+  ].join('\n')
+}
+
+function methodologyText(m: MethodologyResult): string {
+  const sections: (string | null)[] = [
+    `Research Approach: ${APPROACH_STYLES[m.approach].label}\n${m.approachRationale}`,
+    populationText(m),
+    m.instruments?.length > 0 ? instrumentsText(m) : null,
+    `Data Collection Plan\n${m.dataCollectionPlan}`,
+    `Data Analysis Plan\n${m.dataAnalysisPlan}`,
+    m.questionMapping?.length > 0 ? questionMappingText(m) : null,
+    m.limitations?.length > 0 ? limitationsText(m) : null,
+    m.references?.length > 0 ? referencesText(m) : null,
+  ]
+  return sections.filter((s): s is string => !!s).join('\n\n')
 }
 
 export function MethodologyStage({
@@ -98,9 +167,16 @@ export function MethodologyStage({
         <textarea
           value={safeObjective}
           onChange={(e) => onObjectiveChange(e.target.value)}
+          onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                onAddResearchQuestion()
+              }
+              // Shift + Enter is allowed to create a new line
+            }}
           placeholder="e.g. This study aims to determine the effectiveness of..."
           rows={2}
-          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white resize-none transition-shadow"
+          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white  transition-shadow"
           style={{ borderColor: 'rgba(0,0,0,0.12)' }}
         />
         {safeObjective.trim().length === 0 && (
@@ -125,9 +201,9 @@ export function MethodologyStage({
               }
               // Shift + Enter is allowed to create a new line
             }}
-            rows={1}
+            rows={2}
             placeholder="e.g. How does mobile learning affect senior high school students' test scores?"
-            className="w-full flex-1 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white transition-shadow"
+            className="w-full flex-1 rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 resize-none focus:ring-amber-100 focus:border-amber-400 bg-white transition-shadow"
             style={{ borderColor: 'rgba(0,0,0,0.12)' }}
           />
           <button
@@ -240,9 +316,12 @@ export function MethodologyStage({
 
           {/* Population & sampling */}
           <div className="rounded-xl px-4 py-3.5 space-y-2 shadow-sm" style={{ background: '#FAEEDA' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
-              Population &amp; sampling
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                Population &amp; sampling
+              </p>
+              <CopyButton text={populationText(methodology)} title="Copy population and sampling" />
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-3 text-sm">
               <div>
@@ -276,9 +355,12 @@ export function MethodologyStage({
           {/* Instruments */}
           {methodology.instruments?.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Instruments &amp; validity
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Instruments &amp; validity
+                </p>
+                <CopyButton text={instrumentsText(methodology)} title="Copy instruments and validity" />
+              </div>
               <div className="space-y-2">
                 {methodology.instruments.map((inst, i) => (
                   <div
@@ -310,11 +392,17 @@ export function MethodologyStage({
           {/* Data collection / analysis */}
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="rounded-xl border border-gray-100 p-4 space-y-1.5 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data collection plan</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data collection plan</p>
+                <CopyButton text={methodology.dataCollectionPlan} title="Copy data collection plan" />
+              </div>
               <p className="text-sm leading-relaxed">{methodology.dataCollectionPlan}</p>
             </div>
             <div className="rounded-xl border border-gray-100 p-4 space-y-1.5 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data analysis plan</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data analysis plan</p>
+                <CopyButton text={methodology.dataAnalysisPlan} title="Copy data analysis plan" />
+              </div>
               <p className="text-sm leading-relaxed">{methodology.dataAnalysisPlan}</p>
             </div>
           </div>
@@ -322,9 +410,12 @@ export function MethodologyStage({
           {/* Question mapping artifact */}
           {methodology.questionMapping?.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Methodology mapped to each research question
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Methodology mapped to each research question
+                </p>
+                <CopyButton text={questionMappingText(methodology)} title="Copy question mapping" />
+              </div>
               <div className="space-y-2">
                 {methodology.questionMapping.map((row, i) => (
                   <div
@@ -355,7 +446,10 @@ export function MethodologyStage({
           {/* Limitations */}
           {methodology.limitations.length > 0 && (
             <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Limitations</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Limitations</p>
+                <CopyButton text={limitationsText(methodology)} title="Copy limitations" />
+              </div>
               <ul className="space-y-1.5">
                 {methodology.limitations.map((l, i) => (
                   <li key={i} className="text-sm text-muted-foreground flex gap-2">
@@ -370,9 +464,12 @@ export function MethodologyStage({
           {/* References */}
           {methodology.references?.length > 0 && (
             <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Sources referenced
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Sources referenced
+                </p>
+                <CopyButton text={referencesText(methodology)} title="Copy sources" />
+              </div>
               <ul className="space-y-2">
                 {methodology.references.map((ref, i) => (
                   <li key={i} className="text-sm flex gap-2">
@@ -397,14 +494,17 @@ export function MethodologyStage({
             </div>
           )}
 
-          <button
-            onClick={onContinue}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
-            style={{ color: '#0B1C33' }}
-          >
-            Continue to Data Collection & Analysis
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <button
+              onClick={onContinue}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+              style={{ color: '#0B1C33' }}
+            >
+              Continue to Data Collection & Analysis
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <CopyButton text={methodologyText(methodology)} label="Copy all methodology" title="Copy the full methodology" />
+          </div>
         </div>
       )}
     </div>

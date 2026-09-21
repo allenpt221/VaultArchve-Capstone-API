@@ -11,18 +11,17 @@ import PaperReview from './Progressive-components/PaperReview'
 import ProgressiveTrailGuideModal from '../Modal/Progressivetrailguidemodal '
 import EntrepProgressiveTrailGuideModal from '../Modal/EntrepProgressiveTrailGuideModal'
 import EntrepProgressive from './EntrepProgressive'
-import WordDocument from './Progressive-components/WordSheet'
+import { ObjectivesSuggestionPanel } from './Progressive-components/ObjectiveStudy'
 // import EntrepProgressive from '../EntrepProgressive'
 
 function ProgressiveTrial() {
   const [track, setTrack] = useState<'research' | 'entrep'>('research')
   const [showGuide, setShowGuide] = useState(false)
-  const [paperSeedTitle, setPaperSeedTitle] = useState('')
 
   const t = useProgressiveTrial()
   const activeLabel = STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
   const previousLabel = STAGES[t.activeIndex - 1]?.label
-  const stageLocked = t.activeStage === 'write-paper' ? false : t.isStageLocked(t.activeStage)
+  const stageLocked = t.isStageLocked(t.activeStage)
 
   return (
     <div className="sm:px-4 px-3 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -126,7 +125,7 @@ function ProgressiveTrial() {
               const Icon = stage.icon
               const isActive = stage.key === t.activeStage
               const isDone = t.completedStages.has(stage.key)
-              const isLocked = stage.key === 'write-paper' ? false : !isActive && !isDone && t.isStageLocked(stage.key)
+              const isLocked = !isActive && !isDone && t.isStageLocked(stage.key)
 
               return (
                 <button
@@ -142,14 +141,12 @@ function ProgressiveTrial() {
                     cursor: isLocked ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {stage.key !== 'write-paper' && (
-                    <span
-                      className="absolute top-1.5 left-2 text-[10px] leading-none"
-                      style={{ color: isActive ? '#FFFFFF' : isLocked ? '#C7C6C1' : '#000000' }}
-                    >
-                      Step {i + 1}
-                    </span>
-                  )}
+                  <span
+                    className="absolute top-1.5 left-2 text-[10px] leading-none"
+                    style={{ color: isActive ? '#FFFFFF' : isLocked ? '#C7C6C1' : '#000000' }}
+                  >
+                    Step {i + 1}
+                  </span>
 
                   <span className="relative">
                     <Icon className="w-4 h-4" style={{ color: isActive ? '#FFFFFF' : isLocked ? '#B0AFAA' : '#444441' }} />
@@ -192,10 +189,20 @@ function ProgressiveTrial() {
               onSelectSavedTopic={t.handleSelectSavedTopic}
               onDeleteSavedTopic={t.handleDeleteSavedTopic}
               guidance={t.displayedGuidance}
-              onContinue={() => t.setActiveStage('literature')}
-              onSendToPaper={setPaperSeedTitle}
+              onContinue={() => t.setActiveStage('objective')}
             />
-          ) : t.activeStage === 'literature' ? (
+          ) : t.activeStage === 'objective' ? (
+            <ObjectivesSuggestionPanel
+                topic={t.topic}
+                context={t.context}
+                onContextChange={t.setContext}
+                isLoading={t.objectivesLoading}
+                objectives={t.objectives}
+                errorMessage={t.message}
+                onGenerate={t.handleSuggestObjectives}
+                onContinue={() => t.setActiveStage('literature')}
+            />
+          )  : t.activeStage === 'literature' ? (
             <LiteratureReviewStage
               topic={t.topic}
               savedReviews={t.literatureReviewHistory}
@@ -227,10 +234,10 @@ function ProgressiveTrial() {
               onGenerateMethodology={t.handleGenerateMethodology}
               isLoading={t.isMethodologyLoading}
               errorMessage={t.message}
-              objective={t.methodologyObjective}
-              onObjectiveChange={t.setMethodologyObjective}
               methodology={t.displayedMethodology}
               onContinue={() => t.setActiveStage('collection')}
+              objective={t.methodologyObjective}
+              onObjectiveChange={t.setMethodologyObjective}
             />
           ) : t.activeStage === 'collection' ? (
             <DataCollectionStage
@@ -275,8 +282,6 @@ function ProgressiveTrial() {
               displayedPaperReview={t.displayedPaperReview}
               message={t.message}
             />
-          ) : t.activeStage === 'write-paper' ? (
-            <WordDocument initialTitle={paperSeedTitle} />
           ) : (
             <div className="rounded-xl border bg-white p-10 text-center space-y-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
               <Lock className="w-5 h-5 mx-auto text-muted-foreground" />

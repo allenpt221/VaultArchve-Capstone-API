@@ -1,4 +1,4 @@
-import { DataAnalysisResult, MethodologyApproach, SavedDataAnalysis, FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types';
+import { DataAnalysisResult, MethodologyApproach, SavedDataAnalysis, FullPaperReviewResult, SavedFullPaperReview, SuggestedObjectivesResult, SavedSuggestedObjectives } from '@/hooks/types';
 import axios from '@/lib/axios';
 import { create } from 'zustand';
 
@@ -37,6 +37,34 @@ const normalizeMethodology = (data: any): SavedMethodology => ({
       : (data.references ?? []),
 });
 
+// Suggested Objectives rows can come back from the AI response shaped
+// camelCase already (fresh generation) or from Postgres as snake_case
+// columns (history fetch) — this mirrors normalizeMethodology's job of
+// making sure array columns aren't left as raw JSON strings.
+const normalizeSuggestedObjectives = (data: any): SavedSuggestedObjectives => ({
+  ...data,
+
+  specific_objectives:
+    typeof data.specific_objectives === "string"
+      ? JSON.parse(data.specific_objectives)
+      : data.specific_objectives,
+
+  suggested_variables:
+    typeof data.suggested_variables === "string"
+      ? JSON.parse(data.suggested_variables)
+      : (data.suggested_variables ?? []),
+
+  scope_considerations:
+    typeof data.scope_considerations === "string"
+      ? JSON.parse(data.scope_considerations)
+      : (data.scope_considerations ?? []),
+
+  research_considerations:
+    typeof data.research_considerations === "string"
+      ? JSON.parse(data.research_considerations)
+      : (data.research_considerations ?? []),
+});
+
 
 interface RecommendedProps {
   course: string;
@@ -59,6 +87,11 @@ interface MethodologyProps {
   topic: string;
   objective: string;
   researchQuestions: string[];
+  context?: string;
+}
+
+interface ObjectivesProps {
+  topic: string;
   context?: string;
 }
 
@@ -225,6 +258,17 @@ interface generativeAiProps {
   FullPaperReviewAI: (file: File | null, manualSections?: Record<string, string>, topic?: string) => Promise<void>
   GetFullPaperReviews: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
+  // Suggested Objectives
+  objectives: SuggestedObjectivesResult | null
+  objectivesHistory: SavedSuggestedObjectives[]
+  objectivesTotal: number
+  objectivesLimit: number
+  objectivesOffset: number
+  objectivesLoading: boolean
+  objectivesHistoryLoading: boolean
+  ObjectivesAI: (data: ObjectivesProps) => Promise<void>
+  GetObjectives: (opts?: { limit?: number; offset?: number }) => Promise<void>
+
   result: any[];
   topicGuidance: TopicGuidance | null;
   literatureReview: LiteratureReviewResult | null;
@@ -272,6 +316,14 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     fullPaperReviewsOffset: 0,
     fullPaperReviewLoading: false,
     fullPaperReviewHistoryLoading: false,
+
+    objectives: null,
+    objectivesHistory: [],
+    objectivesTotal: 0,
+    objectivesLimit: 20,
+    objectivesOffset: 0,
+    objectivesLoading: false,
+    objectivesHistoryLoading: false,
 
     loading: false,
     message: "",
@@ -586,6 +638,99 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
       set({ message: error.message || "An unexpected error occurred." });
     }
   },
+
+  // POST METHOD — Suggested Objectives (feeds the Methodology stage's
+  // `objective` field). Mirrors TopicSelectionAI's shape since the backend
+  // controller (SuggestedObjectives) follows the same
+  // checkMeaningfulText / checkDailyLimit / json_object pattern.
+  ObjectivesAI: async ({ topic, context }: ObjectivesProps): Promise<void> => {
+    try {
+      set({ objectivesLoading: true, message: "" });
+
+      const res = await axios.post('/ai/objectives', {
+        topic,
+        context,
+      });
+
+      set({
+        objectives: res.data.objectives,
+        objectivesLoading: false,
+        message: "Objectives generated successfully!",
+      });
+
+    } catch (error: any) {
+      set({ objectivesLoading: false });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 400) {
+        set({ message: data?.message || "Invalid request. Please check your input." });
+        return;
+      }
+
+      if (status === 429) {
+        set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
+        return;
+      }
+
+      console.error("Suggested Objectives Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+  
+  GetObjectives: async (opts): Promise<void> => {
+    set({ objectivesHistoryLoading: true, message: "" });
+    try {
+      const limit = opts?.limit ?? get().objectivesLimit ?? 20;
+      const offset = opts?.offset ?? 0;
+
+      const res = await axios.get('/ai/objectives', {
+        params: { limit, offset },
+      });
+
+      set({
+        objectivesHistory:
+          offset === 0
+            ? res.data.objectives.map(normalizeSuggestedObjectives)
+            : [...get().objectivesHistory, ...res.data.objectives.map(normalizeSuggestedObjectives)],
+        objectivesTotal: res.data.total,
+        objectivesLimit: res.data.limit,
+        objectivesOffset: res.data.offset,
+        objectivesHistoryLoading: false,
+      });
+
+    } catch (error: any) {
+      set({ objectivesHistoryLoading: false });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Could not load your saved objectives." });
+        return;
+      }
+
+      console.error("Get Objectives Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+
 
   // POST METHOD
   DataAnalysisAI: async (params) => {

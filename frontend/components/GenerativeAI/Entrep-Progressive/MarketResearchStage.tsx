@@ -1,6 +1,7 @@
 'use client'
 import { Users, Sparkles, Loader2, History, ArrowRight } from 'lucide-react'
 import type { MarketResearchGuidance, SavedMarketResearch } from '@/hooks/entrpTypes'
+import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
   idea: string
@@ -21,6 +22,12 @@ type Props = {
   marketResearch: MarketResearchGuidance | null
   onContinue: () => void
 }
+
+type SurveySection = MarketResearchGuidance['surveySections'][number]
+
+/** Plain-text version of one survey section: "1. Title" followed by "- question" lines. */
+const sectionToText = (section: SurveySection) =>
+  `${section.id}. ${section.title}\n${section.questions.map((q) => `- ${q}`).join('\n')}`
 
 export function MarketResearchStage({
   idea,
@@ -122,34 +129,56 @@ export function MarketResearchStage({
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="rounded-lg px-3.5 py-3" style={{ background: '#FAEEDA' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-                Primary market
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                  Primary market
+                </p>
+                <CopyButton text={marketResearch.primaryMarket} title="Copy primary market" />
+              </div>
               <p className="text-sm leading-relaxed">{marketResearch.primaryMarket}</p>
             </div>
             <div className="rounded-lg px-3.5 py-3" style={{ background: 'rgba(11,28,51,0.04)' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-muted-foreground">
-                Secondary market
-              </p>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Secondary market
+                </p>
+                <CopyButton text={marketResearch.secondaryMarket} title="Copy secondary market" />
+              </div>
               <p className="text-sm leading-relaxed">{marketResearch.secondaryMarket}</p>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Segmentation justification
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Segmentation justification
+              </p>
+              <CopyButton
+                text={marketResearch.segmentationJustification}
+                title="Copy segmentation justification"
+              />
+            </div>
             <p className="text-sm leading-relaxed">{marketResearch.segmentationJustification}</p>
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Survey sections</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Survey sections</p>
+              <CopyButton
+                text={marketResearch.surveySections.map(sectionToText).join('\n\n')}
+                label="Copy full survey"
+                title="Copy full survey"
+              />
+            </div>
             <div className="space-y-2">
               {marketResearch.surveySections.map((section) => (
                 <div key={section.id} className="rounded-lg border px-3.5 py-3" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
-                  <p className="text-sm font-semibold mb-1.5" style={{ color: '#0B1C33' }}>
-                    <span style={{ color: '#BA7517' }}>{section.id}.</span> {section.title}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <p className="text-sm font-semibold" style={{ color: '#0B1C33' }}>
+                      <span style={{ color: '#BA7517' }}>{section.id}.</span> {section.title}
+                    </p>
+                    <CopyButton text={sectionToText(section)} title="Copy this section" />
+                  </div>
                   <ul className="space-y-1">
                     {section.questions.map((q, i) => (
                       <li key={i} className="text-sm text-muted-foreground flex gap-2">
@@ -161,21 +190,6 @@ export function MarketResearchStage({
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Survey results interpretation</label>
-            <p className="text-xs text-muted-foreground">
-              Fill this in after you've actually run the survey with real respondents.
-            </p>
-            <textarea
-              rows={4}
-              value={surveyResultsInterpretation}
-              onChange={(e) => onSurveyResultsInterpretationChange(e.target.value)}
-              placeholder="Summarize what your survey respondents actually said, and what it means for your business..."
-              className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-amber-400 bg-muted/30 resize-none"
-              style={{ borderColor: 'rgba(0,0,0,0.12)' }}
-            />
           </div>
 
           <button

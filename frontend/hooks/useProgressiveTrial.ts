@@ -14,22 +14,26 @@ export function useProgressiveTrial() {
     MethodologyAI,
     DataAnalysisAI,
     FullPaperReviewAI,
+    ObjectivesAI,
     GetLiteratureReviews,
     GetTopicSelections,
     GetMethodologies,
     GetDataAnalyses,
     GetFullPaperReviews,
+    GetObjectives,
     DeleteTopicSelection,
     topicGuidance,
     literatureReview,
     methodology,
     dataAnalysis,
     fullPaperReview,
+    objectives,
     literatureReviewHistory,
     topicSelectionHistory,
     methodologyHistory,
     dataAnalysisHistory,
     fullPaperReviewHistory,
+    objectivesHistory,
     historyLoading,
     topicHistoryLoading,
     methodologyHistoryLoading,
@@ -42,6 +46,8 @@ export function useProgressiveTrial() {
     fullPaperReviewsTotal,
     fullPaperReviewsLimit,
     fullPaperReviewsOffset,
+    objectivesLoading,
+    objectivesHistoryLoading,
     loading,
     message,
   } = generativeStore()
@@ -69,6 +75,11 @@ export function useProgressiveTrial() {
   const [researchQuestionInput, setResearchQuestionInput] = useState('')
   const [methodologyObjective, setMethodologyObjective] = useState('')
   const [methodologyContext, setMethodologyContext] = useState('')
+  // Tracks which topic the current same-session ObjectivesAI() result was
+  // generated for, so a stale generation from a previous topic doesn't
+  // linger on screen after the topic changes (see displayedObjectives below).
+  const [objectivesTopic, setObjectivesTopic] = useState('')
+  const [objectiveApplied, setObjectiveApplied] = useState(false)
 
   // Data Collection stage — form inputs
   const [dataCollectionApproach, setDataCollectionApproach] = useState<MethodologyApproach | ''>('')
@@ -80,6 +91,7 @@ export function useProgressiveTrial() {
 
   // Which saved record (from the database) is currently selected for viewing, if any
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string | null>(null)
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null)
   const [selectedMethodologyId, setSelectedMethodologyId] = useState<string | null>(null)
   const [selectedDataAnalysisId, setSelectedDataAnalysisId] = useState<string | null>(null)
@@ -97,6 +109,7 @@ export function useProgressiveTrial() {
     GetLiteratureReviews()
     GetTopicSelections()
     GetMethodologies()
+    GetObjectives({ limit: 20, offset: 0 })
     GetDataAnalyses({ limit: 20, offset: 0 })
     GetFullPaperReviews({ limit: 20, offset: 0 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,12 +128,19 @@ export function useProgressiveTrial() {
   }, [researchQuestions])
 
   // ── Auto-match saved work to the current topic ────────────────────
-  // If the current topic text matches a saved topic guidance, literature
-  // review, methodology, data analysis, or paper review, that record is
-  // automatically selected and its stage marked complete. This means a
-  // returning user who already did earlier stages for a title doesn't
-  // have to manually reselect anything — later stages unlock and populate
-  // on their own once a match is recognized.
+  // If the current topic text matches a saved topic guidance, objectives
+  // suggestion, literature review, methodology, data analysis, or paper
+  // review, that record is automatically selected and its stage marked
+  // complete. This means a returning user who already did earlier stages
+  // for a title doesn't have to manually reselect anything — later stages
+  // unlock and populate on their own once a match is recognized.
+  //
+  // NOTE on Objectives: matching relies on a `topic` field on the saved
+  // record (SavedObjectives.topic), the same pattern as every other saved
+  // record here. Field names below (general_objective, specific_objectives,
+  // suggested_variables, scope_considerations, research_considerations)
+  // mirror normalizeSuggestedObjectives in generativeStore.ts — adjust if
+  // the actual objectivesHistory item shape differs.
   //
   // NOTE on Full Paper Review: matching relies on a `topic` field on the
   // saved record (SavedFullPaperReview.topic). FullPaperReviewAI now sends
@@ -153,6 +173,27 @@ export function useProgressiveTrial() {
       if (match) {
         setSelectedTopicId(match.id)
         markComplete('topic')
+      }
+    }
+
+    // Objectives — matched by topic text, same pattern as Topic Selection.
+    let objectiveStillValid = false
+    if (selectedObjectiveId) {
+      const saved = objectivesHistory.find((o) => o.id === selectedObjectiveId)
+      if (saved && saved.topic.trim().toLowerCase() === normalizedTopic) {
+        objectiveStillValid = true
+      } else {
+        setSelectedObjectiveId(null)
+        unmarkComplete('objective')
+      }
+    }
+    if (!objectiveStillValid && normalizedTopic) {
+      const match = objectivesHistory.find(
+        (o) => o.topic.trim().toLowerCase() === normalizedTopic
+      )
+      if (match) {
+        setSelectedObjectiveId(match.id)
+        markComplete('objective')
       }
     }
 
@@ -251,6 +292,7 @@ export function useProgressiveTrial() {
   }, [
     topic,
     topicSelectionHistory,
+    objectivesHistory,
     literatureReviewHistory,
     methodologyHistory,
     dataAnalysisHistory,
@@ -276,6 +318,9 @@ export function useProgressiveTrial() {
   }, [methodology])
 
   // A stage is locked until the stage immediately before it is completed.
+  // (Adding 'objective' to STAGES right after 'topic' in constants.ts is
+  // enough to make it stage 2 and lock it behind Topic Selection — no
+  // change needed here.)
   const isStageLocked = (stageKey: StageKey) => {
     const i = STAGES.findIndex((s) => s.key === stageKey)
     if (i <= 0) return false
@@ -327,6 +372,8 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     // via the auto-match effect (that effect only re-checks a stage
     // against its OWN history, not against whether the topic itself
     // still exists) — so we unmark them explicitly here.
+    setSelectedObjectiveId(null)
+    unmarkComplete('objective')
     setSelectedReviewId(null)
     unmarkComplete('literature')
     setSelectedMethodologyId(null)
@@ -345,7 +392,76 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
   DeleteTopicSelection(id)
 }
 
+  // ── Objectives handlers ─────────────────────────────────────────────
+  const handleSuggestObjectives = async () => {
+    if (!topic.trim() || objectivesLoading) return
+    setSelectedObjectiveId(null) // a fresh generation takes priority over any selected saved objectives
+    setObjectiveApplied(false) // a fresh suggestion needs re-applying
+    await ObjectivesAI({ topic, context })
+    if (generativeStore.getState().objectives) {
+      setObjectivesTopic(topic) // remember which topic this result belongs to
+      markComplete('objective')
+      GetObjectives({ limit: 20, offset: 0 }) // refresh the saved list so the new one shows up
+    }
+  }
 
+  const handleSelectSavedObjective = (id: string) => {
+    const saved = objectivesHistory.find((o) => o.id === id)
+    if (!saved) return
+    setSelectedObjectiveId(id)
+    setTopic(saved.topic)
+    setContext(saved.context || '')
+    setObjectiveApplied(false)
+    markComplete('objective')
+  }
+
+  const handleApplyObjective = () => {
+    if (!displayedObjectives) return
+    setMethodologyObjective(displayedObjectives.generalObjective)
+    setObjectiveApplied(true)
+  }
+
+  useEffect(() => {
+    setObjectiveApplied(false)
+  }, [topic])
+
+  // The objectives currently on screen: a saved record matching the current
+  // topic (selected automatically by the auto-match effect above) takes
+  // priority, then a same-session generation for the current topic, else
+  // null. This mirrors every other stage's displayedX pattern, and fixes
+  // the earlier bug where switching back to a topic that already had a
+  // saved objectives set would show nothing until regenerating — the old
+  // version only ever checked objectivesTopic (same-session state) and
+  // never looked at objectivesHistory at all.
+const displayedObjectives = useMemo(() => {
+  if (selectedObjectiveId) {
+    const saved = objectivesHistory.find((o) => o.id === selectedObjectiveId)
+
+    if (saved) {
+      return {
+        generalObjective: saved.general_objective,
+        generalObjectiveRationale: saved.general_objective_rationale,
+        specificObjectives: saved.specific_objectives,
+        objectiveRationale: saved.objective_rationale,
+        suggestedVariables: saved.suggested_variables ?? [],
+        scopeConsiderations: saved.scope_considerations ?? [],
+        researchConsiderations: saved.research_considerations ?? [],
+      }
+    }
+  }
+
+  if (objectivesTopic && objectivesTopic === topic.trim()) {
+    return objectives
+  }
+
+  return null
+}, [
+  selectedObjectiveId,
+  objectivesHistory,
+  objectivesTopic,
+  objectives,
+  topic,
+])
 
   // The guidance currently on screen: a saved one from the database, or a freshly
   // generated one — normalized to the same shape either way.
@@ -580,6 +696,7 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     markComplete,
     message,
     isTopicLoading: loading && activeStage === 'topic',
+    isObjectiveLoading: objectivesLoading && activeStage === 'objective',
     isLiteratureLoading: loading && activeStage === 'literature',
     isMethodologyLoading: loading && activeStage === 'methodology',
     isDataAnalysisLoading: loading && activeStage === 'collection',
@@ -596,6 +713,17 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     handleSelectSavedTopic,
     handleDeleteSavedTopic,
     displayedGuidance,
+
+    // objectives (stage 2 — locked until 'topic' is complete)
+    objectives: displayedObjectives,
+    objectivesLoading,
+    objectivesHistory,
+    objectivesHistoryLoading,
+    handleSuggestObjectives,
+    handleApplyObjective,
+    objectiveApplied,
+    selectedObjectiveId,
+    handleSelectSavedObjective,
 
     // literature review
     handleGenerateReview,

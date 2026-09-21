@@ -250,7 +250,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     try {
       set({ updatePasswordLoading: true });
 
-      const res = await axios.put('/auth/change-password', {
+      const res = await axios.post('/auth/change-password', {
         currentPassword,
         newPassword,
       });

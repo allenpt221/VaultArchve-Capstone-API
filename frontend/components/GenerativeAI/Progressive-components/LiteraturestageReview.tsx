@@ -1,4 +1,5 @@
 'use client'
+import { CopyButton } from '@/components/Copybutton';
 import { LiteratureReviewResult } from '@/hooks/types';
 import { BookOpen, Sparkles, Loader2, History, Clock, X, ArrowRight, ExternalLink, FileText } from 'lucide-react'
 
@@ -33,6 +34,22 @@ const SOURCE_TYPE_STYLES: Record<string, { bg: string; color: string }> = {
 
 function sourceTypeStyle(type?: string) {
   return SOURCE_TYPE_STYLES[type ?? ''] ?? SOURCE_TYPE_STYLES['Web Source']
+}
+
+// ── Plain-text builders for the copy buttons ──────────────────────────────
+
+type Source = NonNullable<LiteratureReviewResult['annotatedBibliography']>[number]
+
+/** One source as plain text: title, authors/year/container, link, annotation. */
+function sourceText(b: Source): string {
+  const headline = b.title ?? b.citation
+  const byline = [b.authors, b.year, b.container].filter(Boolean).join(', ')
+  return [headline, byline, b.url, b.annotation].filter(Boolean).join('\n')
+}
+
+function bibliographyText(sources: Source[]): string {
+  const entries = sources.map((b, i) => `${i + 1}. ${sourceText(b)}`)
+  return ['Annotated Bibliography', ...entries].join('\n\n')
 }
 
 export function LiteratureReviewStage({
@@ -134,16 +151,23 @@ export function LiteratureReviewStage({
 
           {review.annotatedBibliography?.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Annotated Bibliography
                 </p>
-                <span
-                  className="text-xs font-semibold rounded-full px-2.5 py-0.5"
-                  style={{ background: '#FAEEDA', color: '#BA7517' }}
-                >
-                  {review.annotatedBibliography.length} source{review.annotatedBibliography.length === 1 ? '' : 's'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs font-semibold rounded-full px-2.5 py-0.5"
+                    style={{ background: '#FAEEDA', color: '#BA7517' }}
+                  >
+                    {review.annotatedBibliography.length} source{review.annotatedBibliography.length === 1 ? '' : 's'}
+                  </span>
+                  <CopyButton
+                    text={bibliographyText(review.annotatedBibliography)}
+                    label="Copy all sources"
+                    title="Copy the full annotated bibliography"
+                  />
+                </div>
               </div>
 
               <ul className="space-y-3">
@@ -187,18 +211,21 @@ export function LiteratureReviewStage({
                           {byline && <p className="text-xs text-muted-foreground">{byline}</p>}
                         </div>
 
-                        {b.url && (
-                          <a
-                            href={b.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-md px-2 py-1 transition-colors hover:bg-amber-50"
-                            style={{ color: '#BA7517' }}
-                            title="Open source"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        )}
+                        <div className="shrink-0 flex items-center gap-0.5">
+                          <CopyButton text={sourceText(b)} title="Copy this source" />
+                          {b.url && (
+                            <a
+                              href={b.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-md px-2 py-1 transition-colors hover:bg-amber-50"
+                              style={{ color: '#BA7517' }}
+                              title="Open source"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
 
                       <div className="px-4 pb-4 pt-2 ml-9">

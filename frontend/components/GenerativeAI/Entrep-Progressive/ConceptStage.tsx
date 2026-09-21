@@ -3,6 +3,7 @@ import { Lightbulb, Sparkles, Loader2, History, Clock, ArrowRight, X, Trash2 } f
 import type { MouseEvent } from 'react'
 import { FEASIBILITY_STYLES } from '@/hooks/entrepconstant'
 import type { ConceptGuidance, SavedConcept } from '@/hooks/entrpTypes'
+import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
   idea: string
@@ -201,9 +202,18 @@ export function ConceptStage({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Pick a refined concept statement
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pick a refined concept statement
+              </p>
+              {selectedConceptStatement.trim() && (
+                <CopyButton
+                  text={selectedConceptStatement}
+                  label="Copy statement"
+                  title="Copy concept statement"
+                />
+              )}
+            </div>
             <div className="space-y-1.5">
               {guidance.refinedConceptStatements.map((stmt, i) => (
                 <label
@@ -270,7 +280,10 @@ export function ConceptStage({
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Company / brand name</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Company / brand name</label>
+                {selectedName.trim() && <CopyButton text={selectedName} title="Copy brand name" />}
+              </div>
               <input
                 value={selectedName}
                 disabled={true}
@@ -281,7 +294,10 @@ export function ConceptStage({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Tagline</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Tagline</label>
+                {selectedTagline.trim() && <CopyButton text={selectedTagline} title="Copy tagline" />}
+              </div>
               <input
                 value={selectedTagline}
                 disabled={true}
@@ -294,7 +310,10 @@ export function ConceptStage({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Naming rationale</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Naming rationale</label>
+              {selectedRationale.trim() && <CopyButton text={selectedRationale} title="Copy naming rationale" />}
+            </div>
             <textarea
               rows={2}
               disabled={true}
@@ -308,7 +327,14 @@ export function ConceptStage({
 
           {guidance.nextSteps?.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next steps</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next steps</p>
+                <CopyButton
+                  text={guidance.nextSteps.map((s) => `- ${s}`).join('\n')}
+                  label="Copy all"
+                  title="Copy next steps"
+                />
+              </div>
               <ul className="space-y-1.5">
                 {guidance.nextSteps.map((s, i) => (
                   <li key={i} className="text-sm text-muted-foreground flex gap-2">

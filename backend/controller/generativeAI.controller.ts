@@ -822,6 +822,218 @@ export async function TopicSelection(req: Request, res: Response) {
   }
 }
 
+
+export async function SuggestedObjectives(req: Request, res: Response) {
+  try {
+    const { topic, context } = req.body;
+    const user_id = req.user?.id;
+
+    if (!topic) {
+      return res.status(400).json({
+        message: "Thesis Topic is required.",
+      });
+    }
+
+    if (!user_id) {
+      return res.status(401).json({
+        message: "Unauthorized, Please Log in",
+      });
+    }
+
+    const topicCheck = checkMeaningfulText(topic, { required: true });
+
+    if (!topicCheck.valid) {
+      return res.status(400).json({
+        error: topicCheck.error,
+        message: topicCheck.message,
+      });
+    }
+
+    const contextCheck = checkMeaningfulText(context);
+
+    if (!contextCheck.valid) {
+      return res.status(400).json({
+        error: contextCheck.error,
+        message: contextCheck.message,
+      });
+    }
+
+    if (isImageRequest(topic) || isImageRequest(context)) {
+      return res.status(400).json({
+        error: IMAGE_REQUEST_ERROR,
+        message: IMAGE_REQUEST_MESSAGE,
+      });
+    }
+
+    const { allowed } = await checkDailyLimit(
+      user_id,
+      "suggestedObjectives",
+      DAILY_PROMPT_LIMIT
+    );
+
+    if (!allowed) {
+      return res.status(429).json({
+        error: "Daily limit reached",
+        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+        remaining: 0,
+      });
+    }
+
+    const prompt = `
+Thesis Topic / Research Area:
+${topic}
+
+Additional Context:
+${context?.trim() ? context : "None provided."}
+`;
+
+    const result = await openai.chat.completions.create({
+      model: "gpt-5.4-mini",
+      reasoning_effort: "none",
+      response_format: { type: "json_object" },
+
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an academic research assistant helping undergraduate " +
+            "students formulate the Objectives of the Study for a thesis. " +
+
+            "Based on the student's thesis topic and optional context, " +
+            "create a clear and academically appropriate General Objective " +
+            "and Specific Objectives. " +
+
+            "The General Objective must describe the main purpose of the study, " +
+            "stated specifically enough that a reader unfamiliar with the topic " +
+            "understands exactly what will be studied and in what setting. " +
+            "Avoid generic filler like 'to explore' or 'to look into' when a " +
+            "more precise verb (determine, assess, evaluate, compare) fits better. " +
+
+            "Alongside the General Objective, provide one short sentence of " +
+            "rationale explaining why this objective matters — what gap, need, " +
+            "or problem it addresses — so the student can use it to justify " +
+            "their study in Chapter 1. " +
+
+            "The Specific Objectives must break the general objective into " +
+            "clear, measurable, and achievable research activities that, taken " +
+            "together, fully accomplish the general objective — no gaps, no " +
+            "overlap between objectives. " +
+
+            "Use action verbs such as determine, identify, assess, analyze, " +
+            "develop, evaluate, examine, compare, or describe when appropriate. " +
+
+            "For each specific objective, also provide a one-sentence rationale " +
+            "explaining why that objective matters to the overall study — this " +
+            "helps the student justify their objectives when writing Chapter 1. " +
+
+            "Do not create objectives that cannot reasonably be addressed " +
+            "by the stated topic. Avoid overly broad, repetitive, or vague objectives. " +
+
+            "The objectives should be appropriate for an undergraduate thesis. " +
+
+            "Do not invent statistics, findings, participants, or research " +
+            "conditions that were not provided by the student. " +
+
+            "If important information is missing, create reasonable but " +
+            "general objectives and identify what should be clarified — list " +
+            "these under researchConsiderations. " +
+
+            "Respond ONLY with a valid JSON object shaped as: " +
+
+            `{ 
+              "objectives": {
+                "generalObjective": string,
+                "generalObjectiveRationale": string,
+                "specificObjectives": string[],
+                "objectiveRationale": string[],
+                "suggestedVariables": string[],
+                "scopeConsiderations": string[],
+                "researchConsiderations": string[]
+              }
+            }` +
+
+            "The generalObjective should contain exactly one objective. " +
+            "generalObjectiveRationale must be exactly one sentence. " +
+            "specificObjectives should contain exactly 5 objectives. " +
+            "Each specific objective should begin with an appropriate action verb. " +
+            "objectiveRationale must contain exactly 5 entries, in the same order " +
+            "as specificObjectives — one rationale sentence per objective. " +
+            "suggestedVariables should list possible variables only when they " +
+            "can reasonably be identified from the topic. " +
+            "scopeConsiderations should contain 2-3 points. " +
+            "researchConsiderations should contain 2-3 points.",
+        },
+
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const rawText = result.choices[0].message.content || "";
+
+    let parsed;
+
+    try {
+      const cleaned = rawText
+        .replace(/```json|```/g, "")
+        .trim();
+
+      parsed = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({
+        error: "AI returned invalid JSON. Please try again.",
+      });
+    }
+
+    const { objectives } = parsed;
+
+    if (
+      !objectives ||
+      typeof objectives.generalObjective !== "string" ||
+      typeof objectives.generalObjectiveRationale !== "string" ||
+      !Array.isArray(objectives.specificObjectives) ||
+      !Array.isArray(objectives.objectiveRationale) ||
+      objectives.objectiveRationale.length !== objectives.specificObjectives.length
+    ) {
+      return res.status(500).json({
+        error: "AI returned an unexpected objectives format.",
+      });
+    }
+
+    const { error: saveError } = await supabase
+      .from("suggested_objectives")
+      .insert({
+        user_id,
+        topic,
+        context: context?.trim() ? context : null,
+        general_objective: objectives.generalObjective,
+        general_objective_rationale: objectives.generalObjectiveRationale,
+        specific_objectives: objectives.specificObjectives,
+        objective_rationale: objectives.objectiveRationale,
+        suggested_variables: objectives.suggestedVariables,
+        scope_considerations: objectives.scopeConsiderations,
+        research_considerations: objectives.researchConsiderations,
+      });
+
+    if (saveError) {
+      console.log(saveError);
+
+      // AI response remains valid even if saving fails.
+    }
+
+    return res.status(200).json(parsed);
+  } catch (error: any) {
+    console.log(error);
+
+    return res.status(500).json({
+      error: error.message,
+    });
+  }
+}
+
+
 export async function LiteratureReview(req: Request, res: Response) {
   try {
     const { topic } = req.body;
@@ -1974,6 +2186,45 @@ Allowed methodology/citation status:
 
 // GET ALL RESPONSES FROM THE DATABASE
 
+export async function GetObjectiveOfStudy(req: Request, res: Response) {
+  try {
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in" });
+    }
+
+    // Optional pagination via query params: /ai/literature-reviews?limit=10&offset=0
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    const offset = Number(req.query.offset) || 0;
+
+    const { data, error, count } = await supabase
+      .from("suggested_objectives")
+      .select("*", { count: "exact" })
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.log(error);
+      return res.status(500).json({
+        error: error.message,
+        message: "Could not fetch your Objective of the study. Please try again.",
+      });
+    }
+
+    return res.status(200).json({
+      objectives: data,
+      total: count ?? data.length,
+      limit,
+      offset,
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
 export async function GetLiteratureReviews(req: Request, res: Response) {
   try {
     const user_id = req.user?.id;
@@ -2247,6 +2498,7 @@ export async function DeleteTopicSelections(req: Request, res: Response) {
     // failure shouldn't be reported as if nothing was deleted.
     const tableNames = [
       "literature_reviews",
+      "suggested_objectives",
       "methodology_responses",
       "data_analysis_responses",
       "full_paper_reviews",

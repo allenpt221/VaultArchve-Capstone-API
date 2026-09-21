@@ -13,6 +13,7 @@ import {
   FileText,
 } from 'lucide-react'
 import type { FinancialGuidance, SavedFinancial } from '@/hooks/entrpTypes'
+import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
   idea: string
@@ -30,6 +31,14 @@ type Props = {
 
   financial: FinancialGuidance | null
 }
+
+/** "Heading" followed by "- item" lines. */
+const bulletText = (heading: string, items: string[]) =>
+  `${heading}\n${items.map((s) => `- ${s}`).join('\n')}`
+
+/** "Heading" followed by "1. item" lines. */
+const numberedText = (heading: string, items: string[]) =>
+  `${heading}\n${items.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
 
 export function FinancialStage({
   idea,
@@ -124,11 +133,24 @@ export function FinancialStage({
 
           {financial.startupCostCategories && financial.startupCostCategories.length > 0 && (
             <div className="rounded-lg px-3.5 py-3" style={{ background: 'rgba(11,28,51,0.04)' }}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Receipt className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Startup cost categories
-                </p>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Startup cost categories
+                  </p>
+                </div>
+                <CopyButton
+                  text={`Startup cost categories\n\n${financial.startupCostCategories
+                    .map((c) =>
+                      [c.category, c.examples?.length ? `Examples: ${c.examples.join(', ')}` : '', c.note ?? '']
+                        .filter(Boolean)
+                        .join('\n'),
+                    )
+                    .join('\n\n')}`}
+                  label="Copy all"
+                  title="Copy startup cost categories"
+                />
               </div>
               <div className="space-y-2.5">
                 {financial.startupCostCategories.map((c, i) => (
@@ -145,47 +167,68 @@ export function FinancialStage({
           )}
 
           <div className="rounded-lg px-3.5 py-3" style={{ background: '#FAEEDA' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-              Pricing strategy
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                Pricing strategy
+              </p>
+              <CopyButton text={financial.pricingStrategy} title="Copy pricing strategy" />
+            </div>
             <p className="text-sm leading-relaxed">{financial.pricingStrategy}</p>
           </div>
 
           {financial.revenueModelNote && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-muted-foreground">
-                  Revenue model
-                </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Revenue model
+                  </p>
+                  <CopyButton text={financial.revenueModelNote} title="Copy revenue model" />
+                </div>
                 <p className="text-sm leading-relaxed">{financial.revenueModelNote}</p>
               </div>
             </div>
           )}
 
           <div className="rounded-lg px-3.5 py-3" style={{ background: 'rgba(11,28,51,0.04)' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-muted-foreground">
-              Viability summary
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Viability summary
+              </p>
+              <CopyButton text={financial.viabilitySummary} title="Copy viability summary" />
+            </div>
             <p className="text-sm leading-relaxed">{financial.viabilitySummary}</p>
           </div>
 
           <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: '#EAF3DE' }}>
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#3B6D11' }} />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#27500A' }}>
-                Break-even estimate
-              </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#27500A' }}>
+                  Break-even estimate
+                </p>
+                <CopyButton text={financial.breakEvenNote} title="Copy break-even estimate" />
+              </div>
               <p className="text-sm leading-relaxed">{financial.breakEvenNote}</p>
             </div>
           </div>
 
           {financial.fundingOptions && financial.fundingOptions.length > 0 && (
             <div className="rounded-lg px-3.5 py-3" style={{ background: 'rgba(11,28,51,0.04)' }}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Landmark className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Funding options
-                </p>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Funding options
+                  </p>
+                </div>
+                <CopyButton
+                  text={`Funding options\n\n${financial.fundingOptions
+                    .map((f) => `${f.source}\n${f.fitNote}`)
+                    .join('\n\n')}`}
+                  label="Copy all"
+                  title="Copy funding options"
+                />
               </div>
               <div className="space-y-2">
                 {financial.fundingOptions.map((f, i) => (
@@ -201,10 +244,17 @@ export function FinancialStage({
           {financial.keyMetricsToTrack && financial.keyMetricsToTrack.length > 0 && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
               <LineChart className="w-4 h-4 shrink-0 mt-0.5 text-muted-foreground" />
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Key metrics to track
-                </p>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Key metrics to track
+                  </p>
+                  <CopyButton
+                    text={bulletText('Key metrics to track', financial.keyMetricsToTrack)}
+                    label="Copy all"
+                    title="Copy key metrics"
+                  />
+                </div>
                 <ul className="text-sm leading-relaxed list-disc pl-4 space-y-0.5">
                   {financial.keyMetricsToTrack.map((metric, i) => (
                     <li key={i}>{metric}</li>
@@ -217,10 +267,17 @@ export function FinancialStage({
           {financial.riskFlags && financial.riskFlags.length > 0 && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: '#FBEAEA' }}>
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#B23B3B' }} />
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7A2020' }}>
-                  Risk flags
-                </p>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7A2020' }}>
+                    Risk flags
+                  </p>
+                  <CopyButton
+                    text={bulletText('Risk flags', financial.riskFlags)}
+                    label="Copy all"
+                    title="Copy risk flags"
+                  />
+                </div>
                 <ul className="text-sm leading-relaxed list-disc pl-4 space-y-0.5">
                   {financial.riskFlags.map((flag, i) => (
                     <li key={i}>{flag}</li>
@@ -233,10 +290,17 @@ export function FinancialStage({
           {financial.thirtyDayActionPlan && financial.thirtyDayActionPlan.length > 0 && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: '#EAF3DE' }}>
               <ListChecks className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#3B6D11' }} />
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#27500A' }}>
-                  30-day action plan
-                </p>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#27500A' }}>
+                    30-day action plan
+                  </p>
+                  <CopyButton
+                    text={numberedText('30-day action plan', financial.thirtyDayActionPlan)}
+                    label="Copy all"
+                    title="Copy 30-day action plan"
+                  />
+                </div>
                 <ol className="text-sm leading-relaxed list-decimal pl-4 space-y-0.5">
                   {financial.thirtyDayActionPlan.map((step, i) => (
                     <li key={i}>{step}</li>
@@ -249,10 +313,13 @@ export function FinancialStage({
           {financial.recommendation && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
               <ArrowRight className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#0B1C33' }} />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-muted-foreground">
-                  Recommendation
-                </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Recommendation
+                  </p>
+                  <CopyButton text={financial.recommendation} title="Copy recommendation" />
+                </div>
                 <p className="text-sm leading-relaxed">{financial.recommendation}</p>
               </div>
             </div>
@@ -261,10 +328,13 @@ export function FinancialStage({
           {financial.closingSummary && (
             <div className="rounded-lg px-3.5 py-3 flex gap-2" style={{ background: '#FAEEDA', borderColor: 'rgba(0,0,0,0.08)' }}>
               <FileText className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#BA7517' }} />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-                  Closing summary
-                </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                    Closing summary
+                  </p>
+                  <CopyButton text={financial.closingSummary} title="Copy closing summary" />
+                </div>
                 <p className="text-sm leading-relaxed">{financial.closingSummary}</p>
               </div>
             </div>

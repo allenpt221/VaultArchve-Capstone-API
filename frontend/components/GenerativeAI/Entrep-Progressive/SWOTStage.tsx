@@ -1,6 +1,7 @@
 'use client'
 import { ShieldCheck, Sparkles, Loader2, History, ArrowRight } from 'lucide-react'
 import type { SWOTGuidance, SavedSWOT } from '@/hooks/entrpTypes'
+import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
   idea: string
@@ -19,6 +20,10 @@ type Props = {
   swot: SWOTGuidance | null
   onContinue: () => void
 }
+
+/** Turns a heading + list of items into pasteable plain text. */
+const toCopyText = (heading: string, items: string[]) =>
+  `${heading}\n${items.map((s) => `- ${s}`).join('\n')}`
 
 export function SWOTStage({
   idea,
@@ -117,7 +122,10 @@ export function SWOTStage({
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="rounded-lg px-3.5 py-3 space-y-1.5" style={{ background: '#EAF3DE' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#27500A' }}>Strengths</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#27500A' }}>Strengths</p>
+                <CopyButton text={toCopyText('Strengths', swot.strengths)} title="Copy strengths" />
+              </div>
               <ul className="space-y-1">
                 {swot.strengths.map((s, i) => (
                   <li key={i} className="text-sm leading-relaxed">{s}</li>
@@ -125,7 +133,10 @@ export function SWOTStage({
               </ul>
             </div>
             <div className="rounded-lg px-3.5 py-3 space-y-1.5" style={{ background: '#FBEAEA' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7A2020' }}>Weaknesses</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#7A2020' }}>Weaknesses</p>
+                <CopyButton text={toCopyText('Weaknesses', swot.weaknesses)} title="Copy weaknesses" />
+              </div>
               <ul className="space-y-1">
                 {swot.weaknesses.map((s, i) => (
                   <li key={i} className="text-sm leading-relaxed">{s}</li>
@@ -133,7 +144,10 @@ export function SWOTStage({
               </ul>
             </div>
             <div className="rounded-lg px-3.5 py-3 space-y-1.5" style={{ background: '#E7F0FA' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#1D5490' }}>Opportunities</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#1D5490' }}>Opportunities</p>
+                <CopyButton text={toCopyText('Opportunities', swot.opportunities)} title="Copy opportunities" />
+              </div>
               <ul className="space-y-1">
                 {swot.opportunities.map((s, i) => (
                   <li key={i} className="text-sm leading-relaxed">{s}</li>
@@ -141,7 +155,10 @@ export function SWOTStage({
               </ul>
             </div>
             <div className="rounded-lg px-3.5 py-3 space-y-1.5" style={{ background: '#FAEEDA' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>Threats</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>Threats</p>
+                <CopyButton text={toCopyText('Threats', swot.threats)} title="Copy threats" />
+              </div>
               <ul className="space-y-1">
                 {swot.threats.map((s, i) => (
                   <li key={i} className="text-sm leading-relaxed">{s}</li>
@@ -151,9 +168,16 @@ export function SWOTStage({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              SO Strategies <span className="normal-case font-normal">(Strengths + Opportunities)</span>
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                SO Strategies <span className="normal-case font-normal">(Strengths + Opportunities)</span>
+              </p>
+              <CopyButton
+                text={toCopyText('SO Strategies (Strengths + Opportunities)', swot.soStrategies)}
+                label="Copy all"
+                title="Copy SO strategies"
+              />
+            </div>
             <ul className="space-y-1.5">
               {swot.soStrategies.map((s, i) => (
                 <li key={i} className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
@@ -164,9 +188,16 @@ export function SWOTStage({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              WO Strategies <span className="normal-case font-normal">(Weaknesses + Opportunities)</span>
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                WO Strategies <span className="normal-case font-normal">(Weaknesses + Opportunities)</span>
+              </p>
+              <CopyButton
+                text={toCopyText('WO Strategies (Weaknesses + Opportunities)', swot.woStrategies)}
+                label="Copy all"
+                title="Copy WO strategies"
+              />
+            </div>
             <ul className="space-y-1.5">
               {swot.woStrategies.map((s, i) => (
                 <li key={i} className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(11,28,51,0.04)' }}>
@@ -177,9 +208,16 @@ export function SWOTStage({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              ST Contingencies <span className="normal-case font-normal">(Strengths + Threats)</span>
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                ST Contingencies <span className="normal-case font-normal">(Strengths + Threats)</span>
+              </p>
+              <CopyButton
+                text={toCopyText('ST Contingencies (Strengths + Threats)', swot.stContingencies)}
+                label="Copy all"
+                title="Copy ST contingencies"
+              />
+            </div>
             <ul className="space-y-1.5">
               {swot.stContingencies.map((s, i) => (
                 <li key={i} className="text-sm rounded-lg px-3 py-2" style={{ background: 'rgba(11,28,51,0.04)' }}>

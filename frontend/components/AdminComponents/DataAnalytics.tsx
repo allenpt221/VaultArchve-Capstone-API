@@ -14,7 +14,6 @@ import {
   ArrowUpDown,
   Bookmark,
 } from 'lucide-react'
-import { TableActions } from '../ThesisTable'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Table,
@@ -31,6 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import ThesisEditModal from '../Modal/ThesisEditModal'
+import { EntrepTableActions } from '../ThesisEntrepTable'
+import { TableActions } from '../ThesisTable'
 
 const FILTER_TABS = [
   { key: 'All', label: 'All (BSA • BSPA • BSAIS)' },
@@ -44,42 +45,6 @@ type FilterKey = typeof FILTER_TABS[number]['key']
 
 const PAGE_SIZE = 8
 
-// Standard (non-entrep) table headers
-const STANDARD_HEADERS = [
-  'Thesis ID',
-  'Title',
-  'Abstract',
-  'Author',
-  'Date',
-  'Course',
-  'Introduction',
-  'Discussion',
-  'Conclusion',
-  'References',
-  'filename',
-  'Actions',
-]
-
-// Entrepreneurship-specific headers (7 sections)
-const ENTREP_HEADERS = [
-  'Thesis ID',
-  'Title',
-  'Author',
-  'Date',
-  'Course',
-  'Introduction',
-  'Action Plan',
-  'Market', //  / Product Description
-  'Survey Result',
-  'Target Market',
-  'Product',
-  'Production',
-  'filename',
-  'Actions',
-]
-
-// Maps a header label to the backend column it should sort by.
-// Only headers present here render as clickable/sortable.
 const SORTABLE_FIELDS: Record<string, string> = {
   Title: 'title',
   Author: 'author',
@@ -115,18 +80,14 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const handleSortClick = (header: string) => {
     const field = SORTABLE_FIELDS[header]
     if (!field) return
-
     if (field === sortField) {
-      // same column — flip direction
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
     } else {
-      // new column — default to descending (most recent / Z-A first)
       setSortField(field)
       setSortOrder('desc')
     }
   }
 
-  // Debounce raw search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim())
@@ -139,7 +100,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     getMasterRepository()
   }, [])
 
-  // Fetch the full filtered dataset whenever search, course, or sort changes
   useEffect(() => {
     const load = async () => {
       setIsLoading(true)
@@ -156,8 +116,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const totalDownloads =
     dataAnalytics?.reduce((sum, item) => sum + (Number(item.downloads) || 0), 0) ?? 0
   const totalSaves =
-  dataAnalytics?.reduce((sum, item) => sum + (Number(item.saves) || 0), 0) ?? 0
-
+    dataAnalytics?.reduce((sum, item) => sum + (Number(item.saves) || 0), 0) ?? 0
 
   const mostViewedAnalytic =
     dataAnalytics?.reduce(
@@ -219,20 +178,16 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const isEntrepView = viewMode === 'Entrepreneurship'
 
   const courseColorMap: Record<string, { bg: string; color: string }> = {
-    'Accountancy':                       { bg: '#E6F1FB', color: '#0C447C' },
-    'Public Administration':             { bg: '#EAF3DE', color: '#27500A' },
-    'Accounting Information System':     { bg: '#EEEDFE', color: '#3C3489' },
-    'Entrepreneurship':                  { bg: '#FAEEDA', color: '#633806' },
+    'Accountancy':                   { bg: '#E6F1FB', color: '#0C447C' },
+    'Public Administration':         { bg: '#EAF3DE', color: '#27500A' },
+    'Accounting Information System': { bg: '#EEEDFE', color: '#3C3489' },
+    'Entrepreneurship':              { bg: '#FAEEDA', color: '#633806' },
   }
 
   function getCourseStyle(course: string) {
     return courseColorMap[course] ?? { bg: '#F1EFE8', color: '#444441' }
   }
 
-  const tableHeaders = isEntrepView ? ENTREP_HEADERS : STANDARD_HEADERS
-
-  // When "All" is selected, exclude Entrepreneurship from the result set —
-  // "All" only ever means BSA • BSPA • BSAIS.
   const scopedRepository = useMemo(() => {
     if (viewMode === 'All') {
       return repository.filter((item) => item.course !== 'Entrepreneurship')
@@ -240,8 +195,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
     return repository
   }, [repository, viewMode])
 
-  // repository (scoped) is already the full filtered + sorted dataset from
-  // FilteredThesis; paginate it client-side only.
   const totalPages = Math.max(1, Math.ceil(scopedRepository.length / PAGE_SIZE))
 
   const visibleRepository = useMemo(() => {
@@ -252,6 +205,42 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > totalPages) return
     setPage(nextPage)
+  }
+
+  const headClass =
+    'text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap'
+  const headStyle: React.CSSProperties = {
+    letterSpacing: '0.05em',
+    fontSize: '11px',
+    background: 'rgba(0,0,0,0.02)',
+  }
+
+  const SortableHead = ({ label }: { label: string }) => {
+    const field = SORTABLE_FIELDS[label]
+    const isSortable = Boolean(field)
+    const isActive = isSortable && field === sortField
+
+    return (
+      <TableHead
+        onClick={isSortable ? () => handleSortClick(label) : undefined}
+        className={`${headClass} ${isSortable ? 'cursor-pointer select-none hover:text-foreground' : ''}`}
+        style={headStyle}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {isSortable &&
+            (isActive ? (
+              sortOrder === 'asc' ? (
+                <ArrowUp className="w-3 h-3" />
+              ) : (
+                <ArrowDown className="w-3 h-3" />
+              )
+            ) : (
+              <ArrowUpDown className="w-3 h-3 opacity-30" />
+            ))}
+        </span>
+      </TableHead>
+    )
   }
 
   return (
@@ -329,13 +318,12 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
           className="border rounded-xl overflow-hidden bg-white dark:bg-background"
           style={{ borderColor: 'rgba(0,0,0,0.08)' }}
         >
-          {/* Table toolbar */}
+          {/* Toolbar */}
           <div
             className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap"
             style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
           >
             <div className="flex items-center gap-3 sm:flex-row flex-col">
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                 <input
@@ -353,7 +341,6 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                 />
               </div>
 
-              {/* Course filter — shadcn Select */}
               <Select
                 value={viewMode}
                 onValueChange={(val) => setViewMode(val as FilterKey)}
@@ -377,11 +364,7 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                   style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px' }}
                 >
                   {FILTER_TABS.map((tab) => (
-                    <SelectItem
-                      key={tab.key}
-                      value={tab.key}
-                      className="text-xs"
-                    >
+                    <SelectItem key={tab.key} value={tab.key} className="text-xs">
                       {tab.label}
                     </SelectItem>
                   ))}
@@ -390,93 +373,125 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow
-                  className="hover:bg-transparent"
-                  style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
-                >
-                  {tableHeaders.map((h) => {
-                    const field = SORTABLE_FIELDS[h]
-                    const isSortable = Boolean(field)
-                    const isActive = isSortable && field === sortField
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* ENTREP TABLE — only shows when viewMode === 'Entrepreneurship' */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {isEntrepView && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow
+                    className="hover:bg-transparent"
+                    style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
+                  >
+                    <TableHead className={headClass} style={headStyle}>Thesis ID</TableHead>
+                    <SortableHead label="Title" />
+                    <SortableHead label="Author" />
+                    <SortableHead label="Date" />
+                    <TableHead className={headClass} style={headStyle}>Course</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Introduction</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Action Plan</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Market</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Survey Result</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Target Market</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Product</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Production</TableHead>
+                    <TableHead className={headClass} style={headStyle}>filename</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!isLoading && visibleRepository.length === 0 ? (
+                    <tr>
+                      <td colSpan={14} className="text-center py-10 text-sm text-muted-foreground">
+                        No thesis found matching your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleRepository.map((item) => (
+                      <EntrepTableActions
+                        key={item.id}
+                        id={item.id}
+                        title={item.title}
+                        author={item.author}
+                        issue_date={item.issue_date}
+                        course={item.course}
+                        entrep_intro={item.entrep_intro}
+                        entrep_action_plan={item.entrep_action_plan}
+                        entrep_market_product_description={item.entrep_market_product_description}
+                        entrep_survey_result={item.entrep_survey_result}
+                        entrep_target_market={item.entrep_target_market}
+                        entrep_product={item.entrep_product}
+                        entrep_production={item.entrep_production}
+                        filename={item.thesis_file_name}
+                        isOpen={() => setSelectedThesis(item)}
+                        DeleteThesis={handleDelete}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-                    return (
-                      <TableHead
-                        key={h}
-                        onClick={isSortable ? () => handleSortClick(h) : undefined}
-                        className={`text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap ${
-                          isSortable ? 'cursor-pointer select-none hover:text-foreground' : ''
-                        }`}
-                        style={{
-                          letterSpacing: '0.05em',
-                          fontSize: '11px',
-                          background: 'rgba(0,0,0,0.02)',
-                        }}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {h}
-                          {isSortable &&
-                            (isActive ? (
-                              sortOrder === 'asc' ? (
-                                <ArrowUp className="w-3 h-3" />
-                              ) : (
-                                <ArrowDown className="w-3 h-3" />
-                              )
-                            ) : (
-                              <ArrowUpDown className="w-3 h-3 opacity-30" />
-                            ))}
-                        </span>
-                      </TableHead>
-                    )
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!isLoading && visibleRepository.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={tableHeaders.length}
-                      className="text-center py-10 text-sm text-muted-foreground"
-                    >
-                      No thesis found matching your search.
-                    </td>
-                  </tr>
-                ) : (
-                  // ── Rows (TableActions branches internally on course === 'Entrepreneurship') ──
-                  visibleRepository.map((item) => (
-                    <TableActions
-                      key={item.id}
-                      id={item.id}
-                      title={item.title}
-                      author={item.author}
-                      issue_date={item.issue_date}
-                      course={item.course}
-                      abstract={item.thesis_abstract}
-                      introduction={item.thesis_introduction}
-                      discussion={item.thesis_discussion}
-                      conclusion={item.thesis_conclusion}
-                      references={item.thesis_references}
-                      entrep_intro={item.entrep_intro}
-                      entrep_action_plan={item.entrep_action_plan}
-                      entrep_market_product_description={item.entrep_market_product_description}
-                      entrep_survey_result={item.entrep_survey_result}
-                      entrep_target_market={item.entrep_target_market}
-                      entrep_product={item.entrep_product}
-                      entrep_production={item.entrep_production}
-                      filename={item.thesis_file_name}
-                      isOpen={() => setSelectedThesis(item)}
-                      DeleteThesis={handleDelete}
-                    />
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* STANDARD TABLE — hides when viewMode === 'Entrepreneurship'  */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {!isEntrepView && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow
+                    className="hover:bg-transparent"
+                    style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}
+                  >
+                    <TableHead className={headClass} style={headStyle}>Thesis ID</TableHead>
+                    <SortableHead label="Title" />
+                    <TableHead className={headClass} style={headStyle}>Abstract</TableHead>
+                    <SortableHead label="Author" />
+                    <SortableHead label="Date" />
+                    <TableHead className={headClass} style={headStyle}>Course</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Introduction</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Discussion</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Conclusion</TableHead>
+                    <TableHead className={headClass} style={headStyle}>References</TableHead>
+                    <TableHead className={headClass} style={headStyle}>filename</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!isLoading && visibleRepository.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="text-center py-10 text-sm text-muted-foreground">
+                        No thesis found matching your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleRepository.map((item) => (
+                      <TableActions
+                        key={item.id}
+                        id={item.id}
+                        title={item.title}
+                        author={item.author}
+                        issue_date={item.issue_date}
+                        course={item.course}
+                        abstract={item.thesis_abstract}
+                        introduction={item.thesis_introduction}
+                        discussion={item.thesis_discussion}
+                        conclusion={item.thesis_conclusion}
+                        references={item.thesis_references}
+                        filename={item.thesis_file_name}
+                        isOpen={() => setSelectedThesis(item)}
+                        DeleteThesis={handleDelete}
+                      />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-          {/* Pagination — only when there's more than one page of filtered results */}
+          {/* Pagination */}
           {!isLoading && totalPages > 1 && scopedRepository.length > 0 && (
             <div
               className="flex items-center justify-center gap-4 px-4 py-3"

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface TableActionsProps {
+interface EntrepTableActionsProps {
   id: string;
   title: string;
   author: string;
@@ -23,28 +23,32 @@ interface TableActionsProps {
   isOpen?: () => void;
   DeleteThesis: (id: string) => void;
 
-  abstract?: string;
-  introduction?: string;
-  discussion?: string;
-  conclusion?: string;
-  references?: string;
+  entrep_intro?: string;
+  entrep_action_plan?: string;
+  entrep_market_product_description?: string;
+  entrep_survey_result?: string;
+  entrep_target_market?: string;
+  entrep_product?: string;
+  entrep_production?: string;
 }
 
-export function TableActions({
+export function EntrepTableActions({
   id,
   title,
   author,
   issue_date,
   course,
-  abstract,
-  introduction,
-  discussion,
-  conclusion,
-  references,
+  entrep_intro,
+  entrep_action_plan,
+  entrep_market_product_description,
+  entrep_survey_result,
+  entrep_target_market,
+  entrep_product,
+  entrep_production,
   filename,
   isOpen,
   DeleteThesis
-}: TableActionsProps) {
+}: EntrepTableActionsProps) {
 
   // FIX: guard against undefined id (e.g. API returns _id instead of id)
   function shortId(id: string) {
@@ -63,7 +67,15 @@ export function TableActions({
       .join("");
   }
 
-  const contentFields = [introduction, discussion, conclusion, references];
+  const contentFields = [
+    entrep_intro,
+    entrep_action_plan,
+    entrep_market_product_description,
+    entrep_survey_result,
+    entrep_target_market,
+    entrep_product,
+    entrep_production,
+  ];
 
   return (
     <TableRow>
@@ -78,10 +90,6 @@ export function TableActions({
 
       <TableCell className="max-w-30 truncate font-medium" title={title}>
         {title}
-      </TableCell>
-
-      <TableCell className="max-w-30 truncate font-medium">
-        {abstract}
       </TableCell>
 
       <TableCell className="text-left">

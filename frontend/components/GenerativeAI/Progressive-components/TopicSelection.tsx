@@ -1,9 +1,10 @@
 'use client'
-import { Lightbulb, Sparkles, Loader2, History, Clock, Check, ArrowRight, X, Copy } from 'lucide-react'
+import { Lightbulb, Sparkles, Loader2, History, Clock, Check, ArrowRight, X } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { useState } from 'react'
 import { FEASIBILITY_STYLES } from '@/hooks/constants'
 import { TopicGuidance } from '@/hooks/types'
+import { CopyButton } from '@/components/Copybutton'
 
 type SavedTopic = { id: string; topic: string; created_at: string }
 
@@ -24,8 +25,32 @@ type Props = {
 
   guidance: TopicGuidance | null
   onContinue: () => void
+}
 
-  onSendToPaper: (text: string) => void
+// ── Plain-text builders for the copy buttons ──────────────────────────────
+
+const numbered = (items: string[]) => items.map((s, i) => `${i + 1}. ${s}`)
+
+function refinedTopicsText(g: TopicGuidance): string {
+  return ['Refined Topic Ideas', ...numbered(g.refinedTopics ?? [])].join('\n')
+}
+
+function researchQuestionsText(g: TopicGuidance): string {
+  return ['Suggested Research Questions', ...numbered(g.suggestedResearchQuestions ?? [])].join('\n')
+}
+
+function nextStepsText(g: TopicGuidance): string {
+  return ['Next Steps', ...numbered(g.nextSteps ?? [])].join('\n')
+}
+
+function guidanceText(g: TopicGuidance): string {
+  const sections: (string | null)[] = [
+    `Feasibility: ${FEASIBILITY_STYLES[g.feasibility].label}\n${g.feedback}`,
+    g.refinedTopics?.length > 0 ? refinedTopicsText(g) : null,
+    g.suggestedResearchQuestions?.length > 0 ? researchQuestionsText(g) : null,
+    g.nextSteps?.length > 0 ? nextStepsText(g) : null,
+  ]
+  return sections.filter((s): s is string => !!s).join('\n\n')
 }
 
 export function TopicSelectionStage({
@@ -43,21 +68,8 @@ export function TopicSelectionStage({
   onDeleteSavedTopic,
   guidance,
   onContinue,
-  onSendToPaper,
 }: Props) {
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
-
-  const handleCopyTopic = async (e: MouseEvent, text: string, index: number) => {
-    e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(text)
-      onSendToPaper(text) // should NOT be onTopicChange(text) anymore
-      setCopiedIndex(index)
-      setTimeout(() => setCopiedIndex(null), 1500)
-    } catch (err) {
-      console.error('Copy failed:', err)
-    }
-  }
+  const [stage, setStage] = useState<'topic' | 'writing'>('topic')
 
   return (
     <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
@@ -73,7 +85,7 @@ export function TopicSelectionStage({
         </div>
       </div>
 
-      {/* Saved topics */}
+      {/* ── Saved topics ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <History className="w-3.5 h-3.5 text-muted-foreground" />
@@ -183,7 +195,8 @@ export function TopicSelectionStage({
         )}
       </button>
 
-      {/* Guidance result */}
+
+      {/* ── Guidance result ── */}
       {guidance && (
         <div className="pt-4 space-y-4 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
           {selectedTopicId && (
@@ -211,7 +224,12 @@ export function TopicSelectionStage({
 
           {guidance.refinedTopics?.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Refined topic ideas</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Refined topic ideas</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Click a topic to use it as your thesis topic, or copy it to keep.
+              </p>
               <div className="space-y-1.5">
                 {guidance.refinedTopics.map((t, i) => (
                   <div
@@ -225,34 +243,43 @@ export function TopicSelectionStage({
                     >
                       {t}
                     </button>
-                    <button
-                      onClick={(e) => handleCopyTopic(e, t, i)}
-                      className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-[#BA7517] hover:bg-black/5 transition-colors cursor-pointer"
-                      title="Copy to clipboard"
-                      aria-label="Copy topic to clipboard"
-                    >
-                      {copiedIndex === i ? (
-                        <Check className="w-3.5 h-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    <CopyButton text={t} title="Copy topic to clipboard" />
                   </div>
                 ))}
               </div>
+
+              {guidance.suggestedResearchQuestions?.length > 0 && (
+                <div
+                  className="flex items-center justify-between gap-3 flex-wrap rounded-xl px-3.5 py-2.5"
+                  style={{ background: '#FDF3E3' }}
+                >
+                  <p className="text-xs font-medium leading-relaxed" style={{ color: '#8A5A00' }}>
+                    Reminder: copy all the suggested research questions below. You'll need them in the Methodology stage.
+                  </p>
+                  <CopyButton
+                    text={researchQuestionsText(guidance)}
+                    label="Copy all research questions"
+                    title="Copy all research questions"
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {guidance.suggestedResearchQuestions?.length > 0 && (
             <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Suggested research questions
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Suggested research questions
+                </p>
+                <CopyButton text={researchQuestionsText(guidance)} title="Copy all research questions" />
+              </div>
               <ul className="space-y-1.5">
                 {guidance.suggestedResearchQuestions.map((q, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                     <span style={{ color: '#BA7517' }}>•</span>
-                    {q}
+                    <span className="flex-1 min-w-0">{q}</span>
+                    <CopyButton text={q} title="Copy research question" />
                   </li>
                 ))}
               </ul>
@@ -273,13 +300,16 @@ export function TopicSelectionStage({
             </div>
           )}
 
-          <button
-            onClick={onContinue}
-            className="cursor-pointer hover:text-[#003887] text-[#0B1C33] inline-flex items-center gap-1.5 text-sm font-semibold transition-colors"
-          >
-            Continue to Literature Review
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <button
+              onClick={onContinue}
+              className="cursor-pointer hover:text-[#003887] text-[#0B1C33] inline-flex items-center gap-1.5 text-sm font-semibold transition-colors"
+            >
+              Continue to Objective of the Study
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <CopyButton text={guidanceText(guidance)} label="Copy all guidance" title="Copy the full guidance" />
+          </div>
         </div>
       )}
     </div>

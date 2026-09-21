@@ -6,6 +6,30 @@ export type TopicGuidance = {
   nextSteps: string[]
 }
 
+export type SuggestedObjectivesResult = {
+  generalObjective: string
+  generalObjectiveRationale: string
+  specificObjectives: string[]
+  objectiveRationale: string[]
+  suggestedVariables: string[]
+  scopeConsiderations: string[]
+  researchConsiderations: string[]
+}
+
+export type SavedSuggestedObjectives = {
+  id: string
+  topic: string
+  context: string | null
+  general_objective: string
+  general_objective_rationale: string
+  specific_objectives: string[]
+  objective_rationale: string[]
+  suggested_variables: string[]
+  scope_considerations: string[]
+  research_considerations: string[]
+  created_at: string
+}
+
 export type LiteratureSource = {
   topic: string;
 }

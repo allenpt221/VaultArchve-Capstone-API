@@ -5,7 +5,6 @@ import { Request, Response } from 'express';
 import redis from '../lib/ioredis';
 import { v4 as uuidv4 } from 'uuid';
 
-import { loginIpLimiter, loginLimiter } from '../lib/ratelimit';
 import { sendResetPasswordEmail } from '../lib/resetPassword';
 import { invalidateCacheByPrefix } from '../lib/cache';
 import { sendWelcomeEmail } from '../lib/registedEmail';
@@ -118,20 +117,6 @@ export async function Login(req: Request, res: Response) {
     const normalizedEmail = email.trim().toLowerCase();
     const ip = req.ip || (req.headers["x-forwarded-for"] as string) || "unknown";
 
-    // Per-account limit (strict) + per-IP backstop (loose), checked together
-    const [emailLimit, ipLimit] = await Promise.all([
-      loginLimiter.limit(normalizedEmail),
-      loginIpLimiter.limit(ip),
-    ]);
-
-    if (!emailLimit.success || !ipLimit.success) {
-      const reset = Math.max(emailLimit.reset, ipLimit.reset);
-      return res.status(429).json({
-        success: false,
-        message: "Too many login attempts. Please try again later.",
-        retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
-      });
-    }
 
     if (password.length < 8) {
       res.status(401).json({ message: "Password must be at least 8 characters.", success: false });

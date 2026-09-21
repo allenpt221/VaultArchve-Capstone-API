@@ -1,4 +1,5 @@
 'use client'
+import { CopyButton } from '@/components/Copybutton'
 import { DataAnalysisResult, MethodologyApproach, SavedDataAnalysis } from '@/hooks/types'
 import {
   Database,
@@ -51,6 +52,47 @@ type Props = {
   onSelectSaved: (id: string) => void
 
   onContinue: () => void
+}
+
+// ── Plain-text builders for the copy buttons ──────────────────────────────
+
+function cleaningChecklistText(r: DataAnalysisResult): string {
+  return ['Data Cleaning Checklist', ...(r.dataCleaningChecklist ?? []).map((c) => `- ${c}`)].join('\n')
+}
+
+function analysisMethodText(r: DataAnalysisResult): string {
+  return [
+    `Analysis Method: ${r.analysisMethod}`,
+    r.analysisRationale,
+    '',
+    'Steps',
+    ...(r.analysisSteps ?? []).map((s, i) => `${i + 1}. ${s}`),
+  ].join('\n')
+}
+
+function connectionPromptsText(r: DataAnalysisResult): string {
+  return [
+    'Connect Back to Your Research Gap',
+    ...(r.literatureConnectionPrompts ?? []).map((p) => `- ${p}`),
+  ].join('\n')
+}
+
+function visualizationsText(r: DataAnalysisResult): string {
+  const blocks = (r.visualizations ?? []).map((v, i) =>
+    [`${i + 1}. ${v.title} (${v.chartType})`, v.description, v.whatItShows].filter(Boolean).join('\n'),
+  )
+  return ['Suggested Visualizations', ...blocks].join('\n\n')
+}
+
+function analysisPlanText(r: DataAnalysisResult): string {
+  const sections: (string | null)[] = [
+    cleaningChecklistText(r),
+    analysisMethodText(r),
+    r.literatureConnectionPrompts?.length > 0 ? connectionPromptsText(r) : null,
+    `Results Summary (template)\n${r.resultsSummary}`,
+    r.visualizations?.length > 0 ? visualizationsText(r) : null,
+  ]
+  return sections.filter((s): s is string => !!s).join('\n\n')
 }
 
 export function DataCollectionStage({
@@ -266,9 +308,12 @@ export function DataCollectionStage({
           )}
 
           <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <ClipboardCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data cleaning checklist</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                <ClipboardCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Data cleaning checklist</p>
+              </div>
+              <CopyButton text={cleaningChecklistText(result)} title="Copy data cleaning checklist" />
             </div>
             <ul className="space-y-1.5">
               {result.dataCleaningChecklist.map((item, i) => (
@@ -280,9 +325,12 @@ export function DataCollectionStage({
           </div>
 
           <div className="rounded-xl px-4 py-3.5 shadow-sm" style={{ background: '#FAEEDA' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#BA7517' }}>
-              {result.analysisMethod}
-            </p>
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#BA7517' }}>
+                {result.analysisMethod}
+              </p>
+              <CopyButton text={analysisMethodText(result)} title="Copy analysis method and steps" />
+            </div>
             <p className="text-sm leading-relaxed mb-2" style={{ color: '#1A1A1A' }}>{result.analysisRationale}</p>
             <ol className="space-y-1 list-decimal list-inside">
               {result.analysisSteps.map((step, i) => (
@@ -293,11 +341,14 @@ export function DataCollectionStage({
 
           {result.literatureConnectionPrompts?.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <MessageCircleQuestion className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Connect back to your research gap
-                </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <MessageCircleQuestion className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Connect back to your research gap
+                  </p>
+                </div>
+                <CopyButton text={connectionPromptsText(result)} title="Copy research gap prompts" />
               </div>
               <ul className="space-y-1.5">
                 {result.literatureConnectionPrompts.map((p, i) => (
@@ -314,15 +365,21 @@ export function DataCollectionStage({
           )}
 
           <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results summary (template)</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Results summary (template)</p>
+              <CopyButton text={result.resultsSummary} title="Copy results summary" />
+            </div>
             <p className="text-sm leading-relaxed">{result.resultsSummary}</p>
           </div>
 
           {result.visualizations?.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <BarChart3 className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested visualizations</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <BarChart3 className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested visualizations</p>
+                </div>
+                <CopyButton text={visualizationsText(result)} title="Copy suggested visualizations" />
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
                 {result.visualizations.map((v, i) => (
@@ -345,14 +402,17 @@ export function DataCollectionStage({
             </div>
           )}
 
-          <button
-            onClick={onContinue}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
-            style={{ color: '#0B1C33' }}
-          >
-            Continue Paper Review
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <button
+              onClick={onContinue}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+              style={{ color: '#0B1C33' }}
+            >
+              Continue Paper Review
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <CopyButton text={analysisPlanText(result)} label="Copy all analysis" title="Copy the full analysis plan" />
+          </div>
         </div>
       )}
     </div>
