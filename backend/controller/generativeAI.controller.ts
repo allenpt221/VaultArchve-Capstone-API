@@ -1,14 +1,18 @@
 import { supabase } from "../supabase/supa-client";
 import { Request, Response } from "express";
 import OpenAI from "openai";
-import { checkDailyLimit } from "../lib/checkDailyLimit";
 import { PDFParse } from "pdf-parse";
+import { checkUsageLimit, logUsage } from "../lib/usageLimit";
+import { saveOrReplace } from "../lib/Saveorreplace";
 
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const DAILY_PROMPT_LIMIT = 5;
+export const DAILY_PROMPT_LIMIT = 3;
+export const DAILY_PROMPT_LIMIT_PAPER_REVIEW = 2;
+export const DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION = 5;
+
 const MIN_RESEARCH_QUESTIONS_DA = 1;
 const MAX_RESEARCH_QUESTIONS_DA = 6;
 
@@ -357,7 +361,7 @@ export function isUnsupportedMediaRequest(text: string | undefined | null): bool
 
 const IMAGE_REQUEST_ERROR = "Unsupported request";
 const IMAGE_REQUEST_MESSAGE =
-  "Sorry, I can only help with thesis-relate d text. I'm not able to create images, videos, photos, or any visual content. Please rephrase your input as a thesis-related instruction.";
+  "Sorry, I can only help with thesis-related text. I'm not able to create images, videos, photos, or any visual content. Please rephrase your input as a thesis-related instruction.";
 
 export function extractRequestedCount(text: string): number | null {
   // "10 titles", "8 recommendations", "12 thesis suggestions"
@@ -449,12 +453,12 @@ export async function RecommendedAI(req: Request, res: Response) {
       ? [...thesisPool].sort(() => Math.random() - 0.5).slice(0, 5)
       : [];
 
-    const { allowed } = await checkDailyLimit(user_id, "thesisRecommendation", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "thesisRecommendation", DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION);
 
     if (!allowed) {
       return res.status(429).json({
         error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION} prompts. Please try again.`,
         remaining: 0,
       });
     }
@@ -562,6 +566,8 @@ export async function RecommendedAI(req: Request, res: Response) {
         },
       ],
     });
+
+    await logUsage(user_id, "thesisRecommendation");
 
     const rawText = result.choices[0].message.content || "";
 
@@ -746,7 +752,7 @@ export async function TopicSelection(req: Request, res: Response) {
   }
 
 
-    const { allowed } = await checkDailyLimit(user_id, "topicSelection", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "topicSelection", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -785,6 +791,8 @@ export async function TopicSelection(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "topicSelection");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -799,16 +807,21 @@ export async function TopicSelection(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("topic_selection_responses").insert({
+    // Same topic (ignoring case/extra spaces) updates the existing row instead of adding a duplicate.
+    const { error: saveError } = await saveOrReplace(
+      "topic_selection_responses",
       user_id,
+      "topic",
       topic,
-      context: context?.trim() ? context : null,
-      feedback: guidance.feedback,
-      feasibility: guidance.feasibility,
-      refined_topics: guidance.refinedTopics,
-      suggested_research_questions: guidance.suggestedResearchQuestions,
-      next_steps: guidance.nextSteps,
-    });
+      {
+        context: context?.trim() ? context : null,
+        feedback: guidance.feedback,
+        feasibility: guidance.feasibility,
+        refined_topics: guidance.refinedTopics,
+        suggested_research_questions: guidance.suggestedResearchQuestions,
+        next_steps: guidance.nextSteps,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -865,7 +878,7 @@ export async function SuggestedObjectives(req: Request, res: Response) {
       });
     }
 
-    const { allowed } = await checkDailyLimit(
+    const { allowed } = await checkUsageLimit(
       user_id,
       "suggestedObjectives",
       DAILY_PROMPT_LIMIT
@@ -971,6 +984,8 @@ ${context?.trim() ? context : "None provided."}
       ],
     });
 
+    await logUsage(user_id, "suggestedObjectives");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -1002,11 +1017,12 @@ ${context?.trim() ? context : "None provided."}
       });
     }
 
-    const { error: saveError } = await supabase
-      .from("suggested_objectives")
-      .insert({
-        user_id,
-        topic,
+    const { error: saveError } = await saveOrReplace(
+      "suggested_objectives",
+      user_id,
+      "topic",
+      topic,
+      {
         context: context?.trim() ? context : null,
         general_objective: objectives.generalObjective,
         general_objective_rationale: objectives.generalObjectiveRationale,
@@ -1015,7 +1031,8 @@ ${context?.trim() ? context : "None provided."}
         suggested_variables: objectives.suggestedVariables,
         scope_considerations: objectives.scopeConsiderations,
         research_considerations: objectives.researchConsiderations,
-      });
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -1056,7 +1073,7 @@ export async function LiteratureReview(req: Request, res: Response) {
   }
 
 
-    const { allowed } = await checkDailyLimit(user_id, "literatureReview", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "literatureReview", DAILY_PROMPT_LIMIT);
     if (!allowed) {
       return res.status(429).json({
         error: "Daily limit reached",
@@ -1100,6 +1117,8 @@ export async function LiteratureReview(req: Request, res: Response) {
       instructions,
       input: `Thesis topic: ${topic}`,
     });
+
+    await logUsage(user_id, "literatureReview");
 
     const rawText = response.output_text || "";
 
@@ -1157,13 +1176,17 @@ export async function LiteratureReview(req: Request, res: Response) {
     // Failure to save should not break the response to the client — we log
     // it and still return the result.
     try {
-      const { error: saveError } = await supabase.from("literature_reviews").insert({
+      const { error: saveError } = await saveOrReplace(
+        "literature_reviews",
         user_id,
+        "topic",
         topic,
-        source_count: annotatedBibliography.length,
-        unverified_dropped: unverifiedDropped,
-        annotated_bibliography: annotatedBibliography,
-      });
+        {
+          source_count: annotatedBibliography.length,
+          unverified_dropped: unverifiedDropped,
+          annotated_bibliography: annotatedBibliography,
+        }
+      );
 
       if (saveError) throw saveError;
     } catch (persistError) {
@@ -1239,7 +1262,7 @@ export async function Methodology(req: Request, res: Response) {
       });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "methodology", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "methodology", DAILY_PROMPT_LIMIT);
     if (!allowed) {
       return res.status(429).json({
         error: "Daily limit reached",
@@ -1345,6 +1368,8 @@ export async function Methodology(req: Request, res: Response) {
         { role: "user", content: prompt },
       ],
     });
+
+    await logUsage(user_id, "methodology");
 
     const rawText = result.output_text || "";
 
@@ -1452,22 +1477,26 @@ export async function Methodology(req: Request, res: Response) {
 
     const responseMethodology = { ...methodology, references: verifiedReferences };
 
-    const { error: saveError } = await supabase.from("methodology_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "methodology_responses",
       user_id,
+      "topic",
       topic,
-      objective,
-      research_questions: researchQuestions,
-      context: context?.trim() ? context : null,
-      approach: methodology.approach,
-      approach_rationale: methodology.approachRationale,
-      population: methodology.population,
-      instruments: methodology.instruments,
-      data_collection_plan: methodology.dataCollectionPlan,
-      data_analysis_plan: methodology.dataAnalysisPlan,
-      question_mapping: methodology.questionMapping,
-      limitations: methodology.limitations,
-      references: verifiedReferences,
-    });
+      {
+        objective,
+        research_questions: researchQuestions,
+        context: context?.trim() ? context : null,
+        approach: methodology.approach,
+        approach_rationale: methodology.approachRationale,
+        population: methodology.population,
+        instruments: methodology.instruments,
+        data_collection_plan: methodology.dataCollectionPlan,
+        data_analysis_plan: methodology.dataAnalysisPlan,
+        question_mapping: methodology.questionMapping,
+        limitations: methodology.limitations,
+        references: verifiedReferences,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -1545,7 +1574,7 @@ export async function DataAnalysis(req: Request, res: Response) {
       });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "dataAnalysis", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "dataAnalysis", DAILY_PROMPT_LIMIT);
     if (!allowed) {
       return res.status(429).json({
         error: "Daily limit reached",
@@ -1614,6 +1643,8 @@ export async function DataAnalysis(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "dataAnalysis");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -1628,21 +1659,25 @@ export async function DataAnalysis(req: Request, res: Response) {
 
     const { dataAnalysis } = parsed;
 
-    const { error: saveError } = await supabase.from("data_analysis_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "data_analysis_responses",
       user_id,
+      "topic",
       topic,
-      approach,
-      research_questions: researchQuestions,
-      gap_statement: gapStatement?.trim() ? gapStatement : null,
-      raw_findings: rawFindings,
-      data_cleaning_checklist: dataAnalysis.dataCleaningChecklist,
-      analysis_method: dataAnalysis.analysisMethod,
-      analysis_steps: dataAnalysis.analysisSteps,
-      analysis_rationale: dataAnalysis.analysisRationale,
-      literature_connection_prompts: dataAnalysis.literatureConnectionPrompts,
-      results_summary: dataAnalysis.resultsSummary,
-      visualizations: dataAnalysis.visualizations,
-    });
+      {
+        approach,
+        research_questions: researchQuestions,
+        gap_statement: gapStatement?.trim() ? gapStatement : null,
+        raw_findings: rawFindings,
+        data_cleaning_checklist: dataAnalysis.dataCleaningChecklist,
+        analysis_method: dataAnalysis.analysisMethod,
+        analysis_steps: dataAnalysis.analysisSteps,
+        analysis_rationale: dataAnalysis.analysisRationale,
+        literature_connection_prompts: dataAnalysis.literatureConnectionPrompts,
+        results_summary: dataAnalysis.resultsSummary,
+        visualizations: dataAnalysis.visualizations,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -1695,14 +1730,15 @@ export async function FullPaperReview(req: Request, res: Response) {
     }
 
     // Cost control: reviewing a full paper is the most expensive AI call in
-    // this file (up to 180k chars of context), so it gets the same daily cap
-    // as every other AI stage.
-    const { allowed } = await checkDailyLimit(userId, "fullPaperReview", DAILY_PROMPT_LIMIT);
+    // this file (up to 180k chars of context), so it has its own, lower daily
+    // cap. Usage is counted from ai_usage_log, so deleting saved reviews can't
+    // give prompts back.
+    const { allowed } = await checkUsageLimit(userId, "fullPaperReview", DAILY_PROMPT_LIMIT_PAPER_REVIEW);
     if (!allowed) {
       return res.status(429).json({
         success: false,
         error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT_PAPER_REVIEW} prompts. Please try again.`,
         remaining: 0,
       });
     }
@@ -2077,6 +2113,8 @@ Allowed methodology/citation status:
       ],
     });
 
+    await logUsage(userId, "fullPaperReview");
+
     const content = completion.choices[0]?.message?.content;
 
     if (!content) {
@@ -2135,9 +2173,11 @@ Allowed methodology/citation status:
     // column names (readiness_score, automated_analysis, a single `review`
     // blob, etc.), which meant every saved row came back with all of those
     // fields undefined once read through SavedFullPaperReview.
-    const { error: saveError } = await supabase.from("full_paper_reviews").insert({
-      user_id: userId,
-      topic: topic ?? null,
+    //
+    // When a topic is given, re-reviewing the same file under the same topic
+    // replaces its earlier review; a different file under the same topic is
+    // kept as its own row. Without a topic, a new row is always added.
+    const reviewRow = {
       file_name: paper.originalname,
       document_stage: review?.review?.documentStage ?? null,
       chapter_detection: review?.review?.chapterDetection ?? null,
@@ -2149,7 +2189,15 @@ Allowed methodology/citation status:
       writing_quality: review?.review?.writingQuality ?? null,
       structural_compliance: review?.review?.structuralCompliance ?? null,
       overall_readiness: review?.review?.overallReadiness ?? null,
-    });
+    };
+
+    const { error: saveError } = topic?.trim()
+      ? await saveOrReplace("full_paper_reviews", userId, "topic", topic, reviewRow, {
+          file_name: paper.originalname,
+        })
+      : await supabase
+          .from("full_paper_reviews")
+          .insert({ ...reviewRow, user_id: userId, topic: null });
 
     if (saveError) {
       console.log(saveError);

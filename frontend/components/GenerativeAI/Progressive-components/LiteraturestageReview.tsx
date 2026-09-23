@@ -21,6 +21,8 @@ type Props = {
   sourceCount?: number
   unverifiedDropped?: number
   onContinue: () => void
+  limitedUntil: number | null
+  countdown: string
 }
 
 // Small color accents per source type so the badges are easy to scan at a glance.
@@ -63,6 +65,8 @@ export function LiteratureReviewStage({
   sourceCount,
   unverifiedDropped,
   onContinue,
+  limitedUntil,
+  countdown
 }: Props) {
   return (
     <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
@@ -95,15 +99,39 @@ export function LiteratureReviewStage({
         </div>
       )}
 
-      {errorMessage && !review && (
-        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
-        </div>
-      )}
+    {(errorMessage || (limitedUntil && countdown)) && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+        {errorMessage && (
+          <div
+            className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+            style={{
+              background: '#FBEAEA',
+              color: '#7A2020',
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+
+        {limitedUntil && countdown && (
+          <div
+            className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+            style={{
+              background: '#FDF3E3',
+              color: '#8A5A00',
+            }}
+          >
+            Please wait{' '}
+            <strong>{countdown}</strong>{' '}
+            before requesting AI guidance again.
+          </div>
+        )}
+      </div>
+    )}
 
       <button
         onClick={onGenerateReview}
-        disabled={!topic.trim() || isLoading}
+        disabled={!topic.trim() || isLoading || !!limitedUntil}
         className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
@@ -111,6 +139,11 @@ export function LiteratureReviewStage({
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Searching the web &amp; synthesizing...
+          </>
+        ) : limitedUntil ? (
+          <>
+            <Clock className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>

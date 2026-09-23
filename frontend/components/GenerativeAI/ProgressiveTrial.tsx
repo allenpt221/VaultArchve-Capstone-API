@@ -25,7 +25,6 @@ function ProgressiveTrial() {
 
   return (
     <div className="sm:px-4 px-3 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* ── Hero ── */}
       <div className="text-center space-y-3">
         <div className="flex items-center justify-center gap-2">
           {track === 'research' ? (
@@ -182,7 +181,7 @@ function ProgressiveTrial() {
               onContextChange={t.setContext}
               onGetGuidance={t.handleGetGuidance}
               isLoading={t.isTopicLoading}
-              errorMessage={t.message}
+              errorMessage={t.topicError}
               savedTopics={t.topicSelectionHistory}
               savedTopicsLoading={t.topicHistoryLoading}
               selectedTopicId={t.selectedTopicId}
@@ -190,6 +189,8 @@ function ProgressiveTrial() {
               onDeleteSavedTopic={t.handleDeleteSavedTopic}
               guidance={t.displayedGuidance}
               onContinue={() => t.setActiveStage('objective')}
+              limitedUntil={t.topicLimitedUntil}
+              countdown={t.topicCountdown}
             />
           ) : t.activeStage === 'objective' ? (
             <ObjectivesSuggestionPanel
@@ -198,9 +199,11 @@ function ProgressiveTrial() {
                 onContextChange={t.setContext}
                 isLoading={t.objectivesLoading}
                 objectives={t.objectives}
-                errorMessage={t.message}
+                errorMessage={t.objectiveError}
                 onGenerate={t.handleSuggestObjectives}
                 onContinue={() => t.setActiveStage('literature')}
+                limitedUntil={t.objectiveLimitedUntil}
+                countdown={t.objectiveCountdown}
             />
           )  : t.activeStage === 'literature' ? (
             <LiteratureReviewStage
@@ -211,11 +214,13 @@ function ProgressiveTrial() {
               onSelectSavedReview={t.handleSelectSavedReview}
               onGenerateReview={t.handleGenerateReview}
               isLoading={t.isLiteratureLoading}
-              errorMessage={t.message}
+              errorMessage={t.literatureError}
               review={t.displayedReview}
               sourceCount={t.displayedReview?.sourceCount}
               unverifiedDropped={t.displayedReview?.unverifiedDropped}
               onContinue={() => t.setActiveStage('methodology')}
+              limitedUntil={t.literatureLimitedUntil}
+              countdown={t.literatureCountdown}
             />
           ) : t.activeStage === 'methodology' ? (
             <MethodologyStage
@@ -233,11 +238,13 @@ function ProgressiveTrial() {
               onContextChange={t.setMethodologyContext}
               onGenerateMethodology={t.handleGenerateMethodology}
               isLoading={t.isMethodologyLoading}
-              errorMessage={t.message}
+              errorMessage={t.methodologyError}
               methodology={t.displayedMethodology}
               onContinue={() => t.setActiveStage('collection')}
               objective={t.methodologyObjective}
               onObjectiveChange={t.setMethodologyObjective}
+              limitedUntil={t.methodologyLimitedUntil}
+              countdown={t.methodologyCountdown}
             />
           ) : t.activeStage === 'collection' ? (
             <DataCollectionStage
@@ -255,7 +262,7 @@ function ProgressiveTrial() {
               onRawFindingsChange={t.setRawFindings}
               onGenerate={t.handleGenerateDataAnalysis}
               isLoading={t.isDataAnalysisLoading}
-              errorMessage={t.message}
+              errorMessage={t.dataCollectionError}
               result={t.displayedDataAnalysis}
               history={t.dataAnalysisHistory}
               historyLoading={t.dataAnalysesLoading}
@@ -265,6 +272,8 @@ function ProgressiveTrial() {
               selectedId={t.selectedDataAnalysisId}
               onSelectSaved={t.handleSelectSavedDataAnalysis}
               onContinue={() => t.setActiveStage('paper-review')}
+              limitedUntil={t.collectionLimitedUntil}
+              countdown={t.collectionCountdown}
             />
           ) : t.activeStage === 'paper-review' ? (
             <PaperReview
@@ -280,7 +289,10 @@ function ProgressiveTrial() {
               selectedPaperReviewId={t.selectedPaperReviewId}
               handleSelectSavedPaperReview={t.handleSelectSavedPaperReview}
               displayedPaperReview={t.displayedPaperReview}
-              message={t.message}
+              message={t.paperReviewError}
+              errorMessage={t.paperReviewError}
+              limitedUntil={t.paperReviewLimitedUntil}
+              countdown={t.paperReviewCountdown}
             />
           ) : (
             <div className="rounded-xl border bg-white p-10 text-center space-y-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>

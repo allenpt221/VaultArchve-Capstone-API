@@ -52,6 +52,8 @@ type Props = {
   onSelectSaved: (id: string) => void
 
   onContinue: () => void
+  limitedUntil: number | null
+  countdown: string
 }
 
 // ── Plain-text builders for the copy buttons ──────────────────────────────
@@ -117,8 +119,11 @@ export function DataCollectionStage({
   onLoadMore,
   selectedId,
   onContinue,
+  limitedUntil,
+  countdown
 }: Props) {
-  const canGenerate = !!topic.trim() && !!approach && researchQuestions.length > 0 && !!rawFindings.trim()
+  const canGenerate =
+    !!topic.trim() && !!approach && researchQuestions.length > 0 && !!rawFindings.trim() && !limitedUntil
 
   return (
     <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
@@ -268,9 +273,33 @@ export function DataCollectionStage({
           />
         </div>
 
-        {errorMessage && !result && (
-          <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-            {errorMessage}
+        {(errorMessage || (limitedUntil && countdown)) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+            {errorMessage && (
+              <div
+                className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+                style={{
+                  background: '#FBEAEA',
+                  color: '#7A2020',
+                }}
+              >
+                {errorMessage}
+              </div>
+            )}
+
+            {limitedUntil && countdown && (
+              <div
+                className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+                style={{
+                  background: '#FDF3E3',
+                  color: '#8A5A00',
+                }}
+              >
+                Please wait{' '}
+                <strong>{countdown}</strong>{' '}
+                before requesting AI guidance again.
+              </div>
+            )}
           </div>
         )}
 
@@ -284,6 +313,11 @@ export function DataCollectionStage({
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
               Analyzing...
+            </>
+          ) : limitedUntil ? (
+            <>
+              <Sparkles className="w-4 h-4" />
+              Daily limit reached
             </>
           ) : (
             <>

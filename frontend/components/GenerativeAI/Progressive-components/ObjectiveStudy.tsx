@@ -82,6 +82,9 @@ interface ObjectivesSuggestionPanelProps {
   onSelectSaved?: (id: string | null) => void
 
   onContinue: () => void
+
+  limitedUntil: number | null
+  countdown: string
 }
 
 /**
@@ -114,8 +117,10 @@ export function ObjectivesSuggestionPanel({
   selectedSavedId = null,
   onSelectSaved,
   onContinue,
+  limitedUntil,
+  countdown
 }: ObjectivesSuggestionPanelProps) {
-  const canGenerate = topic.trim().length > 0 && !isLoading
+  const canGenerate = topic.trim().length > 0 && !isLoading && !limitedUntil
 
   // Newest first, capped at MAX_SAVED_OBJECTIVES.
   const visibleSaved = [...savedObjectives]
@@ -186,9 +191,33 @@ export function ObjectivesSuggestionPanel({
         />
       </div>
 
-      {errorMessage && !result && (
-        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
         </div>
       )}
 
@@ -202,6 +231,11 @@ export function ObjectivesSuggestionPanel({
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Generating...
+          </>
+        ) : limitedUntil ? (
+          <>
+            <Sparkles className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>

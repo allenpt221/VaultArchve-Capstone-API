@@ -33,6 +33,8 @@ type Props = {
 
   methodology: MethodologyResult | null
   onContinue: () => void
+  limitedUntil: number | null
+  countdown: string
 }
 
 // ── Plain-text builders for the copy buttons ──────────────────────────────
@@ -120,6 +122,8 @@ export function MethodologyStage({
   errorMessage,
   methodology,
   onContinue,
+  limitedUntil,
+  countdown
 }: Props) {
 
   const safeObjective = objective ?? ''
@@ -127,7 +131,8 @@ export function MethodologyStage({
   const canGenerate =
     safeObjective.trim().length > 0 &&
     researchQuestions.length >= MIN_RESEARCH_QUESTIONS &&
-    !isLoading
+    !isLoading &&
+    !limitedUntil
 
   return (
     <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
@@ -263,11 +268,35 @@ export function MethodologyStage({
         />
       </div>
 
-      {errorMessage && !methodology && (
-        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
-        </div>
-      )}
+{(errorMessage || (limitedUntil && countdown)) && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+    {errorMessage && (
+      <div
+        className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+        style={{
+          background: '#FBEAEA',
+          color: '#7A2020',
+        }}
+      >
+        {errorMessage}
+      </div>
+    )}
+
+    {limitedUntil && countdown && (
+      <div
+        className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+        style={{
+          background: '#FDF3E3',
+          color: '#8A5A00',
+        }}
+      >
+        Please wait{' '}
+        <strong>{countdown}</strong>{' '}
+        before requesting AI guidance again.
+      </div>
+    )}
+  </div>
+)}
 
       <button
         onClick={onGenerateMethodology}
@@ -279,6 +308,11 @@ export function MethodologyStage({
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Designing...
+          </>
+        ) : limitedUntil ? (
+          <>
+            <Sparkles className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>

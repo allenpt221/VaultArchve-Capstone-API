@@ -1,12 +1,25 @@
 'use client'
-import { Lightbulb, Sparkles, Loader2, History, Clock, Check, ArrowRight, X } from 'lucide-react'
+
+import {
+  Lightbulb,
+  Sparkles,
+  Loader2,
+  History,
+  Clock,
+  Check,
+  ArrowRight,
+  X,
+} from 'lucide-react'
 import type { MouseEvent } from 'react'
-import { useState } from 'react'
 import { FEASIBILITY_STYLES } from '@/hooks/constants'
 import { TopicGuidance } from '@/hooks/types'
 import { CopyButton } from '@/components/Copybutton'
 
-type SavedTopic = { id: string; topic: string; created_at: string }
+type SavedTopic = {
+  id: string
+  topic: string
+  created_at: string
+}
 
 type Props = {
   topic: string
@@ -25,32 +38,58 @@ type Props = {
 
   guidance: TopicGuidance | null
   onContinue: () => void
+
+  // Rate-limit information
+  limitedUntil: number | null
+  countdown: string
 }
 
 // ── Plain-text builders for the copy buttons ──────────────────────────────
 
-const numbered = (items: string[]) => items.map((s, i) => `${i + 1}. ${s}`)
+const numbered = (items: string[]) =>
+  items.map((s, i) => `${i + 1}. ${s}`)
 
 function refinedTopicsText(g: TopicGuidance): string {
-  return ['Refined Topic Ideas', ...numbered(g.refinedTopics ?? [])].join('\n')
+  return [
+    'Refined Topic Ideas',
+    ...numbered(g.refinedTopics ?? []),
+  ].join('\n')
 }
 
 function researchQuestionsText(g: TopicGuidance): string {
-  return ['Suggested Research Questions', ...numbered(g.suggestedResearchQuestions ?? [])].join('\n')
+  return [
+    'Suggested Research Questions',
+    ...numbered(g.suggestedResearchQuestions ?? []),
+  ].join('\n')
 }
 
 function nextStepsText(g: TopicGuidance): string {
-  return ['Next Steps', ...numbered(g.nextSteps ?? [])].join('\n')
+  return [
+    'Next Steps',
+    ...numbered(g.nextSteps ?? []),
+  ].join('\n')
 }
 
 function guidanceText(g: TopicGuidance): string {
   const sections: (string | null)[] = [
     `Feasibility: ${FEASIBILITY_STYLES[g.feasibility].label}\n${g.feedback}`,
-    g.refinedTopics?.length > 0 ? refinedTopicsText(g) : null,
-    g.suggestedResearchQuestions?.length > 0 ? researchQuestionsText(g) : null,
-    g.nextSteps?.length > 0 ? nextStepsText(g) : null,
+
+    g.refinedTopics?.length > 0
+      ? refinedTopicsText(g)
+      : null,
+
+    g.suggestedResearchQuestions?.length > 0
+      ? researchQuestionsText(g)
+      : null,
+
+    g.nextSteps?.length > 0
+      ? nextStepsText(g)
+      : null,
   ]
-  return sections.filter((s): s is string => !!s).join('\n\n')
+
+  return sections
+    .filter((s): s is string => !!s)
+    .join('\n\n')
 }
 
 export function TopicSelectionStage({
@@ -68,20 +107,44 @@ export function TopicSelectionStage({
   onDeleteSavedTopic,
   guidance,
   onContinue,
+  limitedUntil,
+  countdown,
 }: Props) {
-  const [stage, setStage] = useState<'topic' | 'writing'>('topic')
+  /*
+   * These are intentionally received here because the parent component
+   * passes them into TopicSelectionStage.
+   *
+   * If you don't want to display them yet, they can remain unused.
+   */
 
   return (
-    <div className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+    <div
+      className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm"
+      style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+    >
+      {/* ── Header ── */}
       <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FAEEDA' }}>
-          <Lightbulb className="w-4 h-4" style={{ color: '#BA7517' }} />
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: '#FAEEDA' }}
+        >
+          <Lightbulb
+            className="w-4 h-4"
+            style={{ color: '#BA7517' }}
+          />
         </div>
+
         <div>
-          <h2 className="font-semibold text-lg leading-tight tracking-tight" style={{ color: '#0B1C33' }}>
+          <h2
+            className="font-semibold text-lg leading-tight tracking-tight"
+            style={{ color: '#0B1C33' }}
+          >
             Topic Selection
           </h2>
-          <p className="text-xs text-muted-foreground">Brainstorm and refine a focused thesis topic.</p>
+
+          <p className="text-xs text-muted-foreground">
+            Brainstorm and refine a focused thesis topic.
+          </p>
         </div>
       </div>
 
@@ -89,7 +152,10 @@ export function TopicSelectionStage({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <History className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your saved topics</p>
+
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Your saved topics
+          </p>
         </div>
 
         {savedTopicsLoading ? (
@@ -101,32 +167,44 @@ export function TopicSelectionStage({
           <div className="grid sm:grid-cols-2 gap-2">
             {savedTopics.map((t) => {
               const isSelected = t.id === selectedTopicId
+
               return (
                 <button
                   key={t.id}
                   onClick={() => onSelectSavedTopic(t.id)}
                   className="overflow-hidden relative text-left rounded-xl border px-3 py-2.5 transition-all hover:bg-amber-50 hover:shadow-sm group"
                   style={{
-                    borderColor: isSelected ? '#BA7517' : 'rgba(0,0,0,0.08)',
-                    background: isSelected ? '#FAEEDA' : '#FFFFFF',
+                    borderColor: isSelected
+                      ? '#BA7517'
+                      : 'rgba(0,0,0,0.08)',
+                    background: isSelected
+                      ? '#FAEEDA'
+                      : '#FFFFFF',
                   }}
                   title={t.topic}
                 >
                   <span
-                    onClick={(e) => onDeleteSavedTopic(e, t.id)}
+                    onClick={(e) =>
+                      onDeleteSavedTopic(e, t.id)
+                    }
                     role="button"
                     aria-label="Delete saved topic"
                     className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </span>
+
                   <div className="text-sm font-medium truncate pr-5">
                     {t.topic}
                   </div>
+
                   <div className="flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3 text-muted-foreground" />
+
                     <p className="text-xs text-muted-foreground">
-                      {new Date(t.created_at).toLocaleDateString(undefined, {
+                      {new Date(
+                        t.created_at
+                      ).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -139,13 +217,18 @@ export function TopicSelectionStage({
           </div>
         ) : (
           <p className="text-xs text-muted-foreground py-1">
-            No saved topics yet — get AI guidance above and it'll show up here.
+            No saved topics yet — get AI guidance above and
+            it'll show up here.
           </p>
         )}
       </div>
 
+      {/* ── Topic input ── */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Your thesis topic / research area</label>
+        <label className="text-sm font-medium">
+          Your thesis topic / research area
+        </label>
+
         <textarea
           value={topic}
           rows={1}
@@ -156,10 +239,15 @@ export function TopicSelectionStage({
         />
       </div>
 
+      {/* ── Context input ── */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">
-          Additional context <span className="text-muted-foreground font-normal">(optional)</span>
+          Additional context{' '}
+          <span className="text-muted-foreground font-normal">
+            (optional)
+          </span>
         </label>
+
         <textarea
           value={context}
           onChange={(e) => onContextChange(e.target.value)}
@@ -170,22 +258,59 @@ export function TopicSelectionStage({
         />
       </div>
 
-      {errorMessage && !guidance && (
-        <div className="rounded-lg px-3.5 py-2.5 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
         </div>
       )}
 
+      {/* ── Get guidance button ── */}
       <button
         onClick={onGetGuidance}
-        disabled={!topic.trim() || isLoading}
+        disabled={
+          !topic.trim() ||
+          isLoading ||
+          !!limitedUntil
+        }
         className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-        style={{ background: '#F5B841', color: '#1A1A1A' }}
+        style={{
+          background: '#F5B841',
+          color: '#1A1A1A',
+        }}
       >
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Thinking...
+          </>
+        ) : limitedUntil ? (
+          <>
+            <Clock className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>
@@ -195,47 +320,77 @@ export function TopicSelectionStage({
         )}
       </button>
 
-
       {/* ── Guidance result ── */}
       {guidance && (
-        <div className="pt-4 space-y-4 border-t" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+        <div
+          className="pt-4 space-y-4 border-t"
+          style={{
+            borderColor: 'rgba(0,0,0,0.08)',
+          }}
+        >
+          {/* Saved topic indicator */}
           {selectedTopicId && (
             <div
               className="flex items-center gap-1.5 text-xs font-medium w-fit px-3 py-1.5 rounded-full"
-              style={{ color: '#8A5A00', backgroundColor: '#FDF3E3' }}
+              style={{
+                color: '#8A5A00',
+                backgroundColor: '#FDF3E3',
+              }}
             >
               <History className="w-3.5 h-3.5" />
               Viewing a saved topic from your history
             </div>
           )}
 
+          {/* Feedback + feasibility */}
           <div className="flex items-start justify-between gap-3 flex-wrap rounded-xl border border-gray-100 p-4 bg-white shadow-sm">
-            <p className="text-sm leading-relaxed flex-1 min-w-[200px]">{guidance.feedback}</p>
+            <p className="text-sm leading-relaxed flex-1 min-w-[200px]">
+              {guidance.feedback}
+            </p>
+
             <span
               className="text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap"
               style={{
-                background: FEASIBILITY_STYLES[guidance.feasibility].bg,
-                color: FEASIBILITY_STYLES[guidance.feasibility].color,
+                background:
+                  FEASIBILITY_STYLES[
+                    guidance.feasibility
+                  ].bg,
+                color:
+                  FEASIBILITY_STYLES[
+                    guidance.feasibility
+                  ].color,
               }}
             >
-              {FEASIBILITY_STYLES[guidance.feasibility].label}
+              {
+                FEASIBILITY_STYLES[
+                  guidance.feasibility
+                ].label
+              }
             </span>
           </div>
 
+          {/* ── Refined topics ── */}
           {guidance.refinedTopics?.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Refined topic ideas</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Refined topic ideas
+                </p>
               </div>
+
               <p className="text-xs text-muted-foreground">
-                Click a topic to use it as your thesis topic, or copy it to keep.
+                Click a topic to use it as your thesis topic,
+                or copy it to keep.
               </p>
+
               <div className="space-y-1.5">
                 {guidance.refinedTopics.map((t, i) => (
                   <div
                     key={i}
                     className="group flex items-center gap-2 rounded-xl border pl-3 pr-2 py-2 hover:bg-amber-50 hover:border-gray-200 transition-colors"
-                    style={{ borderColor: 'rgba(0,0,0,0.1)' }}
+                    style={{
+                      borderColor: 'rgba(0,0,0,0.1)',
+                    }}
                   >
                     <button
                       onClick={() => onTopicChange(t)}
@@ -243,19 +398,35 @@ export function TopicSelectionStage({
                     >
                       {t}
                     </button>
-                    <CopyButton text={t} title="Copy topic to clipboard" />
+
+                    <CopyButton
+                      text={t}
+                      title="Copy topic to clipboard"
+                    />
                   </div>
                 ))}
               </div>
 
-              {guidance.suggestedResearchQuestions?.length > 0 && (
+              {/* Research questions reminder */}
+              {guidance.suggestedResearchQuestions?.length >
+                0 && (
                 <div
                   className="flex items-center justify-between gap-3 flex-wrap rounded-xl px-3.5 py-2.5"
-                  style={{ background: '#FDF3E3' }}
+                  style={{
+                    background: '#FDF3E3',
+                  }}
                 >
-                  <p className="text-xs font-medium leading-relaxed" style={{ color: '#8A5A00' }}>
-                    Reminder: copy all the suggested research questions below. You'll need them in the Methodology stage.
+                  <p
+                    className="text-xs font-medium leading-relaxed"
+                    style={{
+                      color: '#8A5A00',
+                    }}
+                  >
+                    Reminder: copy all the suggested research
+                    questions below. You'll need them in the
+                    Methodology stage.
                   </p>
+
                   <CopyButton
                     text={researchQuestionsText(guidance)}
                     label="Copy all research questions"
@@ -266,33 +437,64 @@ export function TopicSelectionStage({
             </div>
           )}
 
+          {/* ── Suggested research questions ── */}
           {guidance.suggestedResearchQuestions?.length > 0 && (
             <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Suggested research questions
                 </p>
-                <CopyButton text={researchQuestionsText(guidance)} title="Copy all research questions" />
+
+                <CopyButton
+                  text={researchQuestionsText(guidance)}
+                  title="Copy all research questions"
+                />
               </div>
+
               <ul className="space-y-1.5">
-                {guidance.suggestedResearchQuestions.map((q, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span style={{ color: '#BA7517' }}>•</span>
-                    <span className="flex-1 min-w-0">{q}</span>
-                    <CopyButton text={q} title="Copy research question" />
-                  </li>
-                ))}
+                {guidance.suggestedResearchQuestions.map(
+                  (q, i) => (
+                    <li
+                      key={i}
+                      className="text-sm text-muted-foreground flex items-start gap-2"
+                    >
+                      <span style={{ color: '#BA7517' }}>
+                        •
+                      </span>
+
+                      <span className="flex-1 min-w-0">
+                        {q}
+                      </span>
+
+                      <CopyButton
+                        text={q}
+                        title="Copy research question"
+                      />
+                    </li>
+                  )
+                )}
               </ul>
             </div>
           )}
 
+          {/* ── Next steps ── */}
           {guidance.nextSteps?.length > 0 && (
             <div className="rounded-xl border border-gray-100 p-4 space-y-2 bg-white shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Next steps</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Next steps
+              </p>
+
               <ul className="space-y-1.5">
                 {guidance.nextSteps.map((s, i) => (
-                  <li key={i} className="text-sm flex gap-2">
-                    <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#3B6D11' }} />
+                  <li
+                    key={i}
+                    className="text-sm flex gap-2"
+                  >
+                    <Check
+                      className="w-4 h-4 shrink-0 mt-0.5"
+                      style={{ color: '#3B6D11' }}
+                    />
+
                     {s}
                   </li>
                 ))}
@@ -300,15 +502,22 @@ export function TopicSelectionStage({
             </div>
           )}
 
+          {/* ── Continue + Copy all ── */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <button
               onClick={onContinue}
               className="cursor-pointer hover:text-[#003887] text-[#0B1C33] inline-flex items-center gap-1.5 text-sm font-semibold transition-colors"
             >
               Continue to Objective of the Study
+
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
-            <CopyButton text={guidanceText(guidance)} label="Copy all guidance" title="Copy the full guidance" />
+
+            <CopyButton
+              text={guidanceText(guidance)}
+              label="Copy all guidance"
+              title="Copy the full guidance"
+            />
           </div>
         </div>
       )}

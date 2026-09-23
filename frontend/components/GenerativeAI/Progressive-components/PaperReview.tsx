@@ -11,6 +11,7 @@ import {
   History,
   Lightbulb,
   Sparkles,
+  Clock,
 } from 'lucide-react'
 import { CONSISTENCY_STYLES, MAX_PDF_SIZE_MB } from '@/hooks/constants'
 import type { FullPaperReviewResult, SavedFullPaperReview } from '@/hooks/types'
@@ -106,6 +107,9 @@ type Props = {
   displayedPaperReview: FullPaperReviewResult | null
 
   message: string | null
+  errorMessage: string | null
+  limitedUntil: number | null
+  countdown: string
 }
 
 function PaperReview({
@@ -114,14 +118,12 @@ function PaperReview({
   setPaperFile,
   handleUploadPaperReview,
   isPaperReviewLoading,
-  fullPaperReviewHistory,
-  fullPaperReviewHistoryLoading,
-  hasMorePaperReviews,
-  handleLoadMorePaperReviews,
   selectedPaperReviewId,
-  handleSelectSavedPaperReview,
   displayedPaperReview,
   message,
+  errorMessage,
+  limitedUntil,
+  countdown
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -140,9 +142,12 @@ function PaperReview({
   // canSubmit only looks at whichever mode is currently active — if the
   // user typed manual sections, then switched to the PDF tab without
   // uploading anything, the button correctly disables rather than silently
-  // submitting the manual text they can no longer see.
+  // submitting the manual text they can no longer see. It's also gated on
+  // the rate limit, same as every other stage's generate button.
   const canSubmit =
-    !isPaperReviewLoading && (submissionMode === 'pdf' ? !!paperFile : hasManualText)
+    !isPaperReviewLoading &&
+    !limitedUntil &&
+    (submissionMode === 'pdf' ? !!paperFile : hasManualText)
 
   const handleManualSectionChange = (key: ManualSectionKey, value: string) => {
     setManualSections((prev) => ({ ...prev, [key]: value }))
@@ -351,6 +356,36 @@ function PaperReview({
         </div>
       )}
 
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Manual section entry — only rendered in manual mode */}
       {submissionMode === 'manual' && (
         <div className="rounded-2xl border border-gray-200 p-5 flex flex-col gap-5 bg-white shadow-sm">
@@ -404,6 +439,11 @@ function PaperReview({
             <Loader2 size={16} className="animate-spin" />
             Reviewing your paper...
           </>
+        ) : limitedUntil ? (
+          <>
+            <Clock size={16} />
+            Daily limit reached
+          </>
         ) : (
           <>
             <Sparkles size={16} className="text-amber-400" />
@@ -413,9 +453,11 @@ function PaperReview({
       </button>
       {!canSubmit && !isPaperReviewLoading && (
         <p className="text-xs text-gray-400 -mt-4">
-          {submissionMode === 'pdf'
-            ? 'Upload a PDF to continue.'
-            : 'Fill in at least one chapter above to continue.'}
+          {limitedUntil && countdown
+            ? `Please wait ${countdown} before trying again.`
+            : submissionMode === 'pdf'
+              ? 'Upload a PDF to continue.'
+              : 'Fill in at least one chapter above to continue.'}
         </p>
       )}
 

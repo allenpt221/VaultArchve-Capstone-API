@@ -93,7 +93,9 @@ function EntrepProgressive() {
           onContextChange={t.setContext}
           onGenerateConcept={t.handleGenerateConcept}
           isLoading={t.isConceptLoading}
-          errorMessage={t.message}
+          errorMessage={t.conceptError}
+          limitedUntil={t.conceptLimitedUntil}
+          countdown={t.conceptCountdown}
           savedConcepts={t.conceptHistory}
           savedConceptsLoading={t.conceptHistoryLoading}
           selectedConceptId={t.selectedConceptId}
@@ -118,7 +120,9 @@ function EntrepProgressive() {
           onNotesChange={t.setSwotNotes}
           onGenerateSWOT={t.handleGenerateSWOT}
           isLoading={t.isSwotLoading}
-          errorMessage={t.message}
+          errorMessage={t.swotError}
+          limitedUntil={t.swotLimitedUntil}
+          countdown={t.swotCountdown}
           savedSWOTs={t.swotHistory}
           savedSWOTsLoading={t.swotHistoryLoading}
           selectedSwotId={t.selectedSwotId}
@@ -136,7 +140,9 @@ function EntrepProgressive() {
           onSurveyResultsInterpretationChange={t.setSurveyResultsInterpretation}
           onGenerateMarketResearch={t.handleGenerateMarketResearch}
           isLoading={t.isMarketLoading}
-          errorMessage={t.message}
+          errorMessage={t.marketError}
+          limitedUntil={t.marketLimitedUntil}
+          countdown={t.marketCountdown}
           savedMarketResearches={t.marketHistory}
           savedMarketResearchesLoading={t.marketHistoryLoading}
           selectedMarketId={t.selectedMarketId}
@@ -160,7 +166,9 @@ function EntrepProgressive() {
           onVariantsChange={t.setVariants}
           onGenerateProduction={t.handleGenerateProduction}
           isLoading={t.isProductionLoading}
-          errorMessage={t.message}
+          errorMessage={t.productionError}
+          limitedUntil={t.productionLimitedUntil}
+          countdown={t.productionCountdown}
           savedProductions={t.productionHistory}
           savedProductionsLoading={t.productionHistoryLoading}
           selectedProductionId={t.selectedProductionId}
@@ -176,7 +184,9 @@ function EntrepProgressive() {
           onNotesChange={t.setFinancialNotes}
           onGenerateFinancial={t.handleGenerateFinancial}
           isLoading={t.isFinancialLoading}
-          errorMessage={t.message}
+          errorMessage={t.financialError}
+          limitedUntil={t.financialLimitedUntil}
+          countdown={t.financialCountdown}
           savedFinancials={t.financialHistory}
           savedFinancialsLoading={t.financialHistoryLoading}
           selectedFinancialId={t.selectedFinancialId}

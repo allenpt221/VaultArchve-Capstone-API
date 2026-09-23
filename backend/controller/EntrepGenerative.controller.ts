@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
 import { checkMeaningfulText, DAILY_PROMPT_LIMIT, openai } from "./generativeAI.controller";
-import { checkDailyLimit } from "../lib/checkDailyLimit";
+import { checkUsageLimit, logUsage } from "../lib/usageLimit";
+import { saveOrReplace } from "../lib/Saveorreplace";
 
 /**
  * POST /entrep-progressive/concept/guidance
  * Takes a raw business idea + optional context and returns AI guidance:
  * feedback, feasibility, refined concept statement options, name/tagline
  * suggestions, and next steps. Saves the response for history.
+ * The same idea (ignoring case/extra spaces) updates its existing row
+ * instead of creating a duplicate.
  */
 export async function EntrepConcept(req: Request, res: Response) {
   try {
@@ -32,7 +35,7 @@ export async function EntrepConcept(req: Request, res: Response) {
       return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "entrepConcept", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "entrepConcept", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -76,6 +79,8 @@ export async function EntrepConcept(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "entrepConcept");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -90,16 +95,20 @@ export async function EntrepConcept(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("entrep_concept_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "entrep_concept_responses",
       user_id,
+      "idea",
       idea,
-      context: context?.trim() ? context : null,
-      feedback: guidance.feedback,
-      feasibility: guidance.feasibility,
-      refined_concept_statements: guidance.refinedConceptStatements,
-      suggested_names: guidance.suggestedNames,
-      next_steps: guidance.nextSteps,
-    });
+      {
+        context: context?.trim() ? context : null,
+        feedback: guidance.feedback,
+        feasibility: guidance.feasibility,
+        refined_concept_statements: guidance.refinedConceptStatements,
+        suggested_names: guidance.suggestedNames,
+        next_steps: guidance.nextSteps,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -137,7 +146,7 @@ export async function EntrepSWOT(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "entrepSWOT", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "entrepSWOT", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -179,6 +188,8 @@ export async function EntrepSWOT(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "entrepSWOT");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -193,19 +204,23 @@ export async function EntrepSWOT(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("entrep_swot_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "entrep_swot_responses",
       user_id,
+      "idea",
       idea,
-      concept_statement: conceptStatement,
-      notes: notes?.trim() ? notes : null,
-      strengths: guidance.strengths,
-      weaknesses: guidance.weaknesses,
-      opportunities: guidance.opportunities,
-      threats: guidance.threats,
-      so_strategies: guidance.soStrategies,
-      wo_strategies: guidance.woStrategies,
-      st_contingencies: guidance.stContingencies,
-    });
+      {
+        concept_statement: conceptStatement,
+        notes: notes?.trim() ? notes : null,
+        strengths: guidance.strengths,
+        weaknesses: guidance.weaknesses,
+        opportunities: guidance.opportunities,
+        threats: guidance.threats,
+        so_strategies: guidance.soStrategies,
+        wo_strategies: guidance.woStrategies,
+        st_contingencies: guidance.stContingencies,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -242,7 +257,7 @@ export async function EntrepMarketResearch(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "entrepMarketResearch", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "entrepMarketResearch", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -287,6 +302,8 @@ export async function EntrepMarketResearch(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "entrepMarketResearch");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -301,16 +318,20 @@ export async function EntrepMarketResearch(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("entrep_market_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "entrep_market_responses",
       user_id,
+      "idea",
       idea,
-      concept_statement: conceptStatement,
-      notes: notes?.trim() ? notes : null,
-      primary_market: guidance.primaryMarket,
-      secondary_market: guidance.secondaryMarket,
-      segmentation_justification: guidance.segmentationJustification,
-      survey_sections: guidance.surveySections,
-    });
+      {
+        concept_statement: conceptStatement,
+        notes: notes?.trim() ? notes : null,
+        primary_market: guidance.primaryMarket,
+        secondary_market: guidance.secondaryMarket,
+        segmentation_justification: guidance.segmentationJustification,
+        survey_sections: guidance.surveySections,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -350,7 +371,7 @@ export async function EntrepProduction(req: Request, res: Response) {
       return res.status(400).json({ message: "Daily output is required." });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "entrepProduction", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "entrepProduction", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -397,6 +418,8 @@ export async function EntrepProduction(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "entrepProduction");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -411,17 +434,21 @@ export async function EntrepProduction(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("entrep_production_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "entrep_production_responses",
       user_id,
+      "idea",
       idea,
-      concept_statement: conceptStatement,
-      suppliers,
-      daily_output: dailyOutput,
-      operating_days_per_week: operatingDaysPerWeek || null,
-      variants: variants || null,
-      process_steps: guidance.processSteps,
-      feasibility_note: guidance.feasibilityNote,
-    });
+      {
+        concept_statement: conceptStatement,
+        suppliers,
+        daily_output: dailyOutput,
+        operating_days_per_week: operatingDaysPerWeek || null,
+        variants: variants || null,
+        process_steps: guidance.processSteps,
+        feasibility_note: guidance.feasibilityNote,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);
@@ -458,7 +485,7 @@ export async function EntrepFinancial(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkDailyLimit(user_id, "entrepFinancial", DAILY_PROMPT_LIMIT);
+    const { allowed } = await checkUsageLimit(user_id, "entrepFinancial", DAILY_PROMPT_LIMIT);
 
     if (!allowed) {
       return res.status(429).json({
@@ -521,6 +548,8 @@ export async function EntrepFinancial(req: Request, res: Response) {
       ],
     });
 
+    await logUsage(user_id, "entrepFinancial");
+
     const rawText = result.choices[0].message.content || "";
 
     let parsed;
@@ -535,23 +564,27 @@ export async function EntrepFinancial(req: Request, res: Response) {
 
     const { guidance } = parsed;
 
-    const { error: saveError } = await supabase.from("entrep_financial_responses").insert({
+    const { error: saveError } = await saveOrReplace(
+      "entrep_financial_responses",
       user_id,
+      "idea",
       idea,
-      concept_statement: conceptStatement,
-      notes: notes?.trim() ? notes : null,
-      startup_cost_categories: guidance.startupCostCategories,
-      pricing_strategy: guidance.pricingStrategy,
-      revenue_model_note: guidance.revenueModelNote,
-      viability_summary: guidance.viabilitySummary,
-      break_even_note: guidance.breakEvenNote,
-      funding_options: guidance.fundingOptions,
-      key_metrics_to_track: guidance.keyMetricsToTrack,
-      risk_flags: guidance.riskFlags,
-      thirty_day_action_plan: guidance.thirtyDayActionPlan,
-      recommendation: guidance.recommendation,
-      closing_summary: guidance.closingSummary,
-    });
+      {
+        concept_statement: conceptStatement,
+        notes: notes?.trim() ? notes : null,
+        startup_cost_categories: guidance.startupCostCategories,
+        pricing_strategy: guidance.pricingStrategy,
+        revenue_model_note: guidance.revenueModelNote,
+        viability_summary: guidance.viabilitySummary,
+        break_even_note: guidance.breakEvenNote,
+        funding_options: guidance.fundingOptions,
+        key_metrics_to_track: guidance.keyMetricsToTrack,
+        risk_flags: guidance.riskFlags,
+        thirty_day_action_plan: guidance.thirtyDayActionPlan,
+        recommendation: guidance.recommendation,
+        closing_summary: guidance.closingSummary,
+      }
+    );
 
     if (saveError) {
       console.log(saveError);

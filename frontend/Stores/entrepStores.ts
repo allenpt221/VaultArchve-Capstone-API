@@ -54,7 +54,7 @@ interface EntrepGenerativeProps {
   conceptLimit: number
   conceptOffset: number
   conceptHistoryLoading: boolean
-  EntrepConceptAI: (data: ConceptProps) => Promise<void>
+  EntrepConceptAI: (data: ConceptProps) => Promise<boolean>
   GetEntrepConcepts: (opts?: { limit?: number; offset?: number }) => Promise<void>
   DeleteEntrepConcept: (id: string) => Promise<void>
 
@@ -65,7 +65,7 @@ interface EntrepGenerativeProps {
   swotLimit: number
   swotOffset: number
   swotHistoryLoading: boolean
-  EntrepSWOTAI: (data: SWOTProps) => Promise<void>
+  EntrepSWOTAI: (data: SWOTProps) => Promise<boolean>
   GetEntrepSWOTs: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   // ── Market Research ──
@@ -75,7 +75,7 @@ interface EntrepGenerativeProps {
   marketLimit: number
   marketOffset: number
   marketHistoryLoading: boolean
-  EntrepMarketResearchAI: (data: MarketResearchProps) => Promise<void>
+  EntrepMarketResearchAI: (data: MarketResearchProps) => Promise<boolean>
   GetEntrepMarketResearches: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   // ── Production ──
@@ -85,7 +85,7 @@ interface EntrepGenerativeProps {
   productionLimit: number
   productionOffset: number
   productionHistoryLoading: boolean
-  EntrepProductionAI: (data: ProductionProps) => Promise<void>
+  EntrepProductionAI: (data: ProductionProps) => Promise<boolean>
   GetEntrepProductions: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   // ── Financial ──
@@ -95,7 +95,7 @@ interface EntrepGenerativeProps {
   financialLimit: number
   financialOffset: number
   financialHistoryLoading: boolean
-  EntrepFinancialAI: (data: FinancialProps) => Promise<void>
+  EntrepFinancialAI: (data: FinancialProps) => Promise<boolean>
   GetEntrepFinancials: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   loading: boolean
@@ -142,7 +142,7 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   message: '',
 
   // ── Concept ──────────────────────────────────────────────────────
-  EntrepConceptAI: async ({ idea, context }) => {
+  EntrepConceptAI: async ({ idea, context }): Promise<boolean> => {
     try {
       set({ loading: true, message: '' })
       const res = await axios.post('/entrep-ai/concept', { idea, context })
@@ -151,16 +151,18 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
         loading: false,
         message: 'Concept guidance generated successfully!',
       })
+      return true
     } catch (error: any) {
       set({ loading: false })
       const status = error.response?.status
       const data = error.response?.data
-      if (status === 401) return set({ message: data?.message || 'Unauthorized Access. Please log in' })
-      if (status === 400) return set({ message: data?.message || 'Invalid request. Please check your input.' })
-      if (status === 429) return set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' })
-      if (status === 500) return set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' })
+      if (status === 401) { set({ message: data?.message || 'Unauthorized Access. Please log in' }); return false }
+      if (status === 400) { set({ message: data?.message || 'Invalid request. Please check your input.' }); return false }
+      if (status === 429) { set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' }); return false }
+      if (status === 500) { set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' }); return false }
       console.error('Entrep Concept Error:', error)
       set({ message: error.message || 'An unexpected error occurred.' })
+      return false
     }
   },
 
@@ -210,7 +212,7 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   },
 
   // ── SWOT ─────────────────────────────────────────────────────────
-  EntrepSWOTAI: async ({ idea, conceptStatement, notes }) => {
+  EntrepSWOTAI: async ({ idea, conceptStatement, notes }): Promise<boolean> => {
     try {
       set({ loading: true, message: '' })
       const res = await axios.post('/entrep-ai/swot', { idea, conceptStatement, notes })
@@ -219,16 +221,18 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
         loading: false,
         message: 'SWOT analysis generated successfully!',
       })
+      return true
     } catch (error: any) {
       set({ loading: false })
       const status = error.response?.status
       const data = error.response?.data
-      if (status === 401) return set({ message: data?.message || 'Unauthorized Access. Please log in' })
-      if (status === 400) return set({ message: data?.message || 'Invalid request. Please check your input.' })
-      if (status === 429) return set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' })
-      if (status === 500) return set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' })
+      if (status === 401) { set({ message: data?.message || 'Unauthorized Access. Please log in' }); return false }
+      if (status === 400) { set({ message: data?.message || 'Invalid request. Please check your input.' }); return false }
+      if (status === 429) { set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' }); return false }
+      if (status === 500) { set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' }); return false }
       console.error('Entrep SWOT Error:', error)
       set({ message: error.message || 'An unexpected error occurred.' })
+      return false
     }
   },
 
@@ -256,7 +260,7 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   },
 
   // ── Market Research ──────────────────────────────────────────────
-  EntrepMarketResearchAI: async ({ idea, conceptStatement, notes }) => {
+  EntrepMarketResearchAI: async ({ idea, conceptStatement, notes }): Promise<boolean> => {
     try {
       set({ loading: true, message: '' })
       const res = await axios.post('/entrep-ai/market-research', { idea, conceptStatement, notes })
@@ -265,16 +269,18 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
         loading: false,
         message: 'Market research generated successfully!',
       })
+      return true
     } catch (error: any) {
       set({ loading: false })
       const status = error.response?.status
       const data = error.response?.data
-      if (status === 401) return set({ message: data?.message || 'Unauthorized Access. Please log in' })
-      if (status === 400) return set({ message: data?.message || 'Invalid request. Please check your input.' })
-      if (status === 429) return set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' })
-      if (status === 500) return set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' })
+      if (status === 401) { set({ message: data?.message || 'Unauthorized Access. Please log in' }); return false }
+      if (status === 400) { set({ message: data?.message || 'Invalid request. Please check your input.' }); return false }
+      if (status === 429) { set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' }); return false }
+      if (status === 500) { set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' }); return false }
       console.error('Entrep Market Research Error:', error)
       set({ message: error.message || 'An unexpected error occurred.' })
+      return false
     }
   },
 
@@ -302,7 +308,7 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   },
 
   // ── Production ───────────────────────────────────────────────────
-  EntrepProductionAI: async ({ idea, conceptStatement, suppliers, dailyOutput, operatingDaysPerWeek, variants }) => {
+  EntrepProductionAI: async ({ idea, conceptStatement, suppliers, dailyOutput, operatingDaysPerWeek, variants }): Promise<boolean> => {
     try {
       set({ loading: true, message: '' })
       const res = await axios.post('/entrep-ai/production', {
@@ -318,16 +324,18 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
         loading: false,
         message: 'Production plan generated successfully!',
       })
+      return true
     } catch (error: any) {
       set({ loading: false })
       const status = error.response?.status
       const data = error.response?.data
-      if (status === 401) return set({ message: data?.message || 'Unauthorized Access. Please log in' })
-      if (status === 400) return set({ message: data?.message || 'Invalid request. Please check your input.' })
-      if (status === 429) return set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' })
-      if (status === 500) return set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' })
+      if (status === 401) { set({ message: data?.message || 'Unauthorized Access. Please log in' }); return false }
+      if (status === 400) { set({ message: data?.message || 'Invalid request. Please check your input.' }); return false }
+      if (status === 429) { set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' }); return false }
+      if (status === 500) { set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' }); return false }
       console.error('Entrep Production Error:', error)
       set({ message: error.message || 'An unexpected error occurred.' })
+      return false
     }
   },
 
@@ -355,7 +363,7 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
   },
 
   // ── Financial ────────────────────────────────────────────────────
-  EntrepFinancialAI: async ({ idea, conceptStatement, notes }) => {
+  EntrepFinancialAI: async ({ idea, conceptStatement, notes }): Promise<boolean> => {
     try {
       set({ loading: true, message: '' })
       const res = await axios.post('/entrep-ai/financial', { idea, conceptStatement, notes })
@@ -364,16 +372,18 @@ export const entrepGenerativeStore = create<EntrepGenerativeProps>((set, get) =>
         loading: false,
         message: 'Financial plan generated successfully!',
       })
+      return true
     } catch (error: any) {
       set({ loading: false })
       const status = error.response?.status
       const data = error.response?.data
-      if (status === 401) return set({ message: data?.message || 'Unauthorized Access. Please log in' })
-      if (status === 400) return set({ message: data?.message || 'Invalid request. Please check your input.' })
-      if (status === 429) return set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' })
-      if (status === 500) return set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' })
+      if (status === 401) { set({ message: data?.message || 'Unauthorized Access. Please log in' }); return false }
+      if (status === 400) { set({ message: data?.message || 'Invalid request. Please check your input.' }); return false }
+      if (status === 429) { set({ message: data?.message || 'Daily limit reached. Please try again tomorrow.' }); return false }
+      if (status === 500) { set({ message: data?.error || data?.message || 'Something went wrong. Please try again.' }); return false }
       console.error('Entrep Financial Error:', error)
       set({ message: error.message || 'An unexpected error occurred.' })
+      return false
     }
   },
 

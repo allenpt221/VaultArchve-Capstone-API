@@ -223,9 +223,9 @@ export interface ThesisChatSession {
 
 interface generativeAiProps {
   RecommendedAI: (data: RecommendedProps) => Promise<void>;
-  TopicSelectionAI: (data: TopicSelectionProps) => Promise<void>;
-  LiteratureReviewAI: (data: LiteratureReviewProps) => Promise<void>;
-  MethodologyAI: (data: MethodologyProps) => Promise<void>;
+  TopicSelectionAI: (data: TopicSelectionProps) => Promise<boolean>;
+  LiteratureReviewAI: (data: LiteratureReviewProps) => Promise<boolean>;
+  MethodologyAI: (data: MethodologyProps) => Promise<boolean>;
   GetLiteratureReviews: (params?: { limit?: number; offset?: number }) => Promise<void>;
   GetTopicSelections: (params?: { limit?: number; offset?: number }) => Promise<void>;
   GetMethodologies: (params?: { limit?: number; offset?: number }) => Promise<void>;
@@ -244,7 +244,7 @@ interface generativeAiProps {
     researchQuestions: string[]
     gapStatement?: string
     rawFindings: string
-  }) => Promise<void>
+  }) => Promise<boolean>
   GetDataAnalyses: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   // Full Paper Review
@@ -266,7 +266,7 @@ interface generativeAiProps {
   objectivesOffset: number
   objectivesLoading: boolean
   objectivesHistoryLoading: boolean
-  ObjectivesAI: (data: ObjectivesProps) => Promise<void>
+  ObjectivesAI: (data: ObjectivesProps) => Promise<boolean>
   GetObjectives: (opts?: { limit?: number; offset?: number }) => Promise<void>
 
   result: any[];
@@ -489,7 +489,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
   },
 
   // POST METHOD
-  TopicSelectionAI: async ({ topic, context }: TopicSelectionProps): Promise<void> => {
+  TopicSelectionAI: async ({ topic, context }: TopicSelectionProps): Promise<boolean> => {
     try {
       set({ loading: true, message: "" });
 
@@ -503,6 +503,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
         loading: false,
         message: "Topic guidance generated successfully!",
       });
+      return true;
 
     } catch (error: any) {
       set({ loading: false });
@@ -512,31 +513,33 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
       if (status === 401) {
         set({ message: data?.message || "Unauthorized Access. Please log in" });
-        return;
+        return false;
       }
 
       if (status === 400) {
         set({ message: data?.message || "Invalid request. Please check your input." });
-        return;
+        return false;
       }
 
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
-        return;
+        return false;
       }
 
       if (status === 500) {
         set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
-        return;
+        return false;
       }
 
       console.error("Topic Selection Error:", error);
       set({ message: error.message || "An unexpected error occurred." });
+
+      return false;
     }
   },
 
   // POST METHOD
-  LiteratureReviewAI: async ({ topic }: LiteratureReviewProps): Promise<void> => {
+  LiteratureReviewAI: async ({ topic }: LiteratureReviewProps): Promise<boolean> => {
     try {
       set({ loading: true, message: "" });
 
@@ -553,6 +556,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
         loading: false,
         message: "Literature review generated successfully!",
       });
+      return true;
 
     } catch (error: any) {
       set({ loading: false });
@@ -562,36 +566,39 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
       if (status === 401) {
         set({ message: data?.message || "Unauthorized Access. Please log in" });
-        return;
+        return false;
       }
 
       if (status === 400) {
         set({ message: data?.message || "Invalid request. Please check your input." });
-        return;
+        return false;
       }
 
       if (status === 404) {
         set({ message: data?.message || "Couldn't find enough sources for this topic. Try broadening or rephrasing it." });
-        return;
+        return false;
       }
 
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
-        return;
+        return false;
       }
 
       if (status === 500) {
         set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
-        return;
+        return false;
       }
 
       console.error("Literature Review Error:", error);
       set({ message: error.message || "An unexpected error occurred." });
+      
+      return false;
+
     }
   },
 
   // POST METHOD
-  MethodologyAI: async ({ topic, objective, researchQuestions, context }: MethodologyProps): Promise<void> => {
+  MethodologyAI: async ({ topic, objective, researchQuestions, context }: MethodologyProps): Promise<boolean> => {
     try {
       set({ loading: true, message: "" });
 
@@ -607,6 +614,8 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
         loading: false,
         message: "Methodology generated successfully!",
       });
+      
+      return true;
 
     } catch (error: any) {
       set({ loading: false });
@@ -616,26 +625,29 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
       if (status === 401) {
         set({ message: data?.message || "Unauthorized Access. Please log in" });
-        return;
+        return false;
       }
 
       if (status === 400) {
         set({ message: data?.message || "Invalid request. Please check your input." });
-        return;
+        return false;
       }
 
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
-        return;
+        return false;
       }
 
       if (status === 500) {
         set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
-        return;
+        return false;
       }
 
       console.error("Methodology Error:", error);
       set({ message: error.message || "An unexpected error occurred." });
+
+      return false;
+
     }
   },
 
@@ -643,7 +655,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
   // `objective` field). Mirrors TopicSelectionAI's shape since the backend
   // controller (SuggestedObjectives) follows the same
   // checkMeaningfulText / checkDailyLimit / json_object pattern.
-  ObjectivesAI: async ({ topic, context }: ObjectivesProps): Promise<void> => {
+  ObjectivesAI: async ({ topic, context }: ObjectivesProps): Promise<boolean> => {
     try {
       set({ objectivesLoading: true, message: "" });
 
@@ -656,7 +668,9 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
         objectives: res.data.objectives,
         objectivesLoading: false,
         message: "Objectives generated successfully!",
-      });
+      }); 
+      
+      return true;
 
     } catch (error: any) {
       set({ objectivesLoading: false });
@@ -666,26 +680,29 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
       if (status === 401) {
         set({ message: data?.message || "Unauthorized Access. Please log in" });
-        return;
+        return false;
       }
 
       if (status === 400) {
         set({ message: data?.message || "Invalid request. Please check your input." });
-        return;
+        return false;;
       }
 
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
-        return;
+        return false;;
       }
 
       if (status === 500) {
         set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
-        return;
+        return false;;
       }
 
       console.error("Suggested Objectives Error:", error);
       set({ message: error.message || "An unexpected error occurred." });
+
+      return false;
+
     }
   },
   
@@ -733,18 +750,27 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
 
   // POST METHOD
-  DataAnalysisAI: async (params) => {
-  set({ loading: true, message: null })
+  DataAnalysisAI: async (params): Promise<boolean> => {
+    set({ loading: true, message: null })
+
     try {
       const res = await axios.post('/ai/data-analysis', params)
-      set({ dataAnalysis: res.data.dataAnalysis })
+
+      set({
+        dataAnalysis: res.data.dataAnalysis
+      })
+
+      return true
     } catch (error: any) {
       console.log(error)
+
       set({
         message:
           error?.response?.data?.message ||
           'Could not generate the data analysis. Please try again.',
       })
+
+      return false
     } finally {
       set({ loading: false })
     }

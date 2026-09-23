@@ -8,6 +8,13 @@ export function useEntrepProgressiveTrial() {
   const [activeStage, setActiveStage] = useState<EntrepStageKey>('concept')
   const [completedStages, setCompletedStages] = useState<Set<EntrepStageKey>>(new Set())
 
+  // Per-stage error messages — mirrors the research trail pattern.
+  const [conceptError, setConceptError] = useState<string | null>(null)
+  const [swotError, setSwotError] = useState<string | null>(null)
+  const [marketError, setMarketError] = useState<string | null>(null)
+  const [productionError, setProductionError] = useState<string | null>(null)
+  const [financialError, setFinancialError] = useState<string | null>(null)
+
   const {
     EntrepConceptAI,
     EntrepSWOTAI,
@@ -36,20 +43,19 @@ export function useEntrepProgressiveTrial() {
     productionHistoryLoading,
     financialHistoryLoading,
     conceptTotal,
-    conceptLimit,
+    conceptLimit: conceptLimitOffset,
     conceptOffset,
     swotTotal,
-    swotLimit,
+    swotLimit: swotLimitOffset,
     swotOffset,
     marketTotal,
-    marketLimit,
+    marketLimit: marketLimitOffset,
     marketOffset,
     productionTotal,
-    productionLimit,
+    productionLimit: productionLimitOffset,
     productionOffset,
     financialTotal,
-    financialLimit,
-    financialOffset,
+    financialLimit: financialLimitOffset,
     loading,
     message,
   } = entrepGenerativeStore()
@@ -116,6 +122,54 @@ export function useEntrepProgressiveTrial() {
       next.delete(stage)
       return next
     })
+
+  // ── Daily-limit detection + countdown (same pattern as the research trail) ──
+  const isDailyLimitMsg = (msg: string | null) =>
+    !!msg && (msg.includes('Daily limit reached') || msg.includes('daily limit of'))
+
+  // Reset happens at local midnight, matching the backend's per-day window
+  function getMsUntilMidnight() {
+    const now = new Date()
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    return midnight.getTime() - now.getTime()
+  }
+
+  function formatCountdown(ms: number) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  function useLimitCountdown() {
+    const [limitedUntil, setLimitedUntil] = useState<number | null>(null)
+    const [countdown, setCountdown] = useState('')
+
+    useEffect(() => {
+      if (!limitedUntil) return
+      const tick = () => {
+        const remaining = limitedUntil - Date.now()
+        if (remaining <= 0) {
+          setLimitedUntil(null)
+          setCountdown('')
+        } else {
+          setCountdown(formatCountdown(remaining))
+        }
+      }
+      tick()
+      const interval = setInterval(tick, 1000)
+      return () => clearInterval(interval)
+    }, [limitedUntil])
+
+    return { limitedUntil, setLimitedUntil, countdown }
+  }
+
+  const conceptDailyLimit = useLimitCountdown()
+  const swotDailyLimit = useLimitCountdown()
+  const marketDailyLimit = useLimitCountdown()
+  const productionDailyLimit = useLimitCountdown()
+  const financialDailyLimit = useLimitCountdown()
 
   // ── Auto-match saved work to the current idea ──────────────────────
   // Same pattern as the research trail: if the current idea text matches
@@ -272,18 +326,30 @@ export function useEntrepProgressiveTrial() {
 
   // ── Concept handlers ─────────────────────────────────────────────
   const handleGenerateConcept = async () => {
-    if (!idea.trim() || loading) return
+    if (!idea.trim() || loading || conceptDailyLimit.limitedUntil) return
+    setConceptError(null)
     setSelectedConceptId(null)
-    await EntrepConceptAI({ idea, context })
-    if (entrepGenerativeStore.getState().conceptGuidance) {
+    const success = await EntrepConceptAI({ idea, context })
+
+    const currentMessage = entrepGenerativeStore.getState().message
+
+    if (success) {
+      setConceptError(null)
       markComplete('concept')
       GetEntrepConcepts({ limit: 20, offset: 0 })
+    } else {
+      setConceptError(currentMessage || 'Unable to generate concept guidance.')
+
+      if (isDailyLimitMsg(currentMessage)) {
+        conceptDailyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
   const handleSelectSavedConcept = (id: string) => {
     const saved = conceptHistory.find((c) => c.id === id)
     if (!saved) return
+    setConceptError(null)
     setSelectedConceptId(id)
     setIdea(saved.idea ?? '')
     setContext(saved.context || '')
@@ -300,6 +366,7 @@ export function useEntrepProgressiveTrial() {
     const wasActiveConcept = selectedConceptId === id
 
     if (wasActiveConcept) {
+      setConceptError(null)
       setSelectedConceptId(null)
       unmarkComplete('concept')
 
@@ -344,18 +411,30 @@ export function useEntrepProgressiveTrial() {
 
   // ── SWOT handlers ────────────────────────────────────────────────
   const handleGenerateSWOT = async () => {
-    if (!idea.trim() || !selectedConceptStatement.trim() || loading) return
+    if (!idea.trim() || !selectedConceptStatement.trim() || loading || swotDailyLimit.limitedUntil) return
+    setSwotError(null)
     setSelectedSwotId(null)
-    await EntrepSWOTAI({ idea, conceptStatement: selectedConceptStatement, notes: swotNotes })
-    if (entrepGenerativeStore.getState().swotGuidance) {
+    const success = await EntrepSWOTAI({ idea, conceptStatement: selectedConceptStatement, notes: swotNotes })
+
+    const currentMessage = entrepGenerativeStore.getState().message
+
+    if (success) {
+      setSwotError(null)
       markComplete('swot')
       GetEntrepSWOTs({ limit: 20, offset: 0 })
+    } else {
+      setSwotError(currentMessage || 'Unable to generate the SWOT analysis.')
+
+      if (isDailyLimitMsg(currentMessage)) {
+        swotDailyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
   const handleSelectSavedSWOT = (id: string) => {
     const saved = swotHistory.find((s) => s.id === id)
     if (!saved) return
+    setSwotError(null)
     setSelectedSwotId(id)
     setIdea(saved.idea ?? '')
     setSelectedConceptStatement(saved.concept_statement ?? '')
@@ -383,18 +462,30 @@ export function useEntrepProgressiveTrial() {
 
   // ── Market Research handlers ─────────────────────────────────────
   const handleGenerateMarketResearch = async () => {
-    if (!idea.trim() || !selectedConceptStatement.trim() || loading) return
+    if (!idea.trim() || !selectedConceptStatement.trim() || loading || marketDailyLimit.limitedUntil) return
+    setMarketError(null)
     setSelectedMarketId(null)
-    await EntrepMarketResearchAI({ idea, conceptStatement: selectedConceptStatement, notes: marketNotes })
-    if (entrepGenerativeStore.getState().marketGuidance) {
+    const success = await EntrepMarketResearchAI({ idea, conceptStatement: selectedConceptStatement, notes: marketNotes })
+
+    const currentMessage = entrepGenerativeStore.getState().message
+
+    if (success) {
+      setMarketError(null)
       markComplete('market')
       GetEntrepMarketResearches({ limit: 20, offset: 0 })
+    } else {
+      setMarketError(currentMessage || 'Unable to generate the market research.')
+
+      if (isDailyLimitMsg(currentMessage)) {
+        marketDailyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
   const handleSelectSavedMarketResearch = (id: string) => {
     const saved = marketHistory.find((m) => m.id === id)
     if (!saved) return
+    setMarketError(null)
     setSelectedMarketId(id)
     setIdea(saved.idea ?? '')
     setSelectedConceptStatement(saved.concept_statement ?? '')
@@ -436,12 +527,14 @@ export function useEntrepProgressiveTrial() {
       !selectedConceptStatement.trim() ||
       suppliers.every((s) => !s.name.trim()) ||
       !dailyOutput.trim() ||
-      loading
+      loading ||
+      productionDailyLimit.limitedUntil
     ) {
       return
     }
+    setProductionError(null)
     setSelectedProductionId(null)
-    await EntrepProductionAI({
+    const success = await EntrepProductionAI({
       idea,
       conceptStatement: selectedConceptStatement,
       suppliers,
@@ -449,15 +542,26 @@ export function useEntrepProgressiveTrial() {
       operatingDaysPerWeek,
       variants,
     })
-    if (entrepGenerativeStore.getState().productionGuidance) {
+
+    const currentMessage = entrepGenerativeStore.getState().message
+
+    if (success) {
+      setProductionError(null)
       markComplete('production')
       GetEntrepProductions({ limit: 20, offset: 0 })
+    } else {
+      setProductionError(currentMessage || 'Unable to generate the production plan.')
+
+      if (isDailyLimitMsg(currentMessage)) {
+        productionDailyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
   const handleSelectSavedProduction = (id: string) => {
     const saved = productionHistory.find((p) => p.id === id)
     if (!saved) return
+    setProductionError(null)
     setSelectedProductionId(id)
     setIdea(saved.idea ?? '')
     setSelectedConceptStatement(saved.concept_statement ?? '')
@@ -483,18 +587,30 @@ export function useEntrepProgressiveTrial() {
 
   // ── Financial handlers ───────────────────────────────────────────
   const handleGenerateFinancial = async () => {
-    if (!idea.trim() || !selectedConceptStatement.trim() || loading) return
+    if (!idea.trim() || !selectedConceptStatement.trim() || loading || financialDailyLimit.limitedUntil) return
+    setFinancialError(null)
     setSelectedFinancialId(null)
-    await EntrepFinancialAI({ idea, conceptStatement: selectedConceptStatement, notes: financialNotes })
-    if (entrepGenerativeStore.getState().financialGuidance) {
+    const success = await EntrepFinancialAI({ idea, conceptStatement: selectedConceptStatement, notes: financialNotes })
+
+    const currentMessage = entrepGenerativeStore.getState().message
+
+    if (success) {
+      setFinancialError(null)
       markComplete('financial')
       GetEntrepFinancials({ limit: 20, offset: 0 })
+    } else {
+      setFinancialError(currentMessage || 'Unable to generate the financial plan.')
+
+      if (isDailyLimitMsg(currentMessage)) {
+        financialDailyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
   const handleSelectSavedFinancial = (id: string) => {
     const saved = financialHistory.find((f) => f.id === id)
     if (!saved) return
+    setFinancialError(null)
     setSelectedFinancialId(id)
     setIdea(saved.idea ?? '')
     setSelectedConceptStatement(saved.concept_statement ?? '')
@@ -534,6 +650,13 @@ export function useEntrepProgressiveTrial() {
     isStageLocked,
     markComplete,
     message,
+
+    conceptError,
+    swotError,
+    marketError,
+    productionError,
+    financialError,
+
     isConceptLoading: loading && activeStage === 'concept',
     isSwotLoading: loading && activeStage === 'swot',
     isMarketLoading: loading && activeStage === 'market',
@@ -621,5 +744,17 @@ export function useEntrepProgressiveTrial() {
     selectedFinancialId,
     handleSelectSavedFinancial,
     displayedFinancial,
+
+    // daily-limit countdowns
+    conceptLimitedUntil: conceptDailyLimit.limitedUntil,
+    conceptCountdown: conceptDailyLimit.countdown,
+    swotLimitedUntil: swotDailyLimit.limitedUntil,
+    swotCountdown: swotDailyLimit.countdown,
+    marketLimitedUntil: marketDailyLimit.limitedUntil,
+    marketCountdown: marketDailyLimit.countdown,
+    productionLimitedUntil: productionDailyLimit.limitedUntil,
+    productionCountdown: productionDailyLimit.countdown,
+    financialLimitedUntil: financialDailyLimit.limitedUntil,
+    financialCountdown: financialDailyLimit.countdown,
   }
 }

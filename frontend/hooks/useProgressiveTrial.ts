@@ -7,6 +7,16 @@ import type { MethodologyApproach } from './types'
 export function useProgressiveTrial() {
   const [activeStage, setActiveStage] = useState<StageKey>('topic')
   const [completedStages, setCompletedStages] = useState<Set<StageKey>>(new Set())
+  const [topicError, setTopicError] = useState<string | null>(null)
+  const [objectiveError, setObjectiveError] = useState<string | null>(null)
+  const [literatureError, setLiteratureError] = useState<string | null>(null)
+  const [methodologyError, setMethodologyError] = useState<string | null>(null)
+  const [dataCollectionError, setDataCollectionError] = useState<string | null>(null)
+  const [paperReviewError, setPaperReviewError] = useState<string | null>(null)
+
+
+
+
 
   const {
     TopicSelectionAI,
@@ -123,7 +133,7 @@ export function useProgressiveTrial() {
     localStorage.setItem(STAGE_STORAGE_KEY, activeStage)
   }, [activeStage])
 
-  useEffect(() => {                                                          // ← add this block
+  useEffect(() => {
     localStorage.setItem(RESEARCH_QUESTIONS_STORAGE_KEY, JSON.stringify(researchQuestions))
   }, [researchQuestions])
 
@@ -337,20 +347,84 @@ export function useProgressiveTrial() {
       return next
     })
 
+
+   const isDailyLimitMsg = (msg: string | null) =>
+    !!msg && (msg.includes("Daily limit reached") || msg.includes("daily limit of"))
+
+    // Reset happens at local midnight, matching the backend's per-day window
+    function getMsUntilMidnight() {
+      const now = new Date()
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      return midnight.getTime() - now.getTime()
+    }
+
+    function formatCountdown(ms: number) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+      const h = Math.floor(totalSeconds / 3600)
+      const m = Math.floor((totalSeconds % 3600) / 60)
+      const s = totalSeconds % 60
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    }
+
+
+  function useLimitCountdown() {
+  const [limitedUntil, setLimitedUntil] = useState<number | null>(null)
+  const [countdown, setCountdown] = useState('')
+
+  useEffect(() => {
+    if (!limitedUntil) return
+    const tick = () => {
+      const remaining = limitedUntil - Date.now()
+      if (remaining <= 0) {
+        setLimitedUntil(null)
+        setCountdown('')
+      } else {
+        setCountdown(formatCountdown(remaining))
+      }
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [limitedUntil])
+
+  return { limitedUntil, setLimitedUntil, countdown }
+}
+
+const topicLimit = useLimitCountdown()
+const objectiveLimit = useLimitCountdown()
+const literatureLimit = useLimitCountdown()
+const methodologyLimit = useLimitCountdown()
+const collectionLimit = useLimitCountdown()
+const paperReviewLimit = useLimitCountdown()
+
   // ── Topic Selection handlers ──────────────────────────────────────
   const handleGetGuidance = async () => {
-    if (!topic.trim() || loading) return
-    setSelectedTopicId(null) // a fresh generation takes priority over any selected saved topic
-    await TopicSelectionAI({ topic, context })
-    if (generativeStore.getState().topicGuidance) {
+    if (!topic.trim() || loading || topicLimit.limitedUntil) return
+    setTopicError(null)
+    setSelectedTopicId(null)
+    
+    const success = await TopicSelectionAI({ topic, context });
+
+    const currentMessage = generativeStore.getState().message;
+
+    if (success) {
+      setTopicError(null)
       markComplete('topic')
-      GetTopicSelections() // refresh the saved list so the new one shows up
+      GetTopicSelections()
+    } else 
+      
+      setTopicError(currentMessage || 'Unable to generate topic guidance.')
+
+      if(isDailyLimitMsg(generativeStore.getState().message)) {
+      topicLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
   }
 
   const handleSelectSavedTopic = (id: string) => {
     const saved = topicSelectionHistory.find((t) => t.id === id)
     if (!saved) return
+
+    setTopicError(null)
     setSelectedTopicId(id)
     setTopic(saved.topic)
     setContext(saved.context || '')
@@ -363,6 +437,9 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
   const wasActiveTopic = selectedTopicId === id
 
   if (wasActiveTopic) {
+
+    setTopicError(null)
+    
     // Clear the topic stage itself
     setSelectedTopicId(null)
     unmarkComplete('topic')
@@ -394,20 +471,35 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
 
   // ── Objectives handlers ─────────────────────────────────────────────
   const handleSuggestObjectives = async () => {
-    if (!topic.trim() || objectivesLoading) return
-    setSelectedObjectiveId(null) // a fresh generation takes priority over any selected saved objectives
-    setObjectiveApplied(false) // a fresh suggestion needs re-applying
-    await ObjectivesAI({ topic, context })
-    if (generativeStore.getState().objectives) {
-      setObjectivesTopic(topic) // remember which topic this result belongs to
+    if (!topic.trim() || objectivesLoading || objectiveLimit.limitedUntil) return
+
+    setObjectiveError(null)
+    setSelectedObjectiveId(null)
+    setObjectiveApplied(false)
+
+    const success = await ObjectivesAI({ topic, context })
+
+    const currentMessage = generativeStore.getState().message
+
+    if (success) {
+      setObjectiveError(null)
+      setObjectivesTopic(topic)
       markComplete('objective')
-      GetObjectives({ limit: 20, offset: 0 }) // refresh the saved list so the new one shows up
+      GetObjectives({ limit: 20, offset: 0 })
+    } else 
+      
+      setObjectiveError(currentMessage || 'Unable to generate objectives.')
+
+      if(isDailyLimitMsg(generativeStore.getState().message)) {
+      objectiveLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
   }
 
   const handleSelectSavedObjective = (id: string) => {
     const saved = objectivesHistory.find((o) => o.id === id)
     if (!saved) return
+
+    setObjectiveError(null)
     setSelectedObjectiveId(id)
     setTopic(saved.topic)
     setContext(saved.context || '')
@@ -485,18 +577,32 @@ const displayedObjectives = useMemo(() => {
   // The AI now finds and verifies real sources itself via web search —
   // the user just supplies a topic, so there's no manual source form anymore.
   const handleGenerateReview = async () => {
-    if (!topic.trim() || loading) return
-    setSelectedReviewId(null) // a fresh generation takes priority over any selected saved review
-    await LiteratureReviewAI({ topic })
-    if (generativeStore.getState().literatureReview) {
+    if (!topic.trim() || loading || literatureLimit.limitedUntil) return
+
+    setLiteratureError(null)
+    setSelectedReviewId(null)
+    
+    const success = await LiteratureReviewAI({ topic })
+
+    const currentMessage = generativeStore.getState().message
+
+    if (success) {
+      setLiteratureError(null)
       markComplete('literature')
-      GetLiteratureReviews() // refresh the saved list so the new one shows up
+      GetLiteratureReviews()
+    } else 
+      setLiteratureError(currentMessage || 'Unable to generate the literature review.')
+
+      if(isDailyLimitMsg(generativeStore.getState().message)) {
+      literatureLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
   }
 
   const handleSelectSavedReview = (id: string) => {
     const saved = literatureReviewHistory.find((r) => r.id === id)
     if (!saved) return
+
+    setLiteratureError(null)
     setSelectedReviewId(id)
     setTopic(saved.topic)
     markComplete('literature')
@@ -531,23 +637,37 @@ const displayedObjectives = useMemo(() => {
   }
 
   const handleGenerateMethodology = async () => {
-    if (!methodologyObjective.trim() || researchQuestions.length < MIN_RESEARCH_QUESTIONS || loading) return
-    setSelectedMethodologyId(null) // a fresh generation takes priority over any selected saved methodology
-    await MethodologyAI({
+    if (!methodologyObjective.trim() || researchQuestions.length < MIN_RESEARCH_QUESTIONS || loading || methodologyLimit.limitedUntil) return
+    
+    setMethodologyError(null)
+    setSelectedMethodologyId(null)
+
+    const success = await MethodologyAI({
       topic,
       objective: methodologyObjective,
       researchQuestions,
       context: methodologyContext,
     })
-    if (generativeStore.getState().methodology) {
+
+    const currentMessage = generativeStore.getState().message
+
+    if (success) {
+      setMethodologyError(null)
       markComplete('methodology')
-      GetMethodologies() // refresh the saved list so the new one shows up
+      GetMethodologies()
+    } else 
+      setMethodologyError(currentMessage || 'Unable to generate the methodology.')
+
+      if(isDailyLimitMsg(generativeStore.getState().message)) {
+      methodologyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
   }
 
   const handleSelectSavedMethodology = (id: string) => {
     const saved = methodologyHistory.find((m) => m.id === id)
     if (!saved) return
+
+    setMethodologyError(null)
     setSelectedMethodologyId(id)
     setResearchQuestions(saved.research_questions)
     setMethodologyObjective(saved.objective || '')
@@ -584,21 +704,34 @@ const displayedObjectives = useMemo(() => {
       !dataCollectionApproach ||
       researchQuestions.length === 0 ||
       !rawFindings.trim() ||
-      loading
+      loading ||
+      collectionLimit.limitedUntil
     ) {
       return
     }
-    setSelectedDataAnalysisId(null) // a fresh generation takes priority over any selected saved analysis
-    await DataAnalysisAI({
+
+    setDataCollectionError(null)
+    setSelectedDataAnalysisId(null)
+
+    const success = await DataAnalysisAI({
       topic,
       approach: dataCollectionApproach,
       researchQuestions,
       gapStatement: gapStatement.trim() ? gapStatement : undefined,
       rawFindings,
-    })
-    if (generativeStore.getState().dataAnalysis) {
+    });
+
+    const currentMessage = generativeStore.getState().message
+
+    if (success) {
       markComplete('collection')
-      GetDataAnalyses({ limit: 20, offset: 0 }) // refresh the saved list so the new one shows up
+      GetDataAnalyses({ limit: 20, offset: 0 })
+    } else 
+
+      setDataCollectionError(currentMessage || 'Unable to generate the data analysis.');
+      
+      if(isDailyLimitMsg(generativeStore.getState().message)) {
+      collectionLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
   }
 
@@ -608,6 +741,8 @@ const displayedObjectives = useMemo(() => {
   const handleSelectSavedDataAnalysis = (id: string) => {
     const saved = dataAnalysisHistory.find((d) => d.id === id)
     if (!saved) return
+
+    setDataCollectionError(null)
     setSelectedDataAnalysisId(id)
     setTopic(saved.topic)
     setDataCollectionApproach(saved.approach)
@@ -645,12 +780,24 @@ const displayedObjectives = useMemo(() => {
   // back to the current topic (see the auto-match effect above).
   const handleUploadPaperReview = async (manualSections?: Record<string, string>) => {
     const hasManualText = !!manualSections && Object.keys(manualSections).length > 0
-    if ((!paperFile && !hasManualText) || fullPaperReviewLoading) return
+    if ((!paperFile && !hasManualText) || fullPaperReviewLoading || paperReviewLimit.limitedUntil) return
+
+    setPaperReviewError(null)
     setSelectedPaperReviewId(null) // a fresh upload takes priority over any selected saved review
     await FullPaperReviewAI(paperFile, manualSections, topic)
-    if (generativeStore.getState().fullPaperReview) {
-      markComplete('paper-review')
-      GetFullPaperReviews({ limit: 20, offset: 0 }) // refresh the saved list so the new one shows up
+
+    const state = generativeStore.getState()
+
+    if (state.fullPaperReview) { 
+      setPaperReviewError(null) 
+      markComplete('paper-review') 
+      GetFullPaperReviews({ limit: 20, offset: 0 }) 
+    } else { 
+      setPaperReviewError( state.message || 'Unable to generate the paper review.' ) 
+
+      if (isDailyLimitMsg(state.message)) {
+        paperReviewLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
@@ -661,6 +808,8 @@ const displayedObjectives = useMemo(() => {
   const handleSelectSavedPaperReview = (id: string) => {
     const saved = fullPaperReviewHistory.find((r) => r.id === id)
     if (!saved) return
+
+    setPaperReviewError(null)
     setSelectedPaperReviewId(id)
     markComplete('paper-review')
   }
@@ -685,6 +834,7 @@ const displayedObjectives = useMemo(() => {
     return fullPaperReview
   }, [selectedPaperReviewId, fullPaperReviewHistory, fullPaperReview])
 
+
   return {
     // navigation / progress
     activeStage,
@@ -694,7 +844,16 @@ const displayedObjectives = useMemo(() => {
     percentComplete,
     isStageLocked,
     markComplete,
+    
     message,
+
+    topicError, 
+    objectiveError, 
+    literatureError, 
+    methodologyError, 
+    dataCollectionError, 
+    paperReviewError,
+
     isTopicLoading: loading && activeStage === 'topic',
     isObjectiveLoading: objectivesLoading && activeStage === 'objective',
     isLiteratureLoading: loading && activeStage === 'literature',
@@ -780,5 +939,19 @@ const displayedObjectives = useMemo(() => {
     selectedPaperReviewId,
     handleSelectSavedPaperReview,
     displayedPaperReview,
+
+
+    topicLimitedUntil: topicLimit.limitedUntil,
+    topicCountdown: topicLimit.countdown,
+    objectiveLimitedUntil: objectiveLimit.limitedUntil,
+    objectiveCountdown: objectiveLimit.countdown,
+    literatureLimitedUntil: literatureLimit.limitedUntil,
+    literatureCountdown: literatureLimit.countdown,
+    methodologyLimitedUntil: methodologyLimit.limitedUntil,
+    methodologyCountdown: methodologyLimit.countdown,
+    collectionLimitedUntil: collectionLimit.limitedUntil,
+    collectionCountdown: collectionLimit.countdown,
+    paperReviewLimitedUntil: paperReviewLimit.limitedUntil,
+    paperReviewCountdown: paperReviewLimit.countdown,
   }
 }

@@ -30,6 +30,9 @@ type Props = {
   onSelectSavedFinancial: (id: string) => void
 
   financial: FinancialGuidance | null
+
+  limitedUntil: number | null
+  countdown: string
 }
 
 /** "Heading" followed by "- item" lines. */
@@ -48,12 +51,13 @@ export function FinancialStage({
   onGenerateFinancial,
   isLoading,
   errorMessage,
-  savedFinancials,
-  savedFinancialsLoading,
   selectedFinancialId,
-  onSelectSavedFinancial,
   financial,
+  limitedUntil,
+  countdown
 }: Props) {
+  const isLimited = !!limitedUntil
+
   return (
     <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
@@ -90,15 +94,39 @@ export function FinancialStage({
         />
       </div>
 
-      {errorMessage && !financial && (
-        <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
         </div>
       )}
 
       <button
         onClick={onGenerateFinancial}
-        disabled={!idea.trim() || !conceptStatement.trim() || isLoading}
+        disabled={!idea.trim() || !conceptStatement.trim() || isLoading || isLimited}
         className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
@@ -106,6 +134,11 @@ export function FinancialStage({
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Evaluating...
+          </>
+        ) : isLimited ? (
+          <>
+            <Sparkles className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>

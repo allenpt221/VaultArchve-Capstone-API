@@ -28,6 +28,8 @@ type Props = {
 
   production: ProductionGuidance | null
   onContinue: () => void
+  limitedUntil: number | null
+  countdown: string
 }
 
 export function ProductionStage({
@@ -46,14 +48,14 @@ export function ProductionStage({
   onGenerateProduction,
   isLoading,
   errorMessage,
-  savedProductions,
-  savedProductionsLoading,
   selectedProductionId,
-  onSelectSavedProduction,
   production,
   onContinue,
+  limitedUntil,
+  countdown
 }: Props) {
   const hasValidSupplier = suppliers.some((s) => s.name.trim())
+  const isLimited = !!limitedUntil
 
   // Strip any leading "1." / "1.2" numbering the AI included, so we can number them ourselves.
   const processSteps = (production?.processSteps ?? [])
@@ -183,15 +185,39 @@ export function ProductionStage({
         />
       </div>
 
-      {errorMessage && !production && (
-        <div className="rounded-lg px-3 py-2 text-xs font-medium" style={{ background: '#FBEAEA', color: '#7A2020' }}>
-          {errorMessage}
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
+
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
         </div>
       )}
 
       <button
         onClick={onGenerateProduction}
-        disabled={!idea.trim() || !conceptStatement.trim() || !hasValidSupplier || !dailyOutput.trim() || isLoading}
+        disabled={!idea.trim() || !conceptStatement.trim() || !hasValidSupplier || !dailyOutput.trim() || isLoading || isLimited}
         className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: '#F5B841', color: '#1A1A1A' }}
       >
@@ -199,6 +225,11 @@ export function ProductionStage({
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
             Planning...
+          </>
+        ) : isLimited ? (
+          <>
+            <Sparkles className="w-4 h-4" />
+            Daily limit reached
           </>
         ) : (
           <>
