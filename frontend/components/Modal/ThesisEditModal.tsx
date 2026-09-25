@@ -23,9 +23,9 @@ interface ThesisEditModalProps {
   course?: string;
   abstract?: string;
   introduction?: string;
-  discussion?: string;
+  scope_and_limitation?: string;
   conclusion?: string;
-  references?: string;
+  recommendation?: string;
   file_url?: string;
   // Entrepreneurship fields
   entrep_intro?: string;
@@ -49,9 +49,9 @@ function ThesisEditModal({
   course,
   abstract,
   introduction,
-  discussion,
+  scope_and_limitation,
   conclusion,
-  references,
+  recommendation,
   file_url,
   entrep_intro,
   entrep_action_plan,
@@ -70,9 +70,9 @@ function ThesisEditModal({
     course: course ?? '',
     thesis_abstract: normalize(abstract),
     thesis_introduction: normalize(introduction),
-    thesis_discussion: normalize(discussion),
+    thesis_scope_and_limitation: normalize(scope_and_limitation),
     thesis_conclusion: normalize(conclusion),
-    thesis_references: normalize(references),
+    thesis_recommendation: normalize(recommendation),
     entrep_intro: normalize(entrep_intro),
     entrep_action_plan: normalize(entrep_action_plan),
     entrep_market_product_description: normalize(entrep_market_product_description),
@@ -127,9 +127,9 @@ function ThesisEditModal({
         type: 'standard',
         thesis_abstract: formData.thesis_abstract,
         thesis_introduction: formData.thesis_introduction,
-        thesis_discussion: formData.thesis_discussion,
+        thesis_scope_and_limitation: formData.thesis_scope_and_limitation,
         thesis_conclusion: formData.thesis_conclusion,
-        thesis_references: formData.thesis_references,
+        thesis_recommendation: formData.thesis_recommendation,
       });
     }
 
@@ -318,14 +318,14 @@ function ThesisEditModal({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="discussion">Discussion</Label>
+                <Label htmlFor="scope_and_limitation">Scope and Limitation</Label>
                 <Textarea
-                  id="discussion"
+                  id="scope_and_limitation"
                   className="resize-none overflow-hidden"
                   style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_discussion}
-                  onChange={handleChange('thesis_discussion')}
-                  placeholder={discussion === 'N/A' ? 'N/A' : ''}
+                  value={formData.thesis_scope_and_limitation}
+                  onChange={handleChange('thesis_scope_and_limitation')}
+                  placeholder={scope_and_limitation === 'N/A' ? 'N/A' : ''}
                 />
               </div>
 
@@ -342,14 +342,14 @@ function ThesisEditModal({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="references">References</Label>
+                <Label htmlFor="recommendation">Recommendation</Label>
                 <Textarea
-                  id="references"
+                  id="recommendation"
                   className="resize-none overflow-hidden"
                   style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_references}
-                  onChange={handleChange('thesis_references')}
-                  placeholder={references === 'N/A' ? 'N/A' : ''}
+                  value={formData.thesis_recommendation}
+                  onChange={handleChange('thesis_recommendation')}
+                  placeholder={recommendation === 'N/A' ? 'N/A' : ''}
                 />
               </div>
             </>

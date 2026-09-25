@@ -12,9 +12,9 @@ type StandardFields = {
   type: "standard";
   thesis_abstract: string;
   thesis_introduction: string;
-  thesis_discussion: string;
+  thesis_scope_and_limitation: string;
   thesis_conclusion: string;
-  thesis_references: string;
+  thesis_recommendation: string;
 };
 
 type EntrepFields = {
@@ -189,9 +189,9 @@ export const repoStores = create<productState>((set, get) => ({
       if (payload.type === "standard") {
         formData.append("thesis_abstract", payload.thesis_abstract);
         formData.append("thesis_introduction", payload.thesis_introduction);
-        formData.append("thesis_discussion", payload.thesis_discussion);
+        formData.append("thesis_scope_and_limitation", payload.thesis_scope_and_limitation);
         formData.append("thesis_conclusion", payload.thesis_conclusion);
-        formData.append("thesis_references", payload.thesis_references);
+        formData.append("thesis_recommendation", payload.thesis_recommendation);
       }
 
       const res = await axios.post("/repository/create", formData, {
@@ -239,9 +239,9 @@ export const repoStores = create<productState>((set, get) => ({
       if (payload.type === "standard") {
         formData.append("thesis_abstract", payload.thesis_abstract);
         formData.append("thesis_introduction", payload.thesis_introduction);
-        formData.append("thesis_discussion", payload.thesis_discussion);
+        formData.append("thesis_scope_and_limitation", payload.thesis_scope_and_limitation);
         formData.append("thesis_conclusion", payload.thesis_conclusion);
-        formData.append("thesis_references", payload.thesis_references);
+        formData.append("thesis_recommendation", payload.thesis_recommendation);
       }
 
       const res = await axios.put(
@@ -259,9 +259,9 @@ export const repoStores = create<productState>((set, get) => ({
         ...(payload.type === "standard" && {
           thesis_abstract: payload.thesis_abstract,
           thesis_introduction: payload.thesis_introduction,
-          thesis_discussion: payload.thesis_discussion,
+          thesis_scope_and_limitation: payload.thesis_scope_and_limitation,
           thesis_conclusion: payload.thesis_conclusion,
-          thesis_references: payload.thesis_references,
+          thesis_recommendation: payload.thesis_recommendation,
         }),
         ...(payload.type === "entrepreneurship" && {
           entrep_intro: payload.entrep_intro,

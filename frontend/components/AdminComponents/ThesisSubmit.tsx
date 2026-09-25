@@ -39,9 +39,9 @@ function ThesisSubmit() {
   // Standard format fields
   const [abstract, setAbstract] = useState('')
   const [introduction, setIntroduction] = useState('')
-  const [discussion, setDiscussion] = useState('')
+  const [scopeAndLimitation, setScopeAndLimitation] = useState('')
   const [conclusion, setConclusion] = useState('')
-  const [references, setReferences] = useState('')
+  const [recommendation, setRecommendation] = useState('')
 
   // Entrepreneurship format fields
   const [entrepIntro, setEntrepIntro] = useState('')
@@ -67,7 +67,7 @@ function ThesisSubmit() {
     const commonValues: Record<string, string> = { title, author, course, issueDate }
 
     const standardValues: Record<string, string> = {
-      abstract, introduction, discussion, conclusion, references,
+      abstract, introduction, scopeAndLimitation, conclusion, recommendation,
     }
 
     const entrepValues: Record<string, string> = {
@@ -91,9 +91,9 @@ function ThesisSubmit() {
 
     setAbstract('')
     setIntroduction('')
-    setDiscussion('')
+    setScopeAndLimitation('')
     setConclusion('')
-    setReferences('')
+    setRecommendation('')
 
     setEntrepIntro('')
     setActionPlan('')
@@ -119,7 +119,7 @@ function ThesisSubmit() {
           entrepIntro, actionPlan, marketProductDescription,
           surveyResult, targetMarket, product, production,
         }
-      : { abstract, introduction, discussion, conclusion, references }
+      : { abstract, introduction, scopeAndLimitation, conclusion, recommendation }
 
     const allFields = { ...commonFields, ...contentFields }
 
@@ -185,9 +185,9 @@ function ThesisSubmit() {
 
               thesis_abstract: abstract,
               thesis_introduction: introduction,
-              thesis_discussion: discussion,
+              thesis_scope_and_limitation: scopeAndLimitation,
               thesis_conclusion: conclusion,
-              thesis_references: references,
+              thesis_recommendation: recommendation,
             };
 
       await submitThesis(payload);
@@ -527,18 +527,18 @@ function ThesisSubmit() {
 
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-2">
-                      Discussion <span className="text-red-500">*</span>
+                      Scope and Limitation <span className="text-red-500">*</span>
                     </label>
                     <Textarea
-                      placeholder="Present your methodology, results, and analysis"
-                      value={discussion}
-                      onChange={(e) => setDiscussion(e.target.value)}
-                      onBlur={() => handleFieldBlur('discussion')}
+                      placeholder="Define the scope of your study and its limitations"
+                      value={scopeAndLimitation}
+                      onChange={(e) => setScopeAndLimitation(e.target.value)}
+                      onBlur={() => handleFieldBlur('scopeAndLimitation')}
                       rows={6}
-                      className={`focus-visible:ring-amber-500 ${isFieldRequired('discussion') ? 'border-red-300' : ''}`}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('scopeAndLimitation') ? 'border-red-300' : ''}`}
                     />
-                    {isFieldRequired('discussion') && (
-                      <p className="text-xs text-red-500 mt-1">Discussion is required</p>
+                    {isFieldRequired('scopeAndLimitation') && (
+                      <p className="text-xs text-red-500 mt-1">Scope and Limitation is required</p>
                     )}
                   </div>
 
@@ -561,18 +561,18 @@ function ThesisSubmit() {
 
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-2">
-                      References <span className="text-red-500">*</span>
+                      Recommendation <span className="text-red-500">*</span>
                     </label>
                     <Textarea
-                      placeholder="List your citations in your preferred format (APA, MLA, Chicago, etc.)"
-                      value={references}
-                      onChange={(e) => setReferences(e.target.value)}
-                      onBlur={() => handleFieldBlur('references')}
+                      placeholder="Provide recommendations based on your findings"
+                      value={recommendation}
+                      onChange={(e) => setRecommendation(e.target.value)}
+                      onBlur={() => handleFieldBlur('recommendation')}
                       rows={4}
-                      className={`focus-visible:ring-amber-500 ${isFieldRequired('references') ? 'border-red-300' : ''}`}
+                      className={`focus-visible:ring-amber-500 ${isFieldRequired('recommendation') ? 'border-red-300' : ''}`}
                     />
-                    {isFieldRequired('references') && (
-                      <p className="text-xs text-red-500 mt-1">References are required</p>
+                    {isFieldRequired('recommendation') && (
+                      <p className="text-xs text-red-500 mt-1">Recommendation is required</p>
                     )}
                   </div>
                 </div>

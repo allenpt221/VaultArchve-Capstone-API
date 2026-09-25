@@ -16,8 +16,8 @@ export async function SumbitThesis(req: Request, res: Response) {
             thesis_abstract,
             thesis_introduction,
             thesis_conclusion,
-            thesis_discussion,
-            thesis_references,
+            thesis_scope_and_limitation,
+            thesis_recommendation,
 
             // ENTRE FIELDS
             entrep_intro,
@@ -74,8 +74,8 @@ export async function SumbitThesis(req: Request, res: Response) {
                 !thesis_abstract ||
                 !thesis_introduction ||
                 !thesis_conclusion ||
-                !thesis_discussion ||
-                !thesis_references
+                !thesis_scope_and_limitation ||
+                !thesis_recommendation
             ) {
                 return res.status(400).json({
                     status: false,
@@ -114,8 +114,8 @@ export async function SumbitThesis(req: Request, res: Response) {
                     thesis_abstract,
                     thesis_introduction,
                     thesis_conclusion,
-                    thesis_discussion,
-                    thesis_references,
+                    thesis_scope_and_limitation,
+                    thesis_recommendation,
                     issue_date: issueDate,
                     thesis_file_url,
                     thesis_file_name: thesis_file.originalname,
@@ -174,8 +174,8 @@ export async function UpdateThesis(req: Request, res: Response) {
             issueDate,
             thesis_abstract,
             thesis_introduction,
-            thesis_discussion,
-            thesis_references,
+            thesis_scope_and_limitation,
+            thesis_recommendation,
             thesis_conclusion,
 
             entrep_intro,
@@ -245,8 +245,8 @@ export async function UpdateThesis(req: Request, res: Response) {
                 issue_date: issueDate,
                 thesis_abstract,
                 thesis_introduction,
-                thesis_discussion,
-                thesis_references,
+                thesis_scope_and_limitation,
+                thesis_recommendation,
                 thesis_conclusion,
 
                 ...(thesis_file_url && { thesis_file_url }),

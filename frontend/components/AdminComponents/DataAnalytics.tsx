@@ -452,9 +452,9 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                     <SortableHead label="Date" />
                     <TableHead className={headClass} style={headStyle}>Course</TableHead>
                     <TableHead className={headClass} style={headStyle}>Introduction</TableHead>
-                    <TableHead className={headClass} style={headStyle}>Discussion</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Scope and Limitation</TableHead>
                     <TableHead className={headClass} style={headStyle}>Conclusion</TableHead>
-                    <TableHead className={headClass} style={headStyle}>References</TableHead>
+                    <TableHead className={headClass} style={headStyle}>Recommendation</TableHead>
                     <TableHead className={headClass} style={headStyle}>filename</TableHead>
                     <TableHead className={headClass} style={headStyle}>Actions</TableHead>
                   </TableRow>
@@ -477,9 +477,9 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
                         course={item.course}
                         abstract={item.thesis_abstract}
                         introduction={item.thesis_introduction}
-                        discussion={item.thesis_discussion}
+                        scope_and_limitation={item.thesis_scope_and_limitation}
                         conclusion={item.thesis_conclusion}
-                        references={item.thesis_references}
+                        recommendation={item.thesis_recommendation}
                         filename={item.thesis_file_name}
                         isOpen={() => setSelectedThesis(item)}
                         DeleteThesis={handleDelete}
@@ -548,9 +548,9 @@ function DataAnalytics({ isCollapsed }: { isCollapsed: boolean }) {
           course={selectedThesis.course}
           abstract={selectedThesis.thesis_abstract}
           introduction={selectedThesis.thesis_introduction}
-          discussion={selectedThesis.thesis_discussion}
+          scope_and_limitation={selectedThesis.thesis_scope_and_limitation}
           conclusion={selectedThesis.thesis_conclusion}
-          references={selectedThesis.thesis_references}
+          recommendation={selectedThesis.thesis_recommendation}
           file_url={selectedThesis.thesis_file_name}
           entrep_intro={selectedThesis.entrep_intro}
           entrep_action_plan={selectedThesis.entrep_action_plan}

@@ -25,9 +25,9 @@ interface TableActionsProps {
 
   abstract?: string;
   introduction?: string;
-  discussion?: string;
+  scope_and_limitation?: string;
   conclusion?: string;
-  references?: string;
+  recommendation?: string;
 }
 
 export function TableActions({
@@ -38,9 +38,9 @@ export function TableActions({
   course,
   abstract,
   introduction,
-  discussion,
+  scope_and_limitation,
   conclusion,
-  references,
+  recommendation,
   filename,
   isOpen,
   DeleteThesis
@@ -63,7 +63,7 @@ export function TableActions({
       .join("");
   }
 
-  const contentFields = [introduction, discussion, conclusion, references];
+  const contentFields = [introduction, scope_and_limitation, conclusion, recommendation];
 
   return (
     <TableRow>

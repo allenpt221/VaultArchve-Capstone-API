@@ -88,9 +88,9 @@ function ThesisDetail({ id }: { id: string }) {
     : [
         { title: 'Abstract', content: thesisData.thesis_abstract },
         { title: 'Introduction', content: thesisData.thesis_introduction },
-        { title: 'Discussion', content: thesisData.thesis_discussion },
+        { title: 'Scope and Limitation', content: thesisData.thesis_scope_and_limitation },
         { title: 'Conclusion', content: thesisData.thesis_conclusion },
-        { title: 'References', content: thesisData.thesis_references },
+        { title: 'Recommendation', content: thesisData.thesis_recommendation },
       ];
 
   const totalPages = sections.length;
