@@ -289,6 +289,7 @@ interface generativeAiProps {
   GetThesisHistory: (params?: { limit?: number; offset?: number }) => Promise<void>;
   StartNewThesisChat: () => void;
   SelectThesisSession: (sessionId: string) => void;
+  DeleteThesisHistory: (id: string) => Promise<void>;
 }
 
 export const generativeStore = create<generativeAiProps>((set, get) => ({
@@ -1090,6 +1091,58 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
       }
 
       console.error("Delete Methodology Error:", error);
+      set({ message: error.message || "An unexpected error occurred." });
+    }
+  },
+
+  DeleteThesisHistory: async (id: string): Promise<void> => {
+    const previousSessions = get().thesisSessions;
+    const previousCurrentId = get().currentThesisSessionId;
+    const previousResult = get().result;
+
+    // Optimistic update — the session vanishes from the UI immediately,
+    // before the network request even resolves.
+    const updatedSessions = previousSessions.filter((session) => session.id !== id);
+
+    const wasActiveSession = previousCurrentId === id;
+
+    set({
+      thesisSessions: updatedSessions,
+      ...(wasActiveSession && { currentThesisSessionId: null, result: [] }),
+      message: "",
+    });
+
+    try {
+      await axios.delete(`/ai/delete-history/${id}`);
+      // success — nothing more to do, UI already reflects the deletion
+    } catch (error: any) {
+      // Only runs on failure — restores the session if the server call
+      // fails, so the UI never shows a "deleted" state that didn't persist
+      set({
+        thesisSessions: previousSessions,
+        currentThesisSessionId: previousCurrentId,
+        result: previousResult,
+      });
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      if (status === 401) {
+        set({ message: data?.message || "Unauthorized Access. Please log in" });
+        return;
+      }
+
+      if (status === 404) {
+        set({ message: data?.message || "That chat could not be found." });
+        return;
+      }
+
+      if (status === 500) {
+        set({ message: data?.error || data?.message || "Could not delete this chat." });
+        return;
+      }
+
+      console.error("Delete Thesis History Error:", error);
       set({ message: error.message || "An unexpected error occurred." });
     }
   },

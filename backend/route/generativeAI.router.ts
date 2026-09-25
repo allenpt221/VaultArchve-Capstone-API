@@ -1,7 +1,7 @@
 import express from 'express';
 import { verifyToken } from '../middleware/middware';
 // import { ProgressiveIntro, ProgressiveScopeLimitation, ProgressiveTrail } from '../controller/generativeAIGroq';
-import { DataAnalysis,  DeleteTopicSelections, FullPaperReview, GetDataAnalyses, GetFullPaperReviews, GetLiteratureReviews, GetMethodologies, GetObjectiveOfStudy, GetThesisHistory, GetTopicSelections, LiteratureReview, Methodology, RecommendedAI, SuggestedObjectives, TopicSelection } from '../controller/generativeAI.controller';
+import { DataAnalysis,  DeleteThesisHistory,  DeleteTopicSelections, FullPaperReview, GetDataAnalyses, GetFullPaperReviews, GetLiteratureReviews, GetMethodologies, GetObjectiveOfStudy, GetThesisHistory, GetTopicSelections, LiteratureReview, Methodology, RecommendedAI, SuggestedObjectives, TopicSelection } from '../controller/generativeAI.controller';
 import multer from 'multer';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -35,6 +35,8 @@ router.get("/paper-reviews", verifyToken, GetFullPaperReviews);
 
 
 router.delete("/topic-selections", verifyToken, DeleteTopicSelections);
+router.delete("/delete-history/:id", verifyToken, DeleteThesisHistory);
+
 
 
 

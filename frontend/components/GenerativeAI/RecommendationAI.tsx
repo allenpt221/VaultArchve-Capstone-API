@@ -93,7 +93,7 @@ function sessionToMessages(session: ThesisChatSession): ChatMessage[] {
 function TypingIndicator() {
   return (
     <div className="w-full py-6 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto flex items-start gap-4">
+      <div className="max-w-4xl mx-auto flex items-start gap-4">
         <div className="h-8 w-8 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
           <Bot className="h-4 w-4 text-black" />
         </div>
@@ -117,6 +117,7 @@ function AIrecommendation() {
   const [countdown, setCountdown] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [historyEntered, setHistoryEntered] = useState(false); // drives the slide/fade transition
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const {
     RecommendedAI,
@@ -127,6 +128,7 @@ function AIrecommendation() {
     GetThesisHistory,
     StartNewThesisChat,
     SelectThesisSession,
+    DeleteThesisHistory,
   } = generativeStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -293,6 +295,26 @@ function AIrecommendation() {
     closeHistory();
   };
 
+  // Deletes a single saved chat entry from the history drawer. Stops
+  // propagation so clicking the X doesn't also trigger loadChat.
+  // If the deleted entry belongs to the currently open chat, clear the
+  // active thread so the composer doesn't keep pointing at a dead session.
+  const handleDeleteSession = async (e: React.MouseEvent, session: ThesisChatSession) => {
+    e.stopPropagation();
+    if (deletingSessionId) return;
+
+    setDeletingSessionId(session.id);
+    try {
+      await DeleteThesisHistory(session.id);
+      if (session.id === currentThesisSessionId) {
+        setMessages([]);
+        setChatPrompt('');
+      }
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
+
   // When the course changes, drop a small system note into the thread so the
   // user is always aware which course context their recommendations are using.
   const handleCourseChange = (value: string) => {
@@ -327,7 +349,7 @@ function AIrecommendation() {
             onClick={closeHistory}
           />
           <div
-            className={`relative w-70 sm:w-72 sm:max-w-[85%] h-full bg-background sm:border-r border-border shadow-xl flex flex-col transition-transform duration-200 ease-out ${
+            className={`relative w-70 sm:w-80 sm:max-w-[85%] h-full bg-background sm:border-r border-border shadow-xl flex flex-col transition-transform duration-200 ease-out ${
               historyEntered ? "translate-x-0" : "-translate-x-full"
             }`}
           >
@@ -371,25 +393,43 @@ function AIrecommendation() {
               ) : (
                 <div className="space-y-0.5 px-2">
                   {thesisSessions.map((session) => (
-                    <button
+                    <div
                       key={session.id}
-                      onClick={() => loadChat(session)}
-                      className={`w-full text-left group flex items-start gap-2 rounded-lg px-2.5 py-2 cursor-pointer transition-colors ${
+                      className={`relative w-full rounded-lg transition-colors ${
                         session.id === currentThesisSessionId ? "bg-amber-50" : "hover:bg-muted/60"
                       }`}
                     >
-                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-foreground truncate">
-                          {session.title}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground">{session.course}</span>
-                          <span className="text-[10px] text-muted-foreground">·</span>
-                          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</span>
+                      <button
+                        onClick={() => loadChat(session)}
+                        className="w-full text-left flex items-start gap-2 rounded-lg pl-2.5 pr-7 py-2 cursor-pointer"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {session.title}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground">{session.course}</span>
+                            <span className="text-[10px] text-muted-foreground">·</span>
+                            <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</span>
+                          </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSession(e, session)}
+                        disabled={deletingSessionId === session.id}
+                        className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                        title="Delete chat"
+                      >
+                        {deletingSessionId === session.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <X className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

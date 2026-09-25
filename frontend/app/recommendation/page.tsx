@@ -22,7 +22,7 @@ function page() {
 
   return (
     <div className='sm:h-[89vh] w-full flex flex-col bg-background sm:px-3'>
-      <header className="shrink-0 border-b border-border/60 h-14 flex justify-between items-center lg:px-50 px-2">
+      <header className="shrink-0 border-b border-border/60 h-14 flex justify-between items-center xl:px-30 lg:px-5 px-2">
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-full bg-amber-400 flex items-center justify-center">
             <Bot className="h-3.5 w-3.5 text-black" />

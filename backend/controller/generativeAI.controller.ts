@@ -721,6 +721,47 @@ export async function GetThesisHistory(req: Request, res: Response) {
   }
 }
 
+export async function DeleteThesisHistory(req: Request, res: Response) {
+  try {
+    const user_id = req.user?.id;
+    const { id } = req.params;
+
+    if (!user_id) {
+      return res.status(401).json({ message: "Unauthorized, Please Log in" });
+    }
+
+    if (!id) {
+      return res.status(400).json({ message: "id is required." });
+    }
+
+    // Delete every row whose session_id matches, OR whose own id matches
+    // (covers legacy rows where session_id was never set)
+    const { data: deleted, error: deleteError } = await supabase
+      .from("thesisRecommendation")
+      .delete()
+      .eq("user_id", user_id)
+      .or(`session_id.eq.${id},id.eq.${id}`)
+      .select("id");
+
+    if (deleteError) {
+      return res.status(500).json({ message: "Failed to delete chat history", error: deleteError });
+    }
+
+    if (!deleted || deleted.length === 0) {
+      return res.status(404).json({ message: "No chat history found with this id." });
+    }
+
+    return res.status(200).json({
+      message: "Chat history deleted successfully",
+      deletedCount: deleted.length,
+      id,
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
 export async function TopicSelection(req: Request, res: Response) {
   try {
     const { topic, context } = req.body;
