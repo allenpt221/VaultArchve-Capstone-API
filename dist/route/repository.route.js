@@ -10,12 +10,12 @@ const middware_1 = require("../middleware/middware");
 const dataAnalytics_controller_1 = require("../controller/dataAnalytics.controller");
 const router = express_1.default.Router();
 const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
-router.post('/create', middware_1.verifyToken, middware_1.adminOnly, upload.any(), repository_controller_1.SumbitThesis);
+router.post('/create', middware_1.verifyToken, middware_1.adminOrFaculty, upload.any(), repository_controller_1.SumbitThesis);
 router.get('/getthesis', repository_controller_1.getThesis);
 router.get('/sort', dataAnalytics_controller_1.getFilteredThesis);
 router.get('/getbyid/:id', repository_controller_1.getRepoById);
 router.delete('/thesis/delete/:id', repository_controller_1.deleteId);
-router.put('/thesis/update/:id', middware_1.verifyToken, middware_1.adminOnly, upload.any(), repository_controller_1.UpdateThesis);
+router.put('/thesis/update/:id', middware_1.verifyToken, middware_1.adminOrFaculty, upload.any(), repository_controller_1.UpdateThesis);
 // dataAnalytics
 router.put('/views/:id', middware_1.verifyToken, dataAnalytics_controller_1.incrementView);
 router.get('/download/:thesis_id', middware_1.verifyToken, dataAnalytics_controller_1.downloadThesis);

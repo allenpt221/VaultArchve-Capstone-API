@@ -20,7 +20,6 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const supa_client_1 = require("../supabase/supa-client");
 const ioredis_1 = __importDefault(require("../lib/ioredis"));
 const uuid_1 = require("uuid");
-const ratelimit_1 = require("../lib/ratelimit");
 const resetPassword_1 = require("../lib/resetPassword");
 const cache_1 = require("../lib/cache");
 const registedEmail_1 = require("../lib/registedEmail");
@@ -97,19 +96,6 @@ async function Login(req, res) {
         }
         const normalizedEmail = email.trim().toLowerCase();
         const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
-        // Per-account limit (strict) + per-IP backstop (loose), checked together
-        const [emailLimit, ipLimit] = await Promise.all([
-            ratelimit_1.loginLimiter.limit(normalizedEmail),
-            ratelimit_1.loginIpLimiter.limit(ip),
-        ]);
-        if (!emailLimit.success || !ipLimit.success) {
-            const reset = Math.max(emailLimit.reset, ipLimit.reset);
-            return res.status(429).json({
-                success: false,
-                message: "Too many login attempts. Please try again later.",
-                retryAfter: Math.ceil((reset - Date.now()) / 1000) + " seconds",
-            });
-        }
         if (password.length < 8) {
             res.status(401).json({ message: "Password must be at least 8 characters.", success: false });
             return;

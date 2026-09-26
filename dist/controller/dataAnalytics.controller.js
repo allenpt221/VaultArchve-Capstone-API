@@ -156,11 +156,23 @@ async function saveThesis(req, res) {
             console.error(insertError);
             return res.status(500).json({ message: "Failed to save thesis", error: insertError });
         }
-        const { error: rpcError } = await supa_client_1.supabase.rpc("increment_thesis_saves", {
-            thesis_id_input: thesisId,
-        });
-        if (rpcError) {
-            console.error("Failed to increment saves count:", rpcError);
+        // Same proven pattern as incrementView/downloadThesis instead of an RPC call
+        const { data: analyticsData, error: fetchError } = await supa_client_1.supabase
+            .from("ThesisDataAnalytics")
+            .select("saves")
+            .eq("thesis_id", thesisId)
+            .single();
+        if (fetchError || !analyticsData) {
+            console.error("Failed to fetch saves count:", fetchError);
+        }
+        else {
+            const { error: updateError } = await supa_client_1.supabase
+                .from("ThesisDataAnalytics")
+                .update({ saves: (analyticsData.saves || 0) + 1 })
+                .eq("thesis_id", thesisId);
+            if (updateError) {
+                console.error("Failed to increment saves count:", updateError);
+            }
         }
         return res.status(200).json({ message: "Thesis saved" });
     }
@@ -190,11 +202,23 @@ async function unsaveThesis(req, res) {
             return res.status(500).json({ message: "Failed to unsave thesis", error: deleteError });
         }
         if (deleted && deleted.length > 0) {
-            const { error: rpcError } = await supa_client_1.supabase.rpc("decrement_thesis_saves", {
-                thesis_id_input: thesisId,
-            });
-            if (rpcError) {
-                console.error("Failed to decrement saves count:", rpcError);
+            // Same proven pattern as incrementView/downloadThesis instead of an RPC call
+            const { data: analyticsData, error: fetchError } = await supa_client_1.supabase
+                .from("ThesisDataAnalytics")
+                .select("saves")
+                .eq("thesis_id", thesisId)
+                .single();
+            if (fetchError || !analyticsData) {
+                console.error("Failed to fetch saves count:", fetchError);
+            }
+            else {
+                const { error: updateError } = await supa_client_1.supabase
+                    .from("ThesisDataAnalytics")
+                    .update({ saves: Math.max((analyticsData.saves || 0) - 1, 0) })
+                    .eq("thesis_id", thesisId);
+                if (updateError) {
+                    console.error("Failed to decrement saves count:", updateError);
+                }
             }
         }
         return res.status(200).json({ message: "Thesis unsaved" });

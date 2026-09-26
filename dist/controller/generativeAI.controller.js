@@ -3,16 +3,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DAILY_PROMPT_LIMIT = exports.openai = void 0;
+exports.DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION = exports.DAILY_PROMPT_LIMIT_PAPER_REVIEW = exports.DAILY_PROMPT_LIMIT = exports.openai = void 0;
 exports.isGibberish = isGibberish;
 exports.checkMeaningfulText = checkMeaningfulText;
+exports.isVideoRequest = isVideoRequest;
+exports.isImageRequest = isImageRequest;
+exports.isUnsupportedMediaRequest = isUnsupportedMediaRequest;
 exports.extractRequestedCount = extractRequestedCount;
 exports.RecommendedAI = RecommendedAI;
+exports.GetThesisHistory = GetThesisHistory;
+exports.DeleteThesisHistory = DeleteThesisHistory;
 exports.TopicSelection = TopicSelection;
+exports.SuggestedObjectives = SuggestedObjectives;
 exports.LiteratureReview = LiteratureReview;
 exports.Methodology = Methodology;
 exports.DataAnalysis = DataAnalysis;
 exports.FullPaperReview = FullPaperReview;
+exports.GetObjectiveOfStudy = GetObjectiveOfStudy;
 exports.GetLiteratureReviews = GetLiteratureReviews;
 exports.GetTopicSelections = GetTopicSelections;
 exports.GetMethodologies = GetMethodologies;
@@ -21,58 +28,244 @@ exports.GetFullPaperReviews = GetFullPaperReviews;
 exports.DeleteTopicSelections = DeleteTopicSelections;
 const supa_client_1 = require("../supabase/supa-client");
 const openai_1 = __importDefault(require("openai"));
-const checkDailyLimit_1 = require("../lib/checkDailyLimit");
 const pdf_parse_1 = require("pdf-parse");
+const usageLimit_1 = require("../lib/usageLimit");
+const Saveorreplace_1 = require("../lib/Saveorreplace");
 exports.openai = new openai_1.default({
     apiKey: process.env.OPENAI_API_KEY,
 });
-exports.DAILY_PROMPT_LIMIT = 5;
+exports.DAILY_PROMPT_LIMIT = 4;
+exports.DAILY_PROMPT_LIMIT_PAPER_REVIEW = 3;
+exports.DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION = 5;
 const MIN_RESEARCH_QUESTIONS_DA = 1;
 const MAX_RESEARCH_QUESTIONS_DA = 6;
+function cleanText(text) {
+    return text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/\u0000/g, "")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+const COURSE_KEYWORDS = {
+    "Accountancy": /\baccountancy\b/i,
+    "Public Administration": /\bpublic\s+administration\b/i,
+    "Accounting Information System": /\baccounting\s+information\s+system(s)?\b|\bAIS\b/i,
+    "Entrepreneurship": /\bentrepreneurship\b|\bentrep\b/i,
+};
+function checkCourseMismatch(promptText, selectedCourse) {
+    const normalizedSelected = Object.keys(COURSE_KEYWORDS).find((key) => selectedCourse.toLowerCase().includes(key.toLowerCase()));
+    for (const [courseName, pattern] of Object.entries(COURSE_KEYWORDS)) {
+        if (courseName === normalizedSelected)
+            continue; // skip the user's own course
+        if (pattern.test(promptText)) {
+            return {
+                valid: false,
+                message: `You're generating recommendations for "${selectedCourse}", but your prompt mentions "${courseName}". Please select "${courseName}" as your course, or rephrase your prompt to stay within "${selectedCourse}".`,
+            };
+        }
+    }
+    return { valid: true };
+}
+function limitText(text, maxChars) {
+    if (text.length <= maxChars)
+        return text;
+    const referenceMatch = text.match(/\n\s*(REFERENCES|REFERENCE)\s*\n/i);
+    if (referenceMatch?.index !== undefined) {
+        const referenceStart = referenceMatch.index;
+        const references = text.slice(referenceStart);
+        const available = maxChars - references.length;
+        if (available > 10000) {
+            const beginningSize = Math.floor(available * 0.7);
+            const middleSize = available - beginningSize;
+            const beginning = text.slice(0, beginningSize);
+            const middle = text.slice(Math.max(beginningSize, referenceStart - middleSize), referenceStart);
+            return [
+                beginning,
+                "\n\n[DOCUMENT CONTENT TRUNCATED]\n\n",
+                middle,
+                "\n\n",
+                references,
+            ].join("");
+        }
+    }
+    const half = Math.floor((maxChars - 100) / 2);
+    return [
+        text.slice(0, half),
+        "\n\n[DOCUMENT CONTENT TRUNCATED]\n\n",
+        text.slice(-half),
+    ].join("");
+}
+function containsAny(text, values) {
+    return values.some((value) => text.includes(value));
+}
+function analyzePaperStructure(text) {
+    const upper = text.toUpperCase();
+    const chapters = [];
+    const chapterRegex = /CHAPTER\s+(I{1,3}|IV|V|VI|VII|VIII|IX|X|\d+)/gi;
+    let match;
+    while ((match = chapterRegex.exec(text)) !== null) {
+        const chapter = `Chapter ${match[1].toUpperCase()}`;
+        if (!chapters.includes(chapter))
+            chapters.push(chapter);
+    }
+    const sections = {
+        abstract: containsAny(upper, ["ABSTRACT"]),
+        background: containsAny(upper, [
+            "BACKGROUND",
+            "INTRODUCTION",
+            "BACKGROUND OF THE STUDY",
+        ]),
+        problem: containsAny(upper, [
+            "STATEMENT OF THE PROBLEM",
+            "PROBLEM STATEMENT",
+        ]),
+        researchQuestions: containsAny(upper, [
+            "RESEARCH QUESTIONS",
+            "RESEARCH QUESTION",
+        ]),
+        objectives: containsAny(upper, [
+            "OBJECTIVES",
+            "OBJECTIVE OF THE STUDY",
+            "SPECIFIC OBJECTIVES",
+        ]),
+        significance: containsAny(upper, [
+            "SIGNIFICANCE OF THE STUDY",
+            "SIGNIFICANCE",
+        ]),
+        scope: containsAny(upper, [
+            "SCOPE AND DELIMITATION",
+            "SCOPE AND LIMITATION",
+            "SCOPE AND LIMITATIONS",
+            "SCOPE OF THE STUDY",
+        ]),
+        definitions: containsAny(upper, [
+            "DEFINITION OF TERMS",
+            "DEFINITION OF TERM",
+        ]),
+        literature: containsAny(upper, [
+            "REVIEW OF RELATED LITERATURE",
+            "RELATED LITERATURE",
+        ]),
+        studies: containsAny(upper, [
+            "REVIEW OF RELATED STUDIES",
+            "RELATED STUDIES",
+        ]),
+        framework: containsAny(upper, [
+            "CONCEPTUAL FRAMEWORK",
+            "THEORETICAL FRAMEWORK",
+            "THEORETICAL/CONCEPTUAL FRAMEWORK",
+        ]),
+        researchDesign: containsAny(upper, ["RESEARCH DESIGN"]),
+        population: containsAny(upper, [
+            "POPULATION AND SAMPLING",
+            "SAMPLING TECHNIQUE",
+            "RESPONDENTS OF THE STUDY",
+            "POPULATION OF THE STUDY",
+        ]),
+        instrument: containsAny(upper, [
+            "RESEARCH INSTRUMENT",
+            "RESEARCH INSTRUMENTS",
+            "RESEARCH TOOL",
+            "RESEARCH TOOLS",
+        ]),
+        dataGathering: containsAny(upper, [
+            "DATA GATHERING PROCEDURE",
+            "DATA COLLECTION PROCEDURE",
+            "DATA COLLECTION",
+            "DATA GATHERING",
+        ]),
+        statistics: containsAny(upper, [
+            "STATISTICAL TREATMENT",
+            "STATISTICAL ANALYSIS",
+            "STATISTICAL TOOL",
+        ]),
+        presentation: containsAny(upper, [
+            "PRESENTATION OF DATA",
+            "PRESENTATION, ANALYSIS",
+            "RESULTS",
+            "FINDINGS",
+        ]),
+        discussion: containsAny(upper, ["DISCUSSION"]),
+        summary: containsAny(upper, ["SUMMARY"]),
+        conclusion: containsAny(upper, ["CONCLUSION", "CONCLUSIONS"]),
+        recommendation: containsAny(upper, [
+            "RECOMMENDATION",
+            "RECOMMENDATIONS",
+        ]),
+        references: containsAny(upper, ["REFERENCES", "REFERENCE"]),
+    };
+    return {
+        chapters,
+        sections,
+        estimatedPages: Math.max(1, Math.ceil(text.length / 2500)),
+    };
+}
+function analyzeCitations(text) {
+    const referencesIndex = text.search(/\n\s*(REFERENCES|REFERENCE)\s*\n/i);
+    const body = referencesIndex >= 0 ? text.slice(0, referencesIndex) : text;
+    const references = referencesIndex >= 0 ? text.slice(referencesIndex) : "";
+    const inTextCitationRegex = /\(([A-Z][A-Za-zÀ-ÿ'’-]+(?:\s+(?:&|and)\s+[A-Z][A-Za-zÀ-ÿ'’-]+|\s+et al\.)?,?\s*\d{4}[a-z]?)\)/g;
+    const inTextCitations = [...body.matchAll(inTextCitationRegex)].map((match) => match[1]);
+    const referenceYears = [...references.matchAll(/\b(19|20)\d{2}\b/g)].map((match) => match[0]);
+    const issues = [];
+    if (inTextCitations.length === 0) {
+        issues.push("No clear author-year in-text citations were detected.");
+    }
+    if (referencesIndex < 0) {
+        issues.push("A References section was not clearly detected.");
+    }
+    if (referenceYears.length === 0 && references.length > 0) {
+        issues.push("No publication years were detected in the References section.");
+    }
+    return {
+        inTextCitationCount: inTextCitations.length,
+        referenceYearCount: referenceYears.length,
+        referencesSectionFound: referencesIndex >= 0,
+        issues,
+    };
+}
+function countWords(text) {
+    return text.split(/\s+/).filter(Boolean).length;
+}
+function getReadinessLabel(score) {
+    if (score >= 90)
+        return "Ready";
+    if (score >= 75)
+        return "Nearly Ready";
+    if (score >= 60)
+        return "Needs Revision";
+    if (score >= 40)
+        return "Needs Major Revision";
+    return "Not Ready";
+}
+// Some full_paper_reviews rows have these columns stored as an escaped
+// JSON string (e.g. the column is text/varchar rather than jsonb, or an
+// older code path called JSON.stringify before inserting) instead of a
+// real object. Parses defensively so callers always get back the object
+// shape SavedFullPaperReview expects, regardless of which form the row
+// is actually in.
+function parseJsonColumn(value) {
+    if (value === null || value === undefined)
+        return null;
+    if (typeof value === "string") {
+        try {
+            return JSON.parse(value);
+        }
+        catch {
+            console.error("Failed to parse JSON column value:", value);
+            return null;
+        }
+    }
+    return value;
+}
 // --- helpers to detect "give me 10 titles" / "at least 8 recommendations" etc. ---
 const NUMBER_WORDS = {
     one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
     nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
     fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
 };
-const DAILY_PROMPT_LIMIT_PAPER_REVIEW = 3; // heavier op — lower daily cap than the other stages
-// ---------------------------------------------------------
-// Chapter detection — splits raw extracted PDF text into
-// chapter chunks using common heading patterns. Falls back
-// to a single "Full Document" chunk if no headings are found.
-// ---------------------------------------------------------
-function splitIntoChapters(rawText) {
-    const headingRegex = /^\s*(CHAPTER\s+[1-5IVX]+[:\-\s]*.*|Chapter\s+[1-5IVX]+[:\-\s]*.*)\s*$/gim;
-    const matches = [...rawText.matchAll(headingRegex)];
-    if (matches.length === 0) {
-        return [{ chapter: "Full Document", content: rawText }];
-    }
-    const chunks = [];
-    for (let i = 0; i < matches.length; i++) {
-        const start = matches[i].index ?? 0;
-        const end = i + 1 < matches.length ? matches[i + 1].index ?? rawText.length : rawText.length;
-        const heading = matches[i][0].trim();
-        const content = rawText.slice(start, end).trim();
-        chunks.push({ chapter: heading, content });
-    }
-    return chunks;
-}
-// ---------------------------------------------------------
-// Lightweight in-text citation vs reference-list cross-check.
-// Not a substitute for the AI pass — just a fast deterministic
-// signal the AI prompt can be grounded against.
-// ---------------------------------------------------------
-function auditCitations(rawText) {
-    // crude APA in-text pattern: (Author, Year) or (Author et al., Year)
-    const inTextMatches = rawText.match(/\([A-Z][a-zA-Z.\-]+(?:\s+et al\.)?,\s*\d{4}\)/g) || [];
-    // crude reference-list entry pattern: "Author, A. A. (Year)."
-    const referenceMatches = rawText.match(/^[A-Z][a-zA-Z.\-]+,\s*[A-Z]\.[^\n]*\(\d{4}\)\./gm) || [];
-    return {
-        inTextCount: inTextMatches.length,
-        referenceListCount: referenceMatches.length,
-        possiblyUncitedInReferences: Math.max(0, referenceMatches.length - inTextMatches.length),
-    };
-}
 function isGibberish(text) {
     if (!text || text.trim().length === 0)
         return false;
@@ -122,6 +315,27 @@ function checkMeaningfulText(text, { required = false } = {}) {
     }
     return { valid: true };
 }
+// --- shared image-request detection, used across every endpoint that
+// accepts free text (chatPrompt, topic, context, researchQuestions,
+// rawFindings, gapStatement) so a user can't smuggle an image request
+// through a field that previously wasn't checked. ---
+const IMAGE_REQUEST_REGEX = /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i;
+const VIDEO_REQUEST_REGEX = /(can\s+you\s+(make|create|generate|produce|render|edit|animate|show|give|send)|please\s+(make|create|generate|produce|render|edit|animate|show|give|send)).*?(video|clip|movie|animation|footage|reel|trailer|screencast|vlog|mp4)|^(generate|create|make|render|produce|edit|animate|show|give|send)\s.*(video|clip|movie|animation|footage|reel|trailer|screencast|mp4)|\b(video|videos|clip|movie|animation|footage|mp4|trailer|screencast|vlog)\b/i;
+function isVideoRequest(text) {
+    if (!text)
+        return false;
+    return VIDEO_REQUEST_REGEX.test(text.trim().toLowerCase());
+}
+function isImageRequest(text) {
+    if (!text)
+        return false;
+    return IMAGE_REQUEST_REGEX.test(text.trim().toLowerCase());
+}
+function isUnsupportedMediaRequest(text) {
+    return isImageRequest(text) || isVideoRequest(text);
+}
+const IMAGE_REQUEST_ERROR = "Unsupported request";
+const IMAGE_REQUEST_MESSAGE = "Sorry, I can only help with thesis-related text. I'm not able to create images, videos, photos, or any visual content. Please rephrase your input as a thesis-related instruction.";
 function extractRequestedCount(text) {
     // "10 titles", "8 recommendations", "12 thesis suggestions"
     const digitMatch = text.match(/\b(\d{1,3})\s*(?:titles?|recommendations?|suggestions?|thesis(?:es)?|topics?)\b/i);
@@ -139,7 +353,7 @@ function extractRequestedCount(text) {
 }
 async function RecommendedAI(req, res) {
     try {
-        const { course, chatPrompt } = req.body;
+        const { course, chatPrompt, session_id } = req.body;
         const user_id = req.user?.id;
         if (!user_id) {
             return res.status(401).json({ message: "Unauthorized, Please Log in" });
@@ -152,11 +366,10 @@ async function RecommendedAI(req, res) {
             return res.status(400).json({ error: promptCheck.error, message: promptCheck.message });
         }
         const promptText = (chatPrompt || "").trim().toLowerCase();
-        const isImageRequest = /(can\s+you\s+(make|create|generate|draw|design|render|show|give|send|produce)|please\s+(make|create|generate|draw|design|render|show|give|send|produce)).*?(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|^(generate|create|draw|make|design|render|illustrate|paint|sketch|show|give|send|produce)\s.*(image|picture|photo|art|artwork|illustration|logo|poster|graphic|visual|diagram|thumbnail)|\b(image|picture|photo|artwork|illustration|logo|poster|graphic|visual|thumbnail)\b/i.test(promptText);
-        if (isImageRequest) {
+        if (isUnsupportedMediaRequest(promptText)) {
             return res.status(400).json({
-                error: "Unsupported request",
-                message: "Sorry, I can only generate thesis title recommendations. I'm not able to create images, photos, or any visual content. Please enter a thesis-related instruction instead.",
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
             });
         }
         const isOffTopicRequest = /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
@@ -168,7 +381,14 @@ async function RecommendedAI(req, res) {
                 message: "I can only generate thesis title recommendations and their features. Writing literature reviews, abstracts, introductions, or any thesis content is not supported here.",
             });
         }
-        // --- NEW: reject requests asking for more than 5 titles before calling the AI ---
+        const courseMismatch = checkCourseMismatch(promptText, course);
+        if (!courseMismatch.valid) {
+            return res.status(400).json({
+                error: "Course mismatch",
+                message: courseMismatch.message,
+            });
+        }
+        // reject requests asking for more than 5 titles before calling the AI
         const requestedCount = extractRequestedCount(promptText);
         if (requestedCount && requestedCount > 5) {
             return res.status(400).json({
@@ -187,11 +407,11 @@ async function RecommendedAI(req, res) {
         const existingTheses = thesisPool
             ? [...thesisPool].sort(() => Math.random() - 0.5).slice(0, 5)
             : [];
-        const { allowed, count } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "thesisRecommendation", exports.DAILY_PROMPT_LIMIT);
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "thesisRecommendation", exports.DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION);
         if (!allowed) {
             return res.status(429).json({
                 error: "Daily limit reached",
-                message: `You've reached your daily limit of ${exports.DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+                message: `You've reached your daily limit of ${exports.DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION} prompts. Please try again.`,
                 remaining: 0,
             });
         }
@@ -287,6 +507,7 @@ async function RecommendedAI(req, res) {
                 },
             ],
         });
+        await (0, usageLimit_1.logUsage)(user_id, "thesisRecommendation");
         const rawText = result.choices[0].message.content || "";
         let parsed;
         try {
@@ -300,15 +521,153 @@ async function RecommendedAI(req, res) {
                 error: "AI returned invalid JSON. Please try again.",
             });
         }
-        const { error: insertError } = await supa_client_1.supabase
+        // A conversation thread is identified by session_id. If the client didn't
+        // send one (i.e. this is the first message of a new chat), mint one here
+        // and hand it back so subsequent turns in the same chat can reuse it.
+        const resolvedSessionId = session_id || crypto.randomUUID();
+        // Title is derived from this turn's prompt and saved on every row (not
+        // just the first), so the column is always populated even without
+        // joining across session_id. GetThesisHistory still pins the session's
+        // displayed title to the FIRST turn, so follow-ups won't relabel a chat.
+        const trimmedPrompt = (chatPrompt || "").trim();
+        const rowTitle = trimmedPrompt.length > 48 ? `${trimmedPrompt.slice(0, 48)}…` : trimmedPrompt || "New chat";
+        const { error: insertError, data: inserted } = await supa_client_1.supabase
             .from("thesisRecommendation")
-            .insert([{ user_id, course, chatPrompt, response: parsed }]);
+            .insert([
+            {
+                user_id,
+                course,
+                chatPrompt,
+                response: parsed,
+                session_id: resolvedSessionId,
+                title: rowTitle,
+            },
+        ])
+            .select("id, created_at, session_id, title")
+            .single();
         if (insertError) {
             return res.status(500).json({ message: "Failed to insert response", error: insertError });
         }
         return res.status(200).json({
+            id: inserted?.id,
+            session_id: inserted?.session_id,
+            title: inserted?.title,
+            created_at: inserted?.created_at,
             recommendations: parsed,
             based_on_existing: hasExisting,
+        });
+    }
+    catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: error.message });
+    }
+}
+async function GetThesisHistory(req, res) {
+    try {
+        const user_id = req.user?.id;
+        if (!user_id) {
+            return res.status(401).json({ message: "Unauthorized, Please Log in" });
+        }
+        const limit = Math.min(Number(req.query.limit) || 200, 500);
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+        const { data: rows, error: fetchError } = await supa_client_1.supabase
+            .from("thesisRecommendation")
+            .select("id, course, chatPrompt, response, created_at, session_id, title")
+            .eq("user_id", user_id)
+            .order("created_at", { ascending: true }) // ascending so turns land in order within each session
+            .range(offset, offset + limit - 1);
+        if (fetchError) {
+            return res.status(500).json({ message: "Failed to fetch chat history", error: fetchError });
+        }
+        const parseResponse = (response) => {
+            if (Array.isArray(response))
+                return response;
+            if (typeof response === "string") {
+                try {
+                    return JSON.parse(response);
+                }
+                catch {
+                    return [];
+                }
+            }
+            return [];
+        };
+        const deriveTitle = (chatPrompt) => {
+            const trimmed = (chatPrompt || "").trim();
+            if (!trimmed)
+                return "New chat";
+            return trimmed.length > 48 ? `${trimmed.slice(0, 48)}…` : trimmed;
+        };
+        // Group rows into sessions. Legacy rows without session_id each become
+        // their own standalone session (keyed by the row's own id).
+        const sessionMap = new Map();
+        for (const row of rows || []) {
+            const key = row.session_id ?? row.id;
+            if (!sessionMap.has(key)) {
+                sessionMap.set(key, {
+                    id: key,
+                    // Title is fixed at the FIRST turn seen for this session (since
+                    // rows are ordered ascending by created_at) — it's the
+                    // conversation's label, not the latest message's.
+                    title: row.title || deriveTitle(row.chatPrompt),
+                    course: row.course,
+                    updatedAt: new Date(row.created_at).getTime(),
+                    messages: [],
+                });
+            }
+            const session = sessionMap.get(key);
+            // Course and updatedAt still track the latest turn.
+            session.course = row.course;
+            session.updatedAt = Math.max(session.updatedAt, new Date(row.created_at).getTime());
+            session.messages.push({
+                id: `${row.id}-user`,
+                role: "user",
+                text: row.chatPrompt,
+                course: row.course,
+            }, {
+                id: `${row.id}-assistant`,
+                role: "assistant",
+                kind: "results",
+                results: parseResponse(row.response),
+            });
+        }
+        // Most recently updated conversation first, matching the frontend's sort
+        const sessions = Array.from(sessionMap.values()).sort((a, b) => b.updatedAt - a.updatedAt);
+        return res.status(200).json({ sessions });
+    }
+    catch (error) {
+        console.log(error);
+        return res.status(500).json({ error: error.message });
+    }
+}
+async function DeleteThesisHistory(req, res) {
+    try {
+        const user_id = req.user?.id;
+        const { id } = req.params;
+        if (!user_id) {
+            return res.status(401).json({ message: "Unauthorized, Please Log in" });
+        }
+        if (!id) {
+            return res.status(400).json({ message: "id is required." });
+        }
+        // Delete every row whose session_id matches, OR whose own id matches
+        // (covers legacy rows where session_id was never set)
+        const { data: deleted, error: deleteError } = await supa_client_1.supabase
+            .from("thesisRecommendation")
+            .delete()
+            .eq("user_id", user_id)
+            .or(`session_id.eq.${id},id.eq.${id}`)
+            .select("id");
+        if (deleteError) {
+            return res.status(500).json({ message: "Failed to delete chat history", error: deleteError });
+        }
+        if (!deleted || deleted.length === 0) {
+            return res.status(404).json({ message: "No chat history found with this id." });
+        }
+        return res.status(200).json({
+            message: "Chat history deleted successfully",
+            deletedCount: deleted.length,
+            id,
         });
     }
     catch (error) {
@@ -334,7 +693,13 @@ async function TopicSelection(req, res) {
         if (!contextCheck.valid) {
             return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
         }
-        const { allowed } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "topicSelection", exports.DAILY_PROMPT_LIMIT);
+        if (isImageRequest(topic) || isImageRequest(context)) {
+            return res.status(400).json({
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
+            });
+        }
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "topicSelection", exports.DAILY_PROMPT_LIMIT);
         if (!allowed) {
             return res.status(429).json({
                 error: "Daily limit reached",
@@ -368,6 +733,7 @@ async function TopicSelection(req, res) {
                 },
             ],
         });
+        await (0, usageLimit_1.logUsage)(user_id, "topicSelection");
         const rawText = result.choices[0].message.content || "";
         let parsed;
         try {
@@ -380,9 +746,8 @@ async function TopicSelection(req, res) {
             });
         }
         const { guidance } = parsed;
-        const { error: saveError } = await supa_client_1.supabase.from("topic_selection_responses").insert({
-            user_id,
-            topic,
+        // Same topic (ignoring case/extra spaces) updates the existing row instead of adding a duplicate.
+        const { error: saveError } = await (0, Saveorreplace_1.saveOrReplace)("topic_selection_responses", user_id, "topic", topic, {
             context: context?.trim() ? context : null,
             feedback: guidance.feedback,
             feasibility: guidance.feasibility,
@@ -401,6 +766,170 @@ async function TopicSelection(req, res) {
         return res.status(500).json({ error: error.message });
     }
 }
+async function SuggestedObjectives(req, res) {
+    try {
+        const { topic, context } = req.body;
+        const user_id = req.user?.id;
+        if (!topic) {
+            return res.status(400).json({
+                message: "Thesis Topic is required.",
+            });
+        }
+        if (!user_id) {
+            return res.status(401).json({
+                message: "Unauthorized, Please Log in",
+            });
+        }
+        const topicCheck = checkMeaningfulText(topic, { required: true });
+        if (!topicCheck.valid) {
+            return res.status(400).json({
+                error: topicCheck.error,
+                message: topicCheck.message,
+            });
+        }
+        const contextCheck = checkMeaningfulText(context);
+        if (!contextCheck.valid) {
+            return res.status(400).json({
+                error: contextCheck.error,
+                message: contextCheck.message,
+            });
+        }
+        if (isImageRequest(topic) || isImageRequest(context)) {
+            return res.status(400).json({
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
+            });
+        }
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "suggestedObjectives", exports.DAILY_PROMPT_LIMIT);
+        if (!allowed) {
+            return res.status(429).json({
+                error: "Daily limit reached",
+                message: `You've reached your daily limit of ${exports.DAILY_PROMPT_LIMIT} prompts. Please try again.`,
+                remaining: 0,
+            });
+        }
+        const prompt = `
+Thesis Topic / Research Area:
+${topic}
+
+Additional Context:
+${context?.trim() ? context : "None provided."}
+`;
+        const result = await exports.openai.chat.completions.create({
+            model: "gpt-5.4-mini",
+            reasoning_effort: "none",
+            response_format: { type: "json_object" },
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an academic research assistant helping undergraduate " +
+                        "students formulate the Objectives of the Study for a thesis. " +
+                        "Based on the student's thesis topic and optional context, " +
+                        "create a clear and academically appropriate General Objective " +
+                        "and Specific Objectives. " +
+                        "The General Objective must describe the main purpose of the study, " +
+                        "stated specifically enough that a reader unfamiliar with the topic " +
+                        "understands exactly what will be studied and in what setting. " +
+                        "Avoid generic filler like 'to explore' or 'to look into' when a " +
+                        "more precise verb (determine, assess, evaluate, compare) fits better. " +
+                        "Alongside the General Objective, provide one short sentence of " +
+                        "rationale explaining why this objective matters — what gap, need, " +
+                        "or problem it addresses — so the student can use it to justify " +
+                        "their study in Chapter 1. " +
+                        "The Specific Objectives must break the general objective into " +
+                        "clear, measurable, and achievable research activities that, taken " +
+                        "together, fully accomplish the general objective — no gaps, no " +
+                        "overlap between objectives. " +
+                        "Use action verbs such as determine, identify, assess, analyze, " +
+                        "develop, evaluate, examine, compare, or describe when appropriate. " +
+                        "For each specific objective, also provide a one-sentence rationale " +
+                        "explaining why that objective matters to the overall study — this " +
+                        "helps the student justify their objectives when writing Chapter 1. " +
+                        "Do not create objectives that cannot reasonably be addressed " +
+                        "by the stated topic. Avoid overly broad, repetitive, or vague objectives. " +
+                        "The objectives should be appropriate for an undergraduate thesis. " +
+                        "Do not invent statistics, findings, participants, or research " +
+                        "conditions that were not provided by the student. " +
+                        "If important information is missing, create reasonable but " +
+                        "general objectives and identify what should be clarified — list " +
+                        "these under researchConsiderations. " +
+                        "Respond ONLY with a valid JSON object shaped as: " +
+                        `{ 
+              "objectives": {
+                "generalObjective": string,
+                "generalObjectiveRationale": string,
+                "specificObjectives": string[],
+                "objectiveRationale": string[],
+                "suggestedVariables": string[],
+                "scopeConsiderations": string[],
+                "researchConsiderations": string[]
+              }
+            }` +
+                        "The generalObjective should contain exactly one objective. " +
+                        "generalObjectiveRationale must be exactly one sentence. " +
+                        "specificObjectives should contain exactly 5 objectives. " +
+                        "Each specific objective should begin with an appropriate action verb. " +
+                        "objectiveRationale must contain exactly 5 entries, in the same order " +
+                        "as specificObjectives — one rationale sentence per objective. " +
+                        "suggestedVariables should list possible variables only when they " +
+                        "can reasonably be identified from the topic. " +
+                        "scopeConsiderations should contain 2-3 points. " +
+                        "researchConsiderations should contain 2-3 points.",
+                },
+                {
+                    role: "user",
+                    content: prompt,
+                },
+            ],
+        });
+        await (0, usageLimit_1.logUsage)(user_id, "suggestedObjectives");
+        const rawText = result.choices[0].message.content || "";
+        let parsed;
+        try {
+            const cleaned = rawText
+                .replace(/```json|```/g, "")
+                .trim();
+            parsed = JSON.parse(cleaned);
+        }
+        catch {
+            return res.status(500).json({
+                error: "AI returned invalid JSON. Please try again.",
+            });
+        }
+        const { objectives } = parsed;
+        if (!objectives ||
+            typeof objectives.generalObjective !== "string" ||
+            typeof objectives.generalObjectiveRationale !== "string" ||
+            !Array.isArray(objectives.specificObjectives) ||
+            !Array.isArray(objectives.objectiveRationale) ||
+            objectives.objectiveRationale.length !== objectives.specificObjectives.length) {
+            return res.status(500).json({
+                error: "AI returned an unexpected objectives format.",
+            });
+        }
+        const { error: saveError } = await (0, Saveorreplace_1.saveOrReplace)("suggested_objectives", user_id, "topic", topic, {
+            context: context?.trim() ? context : null,
+            general_objective: objectives.generalObjective,
+            general_objective_rationale: objectives.generalObjectiveRationale,
+            specific_objectives: objectives.specificObjectives,
+            objective_rationale: objectives.objectiveRationale,
+            suggested_variables: objectives.suggestedVariables,
+            scope_considerations: objectives.scopeConsiderations,
+            research_considerations: objectives.researchConsiderations,
+        });
+        if (saveError) {
+            console.log(saveError);
+            // AI response remains valid even if saving fails.
+        }
+        return res.status(200).json(parsed);
+    }
+    catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            error: error.message,
+        });
+    }
+}
 async function LiteratureReview(req, res) {
     try {
         const { topic } = req.body;
@@ -412,7 +941,13 @@ async function LiteratureReview(req, res) {
         if (!topicCheck.valid) {
             return res.status(400).json({ error: topicCheck.error, message: topicCheck.message });
         }
-        const { allowed } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "literatureReview", exports.DAILY_PROMPT_LIMIT);
+        if (isImageRequest(topic)) {
+            return res.status(400).json({
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
+            });
+        }
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "literatureReview", exports.DAILY_PROMPT_LIMIT);
         if (!allowed) {
             return res.status(429).json({
                 error: "Daily limit reached",
@@ -420,8 +955,8 @@ async function LiteratureReview(req, res) {
                 remaining: 0,
             });
         }
-        // --- Use a browsing-capable model (Responses API + web_search tool). ---
-        // The model must actually retrieve each source via the tool — it's told
+        // Use a browsing-capable model (Responses API + web_search tool). The
+        // model must actually retrieve each source via the tool — it's told
         // never to write a url from memory.
         const instructions = "You are a thesis advisor helping an undergraduate student build their Review of Related " +
             "Literature (RRL). Use the web_search tool to find at least 20 REAL, currently accessible " +
@@ -453,6 +988,7 @@ async function LiteratureReview(req, res) {
             instructions,
             input: `Thesis topic: ${topic}`,
         });
+        await (0, usageLimit_1.logUsage)(user_id, "literatureReview");
         const rawText = response.output_text || "";
         let parsed;
         try {
@@ -469,10 +1005,10 @@ async function LiteratureReview(req, res) {
                 message: "Couldn't find sources for this topic. Try broadening or rephrasing it.",
             });
         }
-        // --- Cross-check every url against what the tool actually retrieved. ---
-        // Even with browsing, a model can occasionally slip in a url it didn't
-        // really visit — so we only trust urls backed by a real url_citation
-        // annotation from the tool call, and drop anything else.
+        // Cross-check every url against what the tool actually retrieved. Even
+        // with browsing, a model can occasionally slip in a url it didn't really
+        // visit — so we only trust urls backed by a real url_citation annotation
+        // from the tool call, and drop anything else.
         const groundedUrls = new Set();
         for (const item of response.output ?? []) {
             if (item.type === "message") {
@@ -499,15 +1035,11 @@ async function LiteratureReview(req, res) {
                 message: "Couldn't verify enough real sources for this topic. Try broadening or rephrasing it.",
             });
         }
-        // -----------------------------------------------------------
         // Persist the AI response to Postgres (via Supabase) — single table.
-        // Failure to save should not break the response to the client —
-        // we log it and still return the result.
-        // -----------------------------------------------------------
+        // Failure to save should not break the response to the client — we log
+        // it and still return the result.
         try {
-            const { error: saveError } = await supa_client_1.supabase.from("literature_reviews").insert({
-                user_id,
-                topic,
+            const { error: saveError } = await (0, Saveorreplace_1.saveOrReplace)("literature_reviews", user_id, "topic", topic, {
                 source_count: annotatedBibliography.length,
                 unverified_dropped: unverifiedDropped,
                 annotated_bibliography: annotatedBibliography,
@@ -534,7 +1066,7 @@ async function LiteratureReview(req, res) {
 }
 async function Methodology(req, res) {
     try {
-        const { topic, researchQuestions, context } = req.body;
+        const { topic, objective, researchQuestions, context } = req.body;
         const user_id = req.user?.id;
         if (!user_id) {
             return res.status(401).json({ message: "Unauthorized, Please Log in" });
@@ -542,6 +1074,10 @@ async function Methodology(req, res) {
         const topicCheck = checkMeaningfulText(topic, { required: true });
         if (!topicCheck.valid) {
             return res.status(400).json({ error: topicCheck.error, message: topicCheck.message });
+        }
+        const objectiveCheck = checkMeaningfulText(objective, { required: true });
+        if (!objectiveCheck.valid) {
+            return res.status(400).json({ error: objectiveCheck.error, message: `Objective: ${objectiveCheck.message}` });
         }
         if (!Array.isArray(researchQuestions) || researchQuestions.length < 1) {
             return res.status(400).json({
@@ -563,7 +1099,16 @@ async function Methodology(req, res) {
         if (!contextCheck.valid) {
             return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
         }
-        const { allowed } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "methodology", exports.DAILY_PROMPT_LIMIT);
+        if (isImageRequest(topic) ||
+            isImageRequest(objective) ||
+            isImageRequest(context) ||
+            researchQuestions.some((q) => isImageRequest(q))) {
+            return res.status(400).json({
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
+            });
+        }
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "methodology", exports.DAILY_PROMPT_LIMIT);
         if (!allowed) {
             return res.status(429).json({
                 error: "Daily limit reached",
@@ -575,87 +1120,132 @@ async function Methodology(req, res) {
         const prompt = `
       Thesis topic: ${topic}
 
+      General objective: ${objective}
+
       Research questions:
       ${questionsBlock}
 
       Additional context: ${context?.trim() ? context : "None provided."}
     `;
-        const result = await exports.openai.chat.completions.create({
+        // NOTE: response_format / text.format "json_object" cannot be combined
+        // with the web_search tool (OpenAI returns a 400: "Web Search cannot be
+        // used with JSON mode"). So JSON-only output is enforced purely through
+        // prompting here, and parsing below is written to tolerate stray
+        // preamble/fencing the model might still add despite the instruction.
+        const systemInstructions = "You are a thesis advisor helping an undergraduate student design their Methodology chapter. " +
+            "You have a web_search tool — use it to ground your sampling method, sample size justification, " +
+            "and instrument choices in real, citable sources (e.g. established sample size formulas such as " +
+            "Slovin's or Cochran's, published/validated instruments in the topic's domain, or recognized " +
+            "qualitative sampling standards such as data saturation guidance). Do not invent citations — only " +
+            "reference sources you actually retrieved via web_search, using their real title and URL. " +
+            "Given their topic, general objective, and numbered research questions, respond with ONLY a raw JSON " +
+            "object and nothing else — no preamble, no explanation, no markdown code fences, no text before or " +
+            "after the JSON — shaped EXACTLY as this skeleton " +
+            "(pay close attention to which fields are nested inside \"population\" and which are siblings of it — " +
+            "only targetPopulation, samplingMethod, sampleSizeJustification, and inclusionCriteria belong inside " +
+            "population; instruments, dataCollectionPlan, dataAnalysisPlan, questionMapping, limitations, and " +
+            "references are top-level siblings of population, NOT nested inside it):\n" +
+            `{\n` +
+            `  "methodology": {\n` +
+            `    "approach": "qualitative" | "quantitative" | "mixed_methods",\n` +
+            `    "approachRationale": string,\n` +
+            `    "population": {\n` +
+            `      "targetPopulation": string,\n` +
+            `      "samplingMethod": string,\n` +
+            `      "sampleSizeJustification": string,\n` +
+            `      "inclusionCriteria": string[]\n` +
+            `    },\n` +
+            `    "instruments": [{ "name": string, "type": string, "purpose": string, "validityConsiderations": string, "researchQuestionNumbers": number[] }],\n` +
+            `    "dataCollectionPlan": string,\n` +
+            `    "dataAnalysisPlan": string,\n` +
+            `    "questionMapping": [{ "researchQuestionNumber": number, "researchQuestion": string, "approach": string, "instrument": string, "analysisMethod": string }],\n` +
+            `    "limitations": string[],\n` +
+            `    "references": [{ "title": string, "url": string, "relevance": string }]\n` +
+            `  }\n` +
+            `}\n\n` +
+            "First decide the approach using a decision tree based on BOTH the general objective and the research " +
+            "questions together — the objective sets the overall scope and intent of the study, while the research " +
+            "questions operationalize it; they should agree, and if they seem to pull in different directions, treat " +
+            "that as a signal toward 'mixed_methods' rather than picking one and ignoring the other. Choose " +
+            "'quantitative' if the objective and questions ask about measurable variables, relationships, or " +
+            "comparisons between groups; choose 'qualitative' if they ask about lived experiences, meanings, " +
+            "perceptions, or processes; choose 'mixed_methods' if they combine both (e.g. objective is broad/ " +
+            "exploratory but one question is measurable, or vice versa). " +
+            "approachRationale should be 2-3 sentences explaining why, referencing both the general objective and the " +
+            "specific research questions that drove the decision. " +
+            "population.targetPopulation should name who/what will be studied, consistent with the general objective. " +
+            "samplingMethod should name a specific sampling technique (e.g. purposive, stratified random, convenience) " +
+            "appropriate to the approach and explain briefly why it fits. sampleSizeJustification should give a " +
+            "concrete sample size or range and justify it (e.g. saturation for qualitative, power/margin-of-error " +
+            "reasoning for quantitative), citing a real formula or standard found via web_search where applicable. " +
+            "inclusionCriteria should list 2-4 concrete eligibility criteria for participants/respondents. " +
+            "IMPORTANT: close the population object immediately after inclusionCriteria — do not place instruments, " +
+            "dataCollectionPlan, dataAnalysisPlan, questionMapping, limitations, or references inside it. " +
+            "instruments should have 1-3 entries, each a concrete data collection instrument (e.g. structured survey, " +
+            "semi-structured interview guide, validated scale name) with its purpose, and validityConsiderations " +
+            "describing how validity/reliability (or trustworthiness, for qualitative) will be established — e.g. " +
+            "pilot testing, expert validation, triangulation, member checking. Each instrument's " +
+            "researchQuestionNumbers should list which numbered research question(s) it serves. " +
+            "dataCollectionPlan should be 3-5 sentences describing the step-by-step procedure for gathering data, " +
+            "consistent with achieving the general objective. " +
+            "dataAnalysisPlan should be 3-5 sentences describing the specific analysis technique(s) that match the " +
+            "approach (e.g. thematic analysis, regression, descriptive statistics). " +
+            "questionMapping must have exactly one entry per research question, in the same order given, restating " +
+            "the question and summarizing in a few words which approach, instrument, and analysis method address it " +
+            "— this is the artifact that ties the whole methodology back to each research question. " +
+            "limitations should list 2-3 realistic methodological limitations of this design. " +
+            "references should list 2-5 real sources you retrieved via web_search that back up your sampling method, " +
+            "sample size justification, or instrument choices — each with the source's actual title, URL, and a " +
+            "one-sentence note on what it supports. If you cannot find genuinely relevant sources, return an empty " +
+            "array rather than fabricating one. " +
+            "Remember: output ONLY the JSON object above. Do not wrap it in ```json fences, do not add commentary " +
+            "before or after it.";
+        const result = await exports.openai.responses.create({
             model: "gpt-5.4-mini",
-            reasoning_effort: "none",
-            response_format: { type: "json_object" },
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a thesis advisor helping an undergraduate student design their Methodology chapter. " +
-                        "Given their topic and numbered research questions, respond ONLY with a JSON object shaped EXACTLY as this skeleton " +
-                        "(pay close attention to which fields are nested inside \"population\" and which are siblings of it — " +
-                        "only targetPopulation, samplingMethod, sampleSizeJustification, and inclusionCriteria belong inside " +
-                        "population; instruments, dataCollectionPlan, dataAnalysisPlan, questionMapping, and limitations are " +
-                        "top-level siblings of population, NOT nested inside it):\n" +
-                        `{\n` +
-                        `  "methodology": {\n` +
-                        `    "approach": "qualitative" | "quantitative" | "mixed_methods",\n` +
-                        `    "approachRationale": string,\n` +
-                        `    "population": {\n` +
-                        `      "targetPopulation": string,\n` +
-                        `      "samplingMethod": string,\n` +
-                        `      "sampleSizeJustification": string,\n` +
-                        `      "inclusionCriteria": string[]\n` +
-                        `    },\n` +
-                        `    "instruments": [{ "name": string, "type": string, "purpose": string, "validityConsiderations": string, "researchQuestionNumbers": number[] }],\n` +
-                        `    "dataCollectionPlan": string,\n` +
-                        `    "dataAnalysisPlan": string,\n` +
-                        `    "questionMapping": [{ "researchQuestionNumber": number, "researchQuestion": string, "approach": string, "instrument": string, "analysisMethod": string }],\n` +
-                        `    "limitations": string[]\n` +
-                        `  }\n` +
-                        `}\n\n` +
-                        "First decide the approach using a decision tree based on the research questions themselves: choose " +
-                        "'quantitative' if the questions ask about measurable variables, relationships, or comparisons between " +
-                        "groups; choose 'qualitative' if the questions ask about lived experiences, meanings, perceptions, or " +
-                        "processes; choose 'mixed_methods' if the questions combine both (e.g. one measurable, one experiential). " +
-                        "approachRationale should be 2-3 sentences explaining why, referencing the specific research questions " +
-                        "that drove the decision. " +
-                        "population.targetPopulation should name who/what will be studied. samplingMethod should name a specific " +
-                        "sampling technique (e.g. purposive, stratified random, convenience) appropriate to the approach and " +
-                        "explain briefly why it fits. sampleSizeJustification should give a concrete sample size or range and " +
-                        "justify it (e.g. saturation for qualitative, power/margin-of-error reasoning for quantitative). " +
-                        "inclusionCriteria should list 2-4 concrete eligibility criteria for participants/respondents. " +
-                        "IMPORTANT: close the population object immediately after inclusionCriteria — do not place instruments, " +
-                        "dataCollectionPlan, dataAnalysisPlan, questionMapping, or limitations inside it. " +
-                        "instruments should have 1-3 entries, each a concrete data collection instrument (e.g. structured survey, " +
-                        "semi-structured interview guide, validated scale name) with its purpose, and validityConsiderations " +
-                        "describing how validity/reliability (or trustworthiness, for qualitative) will be established — e.g. " +
-                        "pilot testing, expert validation, triangulation, member checking. Each instrument's " +
-                        "researchQuestionNumbers should list which numbered research question(s) it serves. " +
-                        "dataCollectionPlan should be 3-5 sentences describing the step-by-step procedure for gathering data. " +
-                        "dataAnalysisPlan should be 3-5 sentences describing the specific analysis technique(s) that match the " +
-                        "approach (e.g. thematic analysis, regression, descriptive statistics). " +
-                        "questionMapping must have exactly one entry per research question, in the same order given, restating " +
-                        "the question and summarizing in a few words which approach, instrument, and analysis method address it " +
-                        "— this is the artifact that ties the whole methodology back to each research question. " +
-                        "limitations should list 2-3 realistic methodological limitations of this design.",
-                },
-                {
-                    role: "user",
-                    content: prompt,
-                },
+            reasoning: { effort: "none" },
+            tools: [{ type: "web_search" }],
+            input: [
+                { role: "system", content: systemInstructions },
+                { role: "user", content: prompt },
             ],
         });
-        const rawText = result.choices[0].message.content || "";
+        await (0, usageLimit_1.logUsage)(user_id, "methodology");
+        const rawText = result.output_text || "";
+        const verifiedUrls = new Set();
+        for (const item of result.output ?? []) {
+            if (item.type === "message") {
+                for (const content of item.content ?? []) {
+                    if (content.type === "output_text") {
+                        for (const annotation of content.annotations ?? []) {
+                            if (annotation.type === "url_citation" && annotation.url) {
+                                verifiedUrls.add(annotation.url);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         let parsed;
         try {
-            const cleaned = rawText.replace(/```json|```/g, "").trim();
+            // Strip markdown fences if present, then fall back to extracting the
+            // outermost {...} span in case the model still adds stray preamble
+            // or trailing commentary despite the instruction not to — this is
+            // the tolerance we lose by not having json_object mode enforce it.
+            let cleaned = rawText.replace(/```json|```/g, "").trim();
+            const firstBrace = cleaned.indexOf("{");
+            const lastBrace = cleaned.lastIndexOf("}");
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+            }
             parsed = JSON.parse(cleaned);
         }
         catch {
+            console.log("Failed to parse methodology JSON, raw:", rawText);
             return res.status(500).json({
                 error: "AI returned invalid JSON. Please try again.",
             });
         }
         const { methodology } = parsed;
-        // Guard against a missing or malformed wrapper before it silently
-        // becomes null columns in the database.
         if (!methodology || typeof methodology !== "object") {
             console.log("Malformed methodology response, raw:", rawText);
             return res.status(500).json({
@@ -679,8 +1269,12 @@ async function Methodology(req, res) {
                 error: `AI response was incomplete (missing: ${missingFields.join(", ")}). Please try again.`,
             });
         }
-        // Also validate that population itself isn't missing its own required
-        // sub-fields (e.g. if the model nests something differently again).
+        if (!methodology.population || typeof methodology.population !== "object") {
+            console.log("Methodology response has malformed population object, raw:", rawText);
+            return res.status(500).json({
+                error: "AI response was incomplete (missing population data). Please try again.",
+            });
+        }
         const requiredPopulationFields = [
             "targetPopulation",
             "samplingMethod",
@@ -694,9 +1288,11 @@ async function Methodology(req, res) {
                 error: `AI response was incomplete (missing population fields: ${missingPopulationFields.join(", ")}). Please try again.`,
             });
         }
-        const { error: saveError } = await supa_client_1.supabase.from("methodology_responses").insert({
-            user_id,
-            topic,
+        const rawReferences = Array.isArray(methodology.references) ? methodology.references : [];
+        const verifiedReferences = rawReferences.filter((r) => r?.url && verifiedUrls.has(r.url));
+        const responseMethodology = { ...methodology, references: verifiedReferences };
+        const { error: saveError } = await (0, Saveorreplace_1.saveOrReplace)("methodology_responses", user_id, "topic", topic, {
+            objective,
             research_questions: researchQuestions,
             context: context?.trim() ? context : null,
             approach: methodology.approach,
@@ -707,12 +1303,13 @@ async function Methodology(req, res) {
             data_analysis_plan: methodology.dataAnalysisPlan,
             question_mapping: methodology.questionMapping,
             limitations: methodology.limitations,
+            references: verifiedReferences,
         });
         if (saveError) {
             console.log(saveError);
             // Not returning an error here — the AI response is still valid even if the save fails
         }
-        return res.status(200).json(parsed);
+        return res.status(200).json({ methodology: responseMethodology });
     }
     catch (error) {
         console.log(error);
@@ -762,7 +1359,16 @@ async function DataAnalysis(req, res) {
         if (!gapCheck.valid) {
             return res.status(400).json({ error: gapCheck.error, message: gapCheck.message });
         }
-        const { allowed } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "dataAnalysis", exports.DAILY_PROMPT_LIMIT);
+        if (isImageRequest(topic) ||
+            isImageRequest(gapStatement) ||
+            isImageRequest(rawFindings) ||
+            researchQuestions.some((q) => isImageRequest(q))) {
+            return res.status(400).json({
+                error: IMAGE_REQUEST_ERROR,
+                message: IMAGE_REQUEST_MESSAGE,
+            });
+        }
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(user_id, "dataAnalysis", exports.DAILY_PROMPT_LIMIT);
         if (!allowed) {
             return res.status(429).json({
                 error: "Daily limit reached",
@@ -773,14 +1379,14 @@ async function DataAnalysis(req, res) {
         const questionsBlock = researchQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n");
         const prompt = `
       Thesis topic: ${topic}
- 
+
       Methodological approach: ${approach}
- 
+
       Research questions:
       ${questionsBlock}
- 
+
       Research gap (from Literature Review): ${gapStatement?.trim() ? gapStatement : "None provided."}
- 
+
       Raw findings / data notes from the student:
       ${rawFindings}
     `;
@@ -826,6 +1432,7 @@ async function DataAnalysis(req, res) {
                 },
             ],
         });
+        await (0, usageLimit_1.logUsage)(user_id, "dataAnalysis");
         const rawText = result.choices[0].message.content || "";
         let parsed;
         try {
@@ -838,9 +1445,7 @@ async function DataAnalysis(req, res) {
             });
         }
         const { dataAnalysis } = parsed;
-        const { error: saveError } = await supa_client_1.supabase.from("data_analysis_responses").insert({
-            user_id,
-            topic,
+        const { error: saveError } = await (0, Saveorreplace_1.saveOrReplace)("data_analysis_responses", user_id, "topic", topic, {
             approach,
             research_questions: researchQuestions,
             gap_statement: gapStatement?.trim() ? gapStatement : null,
@@ -866,220 +1471,540 @@ async function DataAnalysis(req, res) {
 }
 async function FullPaperReview(req, res) {
     try {
-        const user_id = req.user?.id;
-        if (!user_id) {
-            return res.status(401).json({ message: "Unauthorized, Please Log in" });
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
         }
-        // File upload is now OPTIONAL — a student can either upload a PDF or
+        // Optional — lets this review get linked/cascaded alongside the other
+        // stages for the same thesis topic, the same way every other stage
+        // table is (DeleteTopicSelections matches full_paper_reviews rows by
+        // this column).
+        const topic = req.body?.topic;
         const files = req.files;
-        const thesis_file = files?.[0];
-        // --- Manual section input (used when no file is uploaded, or to
-        // supplement one) ---
-        const { thesis_abstract, thesis_introduction, thesis_methodology, thesis_discussion, thesis_conclusion, thesis_references, } = req.body;
-        const manualSections = [
-            { chapter: "Abstract", content: thesis_abstract },
-            { chapter: "Introduction", content: thesis_introduction },
-            { chapter: "Methodology", content: thesis_methodology },
-            { chapter: "Discussion", content: thesis_discussion },
-            { chapter: "Conclusion", content: thesis_conclusion },
-            { chapter: "References", content: thesis_references },
-        ].filter((s) => !!s.content?.trim());
-        const hasFile = !!thesis_file;
-        const hasManualText = manualSections.length > 0;
-        if (!hasFile && !hasManualText) {
+        const paper = files?.[0];
+        if (!paper) {
             return res.status(400).json({
-                status: false,
-                message: "Upload a PDF, or type in your thesis sections (abstract, introduction, etc.) to proceed.",
+                success: false,
+                message: "Please upload a PDF paper.",
             });
         }
-        // --- File validation (only applies if a file was actually uploaded) ---
-        if (hasFile) {
-            if (thesis_file.mimetype !== "application/pdf") {
-                return res.status(400).json({ status: false, message: "Only PDF files are allowed" });
-            }
-            const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB
-            if (thesis_file.size > MAX_FILE_BYTES) {
-                return res.status(400).json({ message: "File is too large. Max size is 15MB." });
-            }
+        const isPDF = paper.mimetype === "application/pdf" ||
+            paper.originalname.toLowerCase().endsWith(".pdf");
+        if (!isPDF) {
+            return res.status(400).json({ success: false, message: "Only PDF files are allowed." });
         }
-        const { allowed } = await (0, checkDailyLimit_1.checkDailyLimit)(user_id, "fullPaperReview", DAILY_PROMPT_LIMIT_PAPER_REVIEW);
+        const MAX_FILE_SIZE = 15 * 1024 * 1024;
+        if (paper.size > MAX_FILE_SIZE) {
+            return res.status(400).json({ success: false, message: "PDF must not exceed 15 MB." });
+        }
+        // Cost control: reviewing a full paper is the most expensive AI call in
+        // this file (up to 180k chars of context), so it has its own, lower daily
+        // cap. Usage is counted from ai_usage_log, so deleting saved reviews can't
+        // give prompts back.
+        const { allowed } = await (0, usageLimit_1.checkUsageLimit)(userId, "fullPaperReview", exports.DAILY_PROMPT_LIMIT_PAPER_REVIEW);
         if (!allowed) {
             return res.status(429).json({
+                success: false,
                 error: "Daily limit reached",
-                message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT_PAPER_REVIEW} paper reviews. Please try again tomorrow.`,
+                message: `You've reached your daily limit of ${exports.DAILY_PROMPT_LIMIT_PAPER_REVIEW} prompts. Please try again.`,
                 remaining: 0,
             });
         }
-        // --- Build extractedText + chapters from either the PDF or manual input ---
-        let extractedText;
-        let chapters;
-        if (hasFile) {
-            try {
-                const parser = new pdf_parse_1.PDFParse({ data: thesis_file.buffer });
-                const result = await parser.getText();
-                extractedText = result.text;
-                await parser.destroy(); // release underlying resources
-            }
-            catch (extractError) {
-                console.log("PDF extraction failed:", extractError);
-                return res.status(400).json({
-                    message: "Couldn't read this PDF. It may be scanned/image-based or corrupted.",
-                });
-            }
-            // If manual sections were ALSO provided alongside the file, append them
-            // so both sources feed the review.
-            if (hasManualText) {
-                const manualBlock = manualSections.map((s) => `--- ${s.chapter} (typed in manually) ---\n${s.content}`).join("\n\n");
-                extractedText = `${extractedText}\n\n${manualBlock}`;
-            }
-            chapters = splitIntoChapters(extractedText);
+        let extractedText = "";
+        const parser = new pdf_parse_1.PDFParse({ data: paper.buffer });
+        try {
+            const result = await parser.getText();
+            extractedText = result.text || "";
         }
-        else {
-            // No file — build chapters directly from the manually typed sections.
-            // These are already labeled, so we skip the heuristic chapter splitter.
-            chapters = manualSections;
-            extractedText = manualSections.map((s) => `${s.chapter}\n${s.content}`).join("\n\n");
-        }
-        const textCheck = checkMeaningfulText(extractedText, { required: true });
-        if (!textCheck.valid) {
+        catch (error) {
+            console.error("PDF extraction error:", error);
             return res.status(400).json({
-                error: textCheck.error,
-                message: "Couldn't find enough meaningful text to review. Please upload a clearer PDF or add more detail to the typed sections.",
+                success: false,
+                message: "Unable to read the PDF. Please make sure the file contains selectable text.",
             });
         }
-        if (extractedText.length > 200000) {
-            // guard against runaway token usage on very long documents
-            extractedText = extractedText.slice(0, 200000);
+        finally {
+            // Always release the parser, even if getText() threw.
+            await parser.destroy();
         }
-        const citationAudit = auditCitations(extractedText);
-        // --- Pull the student's own saved artifacts to check consistency against ---
-        const [{ data: topicRows }, { data: methodRows }, { data: litRows }, { data: dataRows }] = await Promise.all([
-            supa_client_1.supabase
-                .from("topic_selection_responses")
-                .select("*")
-                .eq("user_id", user_id)
-                .order("created_at", { ascending: false })
-                .limit(1),
-            supa_client_1.supabase
-                .from("methodology_responses")
-                .select("*")
-                .eq("user_id", user_id)
-                .order("created_at", { ascending: false })
-                .limit(1),
-            supa_client_1.supabase
-                .from("literature_reviews")
-                .select("*")
-                .eq("user_id", user_id)
-                .order("created_at", { ascending: false })
-                .limit(1),
-            supa_client_1.supabase
-                .from("data_analysis_responses")
-                .select("*")
-                .eq("user_id", user_id)
-                .order("created_at", { ascending: false })
-                .limit(1),
-        ]);
-        const savedArtifacts = {
-            topic: topicRows?.[0]?.topic ?? null,
-            refinedTopics: topicRows?.[0]?.refined_topics ?? null,
-            researchQuestions: topicRows?.[0]?.suggested_research_questions ?? null,
-            methodologyApproach: methodRows?.[0]?.approach ?? null,
-            methodologyQuestionMapping: methodRows?.[0]?.question_mapping ?? null,
-            literatureSourceCount: litRows?.[0]?.source_count ?? null,
-            dataAnalysisMethod: dataRows?.[0]?.analysis_method ?? null,
-        };
-        const chaptersBlock = chapters
-            .map((c, i) => `--- ${c.chapter || `Section ${i + 1}`} ---\n${c.content.slice(0, 8000)}`)
-            .join("\n\n");
-        const prompt = `
-      STUDENT'S SAVED WORK FROM EARLIER STAGES (for consistency checking):
-      ${JSON.stringify(savedArtifacts, null, 2)}
+        extractedText = cleanText(extractedText);
+        if (extractedText.length < 500) {
+            return res.status(400).json({
+                success: false,
+                message: "The PDF does not contain enough readable text to review.",
+            });
+        }
+        const MAX_CHARS = 180000;
+        const wasTruncated = extractedText.length > MAX_CHARS;
+        const paperText = limitText(extractedText, MAX_CHARS);
+        const basicAnalysis = analyzePaperStructure(extractedText);
+        const citationAnalysis = analyzeCitations(extractedText);
+        const systemPrompt = `
+You are an expert academic research-paper reviewer.
 
-      DETERMINISTIC CITATION SCAN (pre-computed, for reference — verify/refine, don't just repeat):
-      In-text citations found: ${citationAudit.inTextCount}
-      Reference list entries found: ${citationAudit.referenceListCount}
-      Reference entries possibly missing an in-text citation: ${citationAudit.possiblyUncitedInReferences}
+You are reviewing a thesis, capstone paper, research paper,
+or academic proposal.
 
-      EXTRACTED PAPER TEXT (chunked by detected chapter/section):
-      ${chaptersBlock}
-    `;
-        const result = await exports.openai.chat.completions.create({
+Your job is NOT to rewrite the paper.
+
+Your job is to CHECK the paper and identify:
+
+1. Structural problems
+2. Missing sections
+3. Weak sections
+4. Internal inconsistencies
+5. Contradictions
+6. Problems between objectives and methodology
+7. Problems between research questions and methodology
+8. Problems between scope and system features
+9. Citation/reference problems
+10. Methodology problems
+11. Grammar/academic-writing issues that materially affect
+    clarity
+12. Overall readiness
+
+For every problem you identify, your primary job is to tell the
+student how to IMPROVE the paper — the finding matters only as
+context for the fix. Do not stop at flagging a mismatch or gap;
+always follow it with the specific improvement that resolves it.
+
+IMPORTANT:
+
+- Only make claims supported by the submitted paper.
+- Do not invent information.
+- Do not assume missing information exists.
+- If something cannot be determined, say "Not Found".
+- Distinguish between "Missing" and "Not Applicable".
+- If the document is clearly a proposal containing Chapters I-III,
+  do NOT penalize it for not having Results, Discussion,
+  Conclusion, or Recommendations.
+- If it is a final paper, those sections should be evaluated.
+- Objectives are not automatically research questions.
+- A methodology must reasonably address the stated research
+  questions/objectives.
+- If two sections contradict each other, explicitly identify
+  the contradiction and recommend the specific improvement that
+  resolves it.
+- Use concrete explanations.
+
+RECOMMENDATION QUALITY STANDARD:
+
+Every "recommendation" field you write (in sectionCheck,
+methodologyCheck, citationAudit, and topPriorityFixes) must meet
+ALL of the following, not just "be actionable" in a vague sense:
+
+- Say WHAT to do, not just what is wrong. Never write a
+  recommendation that only restates the finding (e.g. do not
+  write finding: "No research questions were found." followed by
+  recommendation: "Add research questions." — that repeats the
+  problem instead of solving it).
+- Say HOW to do it in concrete, near-final terms. Where possible,
+  give the actual structure, wording pattern, or example the
+  student should follow, not just the category of fix. For
+  example, instead of "add a sample size," write "state the
+  target population size, the sample size derived from it (e.g.
+  via Slovin's formula or a stated confidence level/margin of
+  error), and the exact number of respondents per group (e.g.
+  X students, Y faculty, Z administrators)."
+- Reference the specific content already in the paper when
+  proposing the fix, so the recommendation is tailored to this
+  paper rather than generic advice that could apply to any paper.
+  Pull in the actual titles, terms, features, objectives, or
+  citations already used in the document wherever relevant.
+- Where a fix requires a choice (e.g. which sampling method, which
+  statistical test, which citation style), recommend ONE specific,
+  defensible option suited to this paper's stated design, and
+  briefly say why it fits, rather than listing multiple options
+  and leaving the choice to the student.
+- If the fix involves resolving a contradiction between two
+  sections, explicitly say which of the two versions to keep (or
+  how to reconcile them into one consistent version), not just
+  "make these consistent."
+- Order multi-step recommendations as a short numbered or
+  sequential set of concrete actions when more than one step is
+  required, rather than one vague sentence covering everything.
+- Keep recommendations grounded in standard academic/thesis
+  conventions (e.g. IMRaD structure, Likert-scale validity and
+  reliability practices such as Cronbach's alpha, standard
+  citation styles like APA 7th edition, Slovin's formula or
+  Cochran's formula for sample size) so the advice reflects
+  real methodological practice, not invented terminology.
+- Never give a recommendation that conflicts with something else
+  you are recommending elsewhere in the same review.
+- Frame every recommendation around improving the paper the
+  student actually submitted — write it as guidance the student
+  can act on directly, not as a report of what doesn't match.
+
+Give actionable recommendations.
+
+DOCUMENT STAGE:
+
+First determine whether this is:
+
+"Proposal"
+"Final Paper"
+"Unclear"
+
+A Chapters I-III document should normally be treated as a
+Proposal unless the document explicitly indicates otherwise.
+
+STRUCTURE FOR A PROPOSAL:
+
+- Background / Introduction
+- Statement of the Problem
+- Research Questions
+- Objectives
+- Significance of the Study
+- Scope and Delimitation
+- Definition of Terms
+- Review of Related Literature
+- Review of Related Studies
+- Theoretical/Conceptual Framework
+- Research Design
+- Population and Sampling
+- Research Instrument
+- Data Gathering Procedure
+- Statistical Treatment
+
+STRUCTURE FOR A FINAL PAPER:
+
+All proposal sections plus:
+
+- Presentation of Data
+- Analysis
+- Discussion
+- Summary
+- Conclusion
+- Recommendations
+
+WHAT TO EXAMINE ACROSS THE PAPER:
+
+Read the paper as a whole and identify where the title, problem,
+research questions, objectives, scope, features/system functions,
+methodology, respondents, instrument, statistical treatment, and
+conclusions (if applicable) don't hold together as one coherent
+paper. When you find a gap or contradiction, report it as a single
+improvement the student should make — describe what the paper
+currently says, what it should say instead to be coherent, and
+why, rather than listing it as a comparison between two sections.
+
+PAY SPECIAL ATTENTION TO AND RECOMMEND FIXES FOR:
+
+- Features claimed as included but later excluded
+- Features claimed as excluded but later evaluated
+- Research questions that are not addressed by methodology
+- Objectives that cannot be measured
+- Methodology that does not match objectives
+- Missing population/sample size
+- Missing sampling procedure
+- Missing data gathering procedure
+- Missing validation/reliability information
+- Unsupported claims
+- References that do not appear to have corresponding
+  in-text citations
+- In-text citations that appear to have no reference entry
+- Inconsistent author/year citations
+- Duplicate or suspicious references
+- Inconsistent terminology
+- Inconsistent system title
+- Inconsistent capitalization
+- Inconsistent AI terminology
+- Inconsistent naming of system features
+
+READINESS SCORE:
+
+0-39   = Not Ready
+40-59  = Needs Major Revision
+60-74  = Needs Revision
+75-89  = Nearly Ready
+90-100 = Ready
+
+For "topPriorityFixes" specifically: list them in priority order
+(most critical/blocking first), and write each one as a concrete
+improvement the student can execute this week, following the
+RECOMMENDATION QUALITY STANDARD above — not a one-line restatement
+of a weakness.
+
+Return ONLY valid JSON.
+`;
+        const userPrompt = `
+Review the following academic paper. Your goal is to help the
+student improve this specific paper — every finding should lead
+to a concrete recommendation for how to make the paper better,
+not just a description of what's wrong or which sections don't
+match each other.
+
+==============================
+BASIC AUTOMATED ANALYSIS
+==============================
+
+${JSON.stringify(basicAnalysis, null, 2)}
+
+==============================
+AUTOMATED CITATION ANALYSIS
+==============================
+
+${JSON.stringify(citationAnalysis, null, 2)}
+
+==============================
+FULL PAPER
+==============================
+
+${paperText}
+
+==============================
+REQUIRED JSON
+==============================
+
+Return exactly this structure:
+
+{
+  "review": {
+    "documentStage": {
+      "detected": "Proposal",
+      "confidence": "High",
+      "reason": ""
+    },
+
+    "chapterDetection": {
+      "chaptersFound": [],
+      "missingOrUnclear": []
+    },
+
+    "sectionCheck": [
+      {
+        "section": "",
+        "status": "Present",
+        "severity": "None",
+        "finding": "",
+        "recommendation": ""
+      }
+    ],
+
+    "consistencyCheck": [
+      {
+        "check": "",
+        "result": "Pass",
+        "severity": "None",
+        "detail": ""
+      }
+    ],
+
+    "methodologyCheck": {
+      "status": "Pass",
+      "issues": [],
+      "recommendations": []
+    },
+
+    "citationAudit": {
+      "status": "Pass",
+      "issuesFound": [],
+      "recommendations": []
+    },
+
+    "contentQuality": {
+      "strengths": [],
+      "weaknesses": [],
+      "contradictions": []
+    },
+
+    "writingQuality": {
+      "majorIssues": [],
+      "minorIssues": []
+    },
+
+    "overallReadiness": {
+      "score": 0,
+      "label": "Needs Revision",
+      "summary": "",
+      "topPriorityFixes": []
+    }
+  }
+}
+
+For "consistencyCheck", write each "check" as the improvement
+being addressed (e.g. "Aligning the system title used throughout
+the paper") rather than as an "X vs Y" comparison label, and write
+"detail" as what to change and why — not just what doesn't match.
+
+Every "recommendation" and every entry in "recommendations" or
+"topPriorityFixes" must follow the RECOMMENDATION QUALITY STANDARD
+from the system instructions: concrete, specific to this paper's
+actual content, and tell the student exactly what to write or do
+next to improve the paper — not a restatement of the problem.
+
+Allowed section statuses:
+
+"Present"
+"Partial"
+"Missing"
+"Unclear"
+"Not Applicable"
+
+Allowed severity:
+
+"None"
+"Low"
+"Medium"
+"High"
+"Critical"
+
+Allowed consistency results:
+
+"Pass"
+"Partial"
+"Mismatch"
+"Not Found"
+"Not Applicable"
+
+Allowed methodology/citation status:
+
+"Pass"
+"Needs Revision"
+"Major Revision"
+"Not Enough Evidence"
+`;
+        const completion = await exports.openai.chat.completions.create({
             model: "gpt-5.4",
             reasoning_effort: "none",
             response_format: { type: "json_object" },
             messages: [
-                {
-                    role: "system",
-                    content: "You are a thesis advisor reviewing a student's full uploaded thesis draft. Compare the extracted " +
-                        "paper text against the student's own saved earlier-stage work (topic, research questions, " +
-                        "methodology, literature review) to check for inconsistencies, and audit structure/citations. " +
-                        "Respond ONLY with a JSON object shaped as: " +
-                        `{ "review": { ` +
-                        `"chapterDetection": { "chaptersFound": string[], "missingOrUnclear": string[] }, ` +
-                        `"consistencyCheck": [{ "check": string, "result": "Pass" | "Partial" | "Mismatch" | "Not Found", "detail": string }], ` +
-                        `"citationAudit": { "issuesFound": string[], "status": string }, ` +
-                        `"structuralCompliance": { "requiredSectionsPresent": number, "requiredSectionsTotal": number, "missing": string[] }, ` +
-                        `"overallReadiness": { "score": string, "topPriorityFixes": string[] } ` +
-                        `} }. ` +
-                        "chapterDetection: list which chapters were clearly identifiable in the text and which required " +
-                        "sections seem missing or unclear. " +
-                        "consistencyCheck: compare the paper's stated problem statement, research questions, and " +
-                        "methodology against the student's saved earlier-stage work — flag any mismatches, drops, or " +
-                        "additions. Include at least 4 checks. " +
-                        "citationAudit: based on the deterministic scan plus your own reading, list concrete issues " +
-                        "(uncited references, missing in-text citations, formatting problems) and a one-line status. " +
-                        "structuralCompliance: count required thesis sections (Background, Statement of the Problem, " +
-                        "Research Questions, Significance of the study, Scope and Delimitation, Definition of Terms, review of related of litelature, " +
-                        "Theoretical/Conceptual Framework, Research Design, Population and Sampling, Research Instrument, " +
-                        "Data Gathering Procedure, Statistical Treatment, Presentation of Data, Analysis, Discussion, " +
-                        "Summary, Conclusion, Recommendation) actually present vs the standard 28-ish expected, listing " +
-                        "which are missing. " +
-                        "overallReadiness: a rough 0-100 readiness score as a string like '78/100', plus the 3 most " +
-                        "important fixes before submission, ordered by priority. Be concrete and reference the student's " +
-                        "actual content, not generic advice.",
-                },
-                {
-                    role: "user",
-                    content: prompt,
-                },
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
             ],
         });
-        const rawText = result.choices[0].message.content || "";
-        let parsed;
-        try {
-            const cleaned = rawText.replace(/```json|```/g, "").trim();
-            parsed = JSON.parse(cleaned);
+        await (0, usageLimit_1.logUsage)(userId, "fullPaperReview");
+        const content = completion.choices[0]?.message?.content;
+        if (!content) {
+            return res.status(500).json({ success: false, message: "AI returned an empty response." });
         }
-        catch {
+        let review;
+        try {
+            review = JSON.parse(content);
+        }
+        catch (error) {
+            console.error("AI JSON parsing error:", content);
             return res.status(500).json({
-                error: "AI returned invalid JSON. Please try again.",
+                success: false,
+                message: "AI returned an invalid review format.",
             });
         }
-        const { review } = parsed;
-        const fileNameForRecord = thesis_file?.originalname ?? "Typed submission (no file uploaded)";
-        const { data: inserted, error: saveError } = await supa_client_1.supabase
-            .from("full_paper_reviews")
-            .insert({
-            user_id,
-            file_name: fileNameForRecord,
-            topic: savedArtifacts.topic,
-            chapter_detection: review.chapterDetection,
-            consistency_check: review.consistencyCheck,
-            citation_audit: review.citationAudit,
-            structural_compliance: review.structuralCompliance,
-            overall_readiness: review.overallReadiness,
-        })
-            .select()
-            .single();
+        if (review?.review?.overallReadiness?.score !== undefined) {
+            let score = Number(review.review.overallReadiness.score);
+            if (Number.isNaN(score))
+                score = 0;
+            score = Math.max(0, Math.min(100, Math.round(score)));
+            review.review.overallReadiness.score = score;
+            review.review.overallReadiness.label = getReadinessLabel(score);
+        }
+        // The AI schema only produces a per-section `sectionCheck` array — the
+        // frontend's FullPaperReviewResult type expects an aggregate
+        // `structuralCompliance` object (requiredSectionsPresent/Total + a
+        // missing list), so it's derived here rather than left undefined.
+        if (Array.isArray(review?.review?.sectionCheck)) {
+            const applicable = review.review.sectionCheck.filter((s) => s.status !== "Not Applicable");
+            const present = applicable.filter((s) => s.status === "Present" || s.status === "Partial");
+            const missing = applicable
+                .filter((s) => s.status === "Missing" || s.status === "Unclear")
+                .map((s) => s.section);
+            review.review.structuralCompliance = {
+                requiredSectionsPresent: present.length,
+                requiredSectionsTotal: applicable.length,
+                missing,
+            };
+        }
+        // Persist the review so GetFullPaperReviews / the topic-cascade delete
+        // have something to read. Columns match SavedFullPaperReview exactly
+        // (chapter_detection / consistency_check / citation_audit /
+        // structural_compliance / overall_readiness as individual jsonb
+        // columns) — a prior version of this insert used different ad-hoc
+        // column names (readiness_score, automated_analysis, a single `review`
+        // blob, etc.), which meant every saved row came back with all of those
+        // fields undefined once read through SavedFullPaperReview.
+        //
+        // When a topic is given, re-reviewing the same file under the same topic
+        // replaces its earlier review; a different file under the same topic is
+        // kept as its own row. Without a topic, a new row is always added.
+        const reviewRow = {
+            file_name: paper.originalname,
+            document_stage: review?.review?.documentStage ?? null,
+            chapter_detection: review?.review?.chapterDetection ?? null,
+            section_check: review?.review?.sectionCheck ?? null,
+            consistency_check: review?.review?.consistencyCheck ?? null,
+            methodology_check: review?.review?.methodologyCheck ?? null,
+            citation_audit: review?.review?.citationAudit ?? null,
+            content_quality: review?.review?.contentQuality ?? null,
+            writing_quality: review?.review?.writingQuality ?? null,
+            structural_compliance: review?.review?.structuralCompliance ?? null,
+            overall_readiness: review?.review?.overallReadiness ?? null,
+        };
+        const { error: saveError } = topic?.trim()
+            ? await (0, Saveorreplace_1.saveOrReplace)("full_paper_reviews", userId, "topic", topic, reviewRow, {
+                file_name: paper.originalname,
+            })
+            : await supa_client_1.supabase
+                .from("full_paper_reviews")
+                .insert({ ...reviewRow, user_id: userId, topic: null });
         if (saveError) {
             console.log(saveError);
             // Not returning an error here — the AI response is still valid even if the save fails
         }
         return res.status(200).json({
-            reviewId: inserted?.id ?? null,
-            fileName: fileNameForRecord,
-            source: hasFile ? (hasManualText ? "file+manual" : "file") : "manual",
-            ...review,
+            success: true,
+            file: {
+                name: paper.originalname,
+                size: paper.size,
+                type: paper.mimetype,
+            },
+            statistics: {
+                characters: extractedText.length,
+                words: countWords(extractedText),
+                pages: basicAnalysis.estimatedPages,
+                truncated: wasTruncated,
+            },
+            automatedAnalysis: {
+                structure: basicAnalysis,
+                citations: citationAnalysis,
+            },
+            review,
+        });
+    }
+    catch (error) {
+        console.error("FullPaperReview error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Something went wrong while reviewing the paper.",
+        });
+    }
+}
+// GET ALL RESPONSES FROM THE DATABASE
+async function GetObjectiveOfStudy(req, res) {
+    try {
+        const user_id = req.user?.id;
+        if (!user_id) {
+            return res.status(401).json({ message: "Unauthorized, Please Log in" });
+        }
+        // Optional pagination via query params: /ai/literature-reviews?limit=10&offset=0
+        const limit = Math.min(Number(req.query.limit) || 20, 50);
+        const offset = Number(req.query.offset) || 0;
+        const { data, error, count } = await supa_client_1.supabase
+            .from("suggested_objectives")
+            .select("*", { count: "exact" })
+            .eq("user_id", user_id)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+        if (error) {
+            console.log(error);
+            return res.status(500).json({
+                error: error.message,
+                message: "Could not fetch your Objective of the study. Please try again.",
+            });
+        }
+        return res.status(200).json({
+            objectives: data,
+            total: count ?? data.length,
+            limit,
+            offset,
         });
     }
     catch (error) {
@@ -1087,7 +2012,6 @@ async function FullPaperReview(req, res) {
         return res.status(500).json({ error: error.message });
     }
 }
-// GET THE ALL THE RESPONE FROM THE DATABASE
 async function GetLiteratureReviews(req, res) {
     try {
         const user_id = req.user?.id;
@@ -1226,7 +2150,7 @@ async function GetDataAnalyses(req, res) {
         return res.status(500).json({ error: error.message });
     }
 }
-// GET ALL PAPER REVIEWS RESPONSES FOR THE USER
+// GET ALL PAPER REVIEW RESPONSES FOR THE USER
 async function GetFullPaperReviews(req, res) {
     try {
         const user_id = req.user?.id;
@@ -1248,8 +2172,21 @@ async function GetFullPaperReviews(req, res) {
                 message: "Could not fetch your paper reviews. Please try again.",
             });
         }
+        // Normalize each row so chapter_detection / consistency_check /
+        // citation_audit / structural_compliance / overall_readiness are
+        // always real objects — some existing rows have these stored as an
+        // escaped JSON string rather than a parsed jsonb value (see
+        // parseJsonColumn above).
+        const reviews = (data ?? []).map((row) => ({
+            ...row,
+            chapter_detection: parseJsonColumn(row.chapter_detection),
+            consistency_check: parseJsonColumn(row.consistency_check),
+            citation_audit: parseJsonColumn(row.citation_audit),
+            structural_compliance: parseJsonColumn(row.structural_compliance),
+            overall_readiness: parseJsonColumn(row.overall_readiness),
+        }));
         return res.status(200).json({
-            reviews: data,
+            reviews,
             total: count ?? data.length,
             limit,
             offset,
@@ -1260,7 +2197,7 @@ async function GetFullPaperReviews(req, res) {
         return res.status(500).json({ error: error.message });
     }
 }
-// DELETE A TOPIC SELECTIONS
+// DELETE A TOPIC SELECTION
 async function DeleteTopicSelections(req, res) {
     try {
         const { id } = req.body;
@@ -1286,9 +2223,9 @@ async function DeleteTopicSelections(req, res) {
             });
         }
         const topic = topicRow.topic;
-        // Delete the topic selection itself.
-        // Scoping every delete to user_id ensures a user can only delete their own
-        // rows, even if they somehow guess or intercept another user's id.
+        // Delete the topic selection itself. Scoping every delete to user_id
+        // ensures a user can only delete their own rows, even if they somehow
+        // guess or intercept another user's id.
         const { error, data } = await supa_client_1.supabase
             .from("topic_selection_responses")
             .delete()
@@ -1311,14 +2248,15 @@ async function DeleteTopicSelections(req, res) {
         // Each is run independently and logged on failure rather than aborting —
         // the topic selection is already gone at this point, so a partial cascade
         // failure shouldn't be reported as if nothing was deleted.
-        const cascadeResults = await Promise.allSettled([
-            supa_client_1.supabase.from("literature_reviews").delete().eq("topic", topic).eq("user_id", user_id),
-            supa_client_1.supabase.from("methodology_responses").delete().eq("topic", topic).eq("user_id", user_id),
-            supa_client_1.supabase.from("data_analysis_responses").delete().eq("topic", topic).eq("user_id", user_id),
-            supa_client_1.supabase.from("full_paper_reviews").delete().eq("topic", topic).eq("user_id", user_id),
-        ]);
+        const tableNames = [
+            "literature_reviews",
+            "suggested_objectives",
+            "methodology_responses",
+            "data_analysis_responses",
+            "full_paper_reviews",
+        ];
+        const cascadeResults = await Promise.allSettled(tableNames.map((table) => supa_client_1.supabase.from(table).delete().eq("topic", topic).eq("user_id", user_id)));
         cascadeResults.forEach((result, i) => {
-            const tableNames = ["literature_reviews", "methodology_responses", "data_analysis_responses"];
             if (result.status === "rejected") {
                 console.log(`Cascade delete failed for ${tableNames[i]}:`, result.reason);
             }

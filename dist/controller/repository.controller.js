@@ -16,7 +16,7 @@ const cache_1 = require("../lib/cache");
 async function SumbitThesis(req, res) {
     try {
         const user_id = req.user?.id;
-        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_conclusion, thesis_discussion, thesis_references, 
+        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_conclusion, thesis_scope_and_limitation, thesis_recommendation, 
         // ENTRE FIELDS
         entrep_intro, entrep_action_plan, entrep_market_product_description, entrep_survey_result, entrep_target_market, entrep_product, entrep_production, } = req.body;
         const files = req.files;
@@ -56,8 +56,8 @@ async function SumbitThesis(req, res) {
             if (!thesis_abstract ||
                 !thesis_introduction ||
                 !thesis_conclusion ||
-                !thesis_discussion ||
-                !thesis_references) {
+                !thesis_scope_and_limitation ||
+                !thesis_recommendation) {
                 return res.status(400).json({
                     status: false,
                     message: "All thesis fields are required",
@@ -90,8 +90,8 @@ async function SumbitThesis(req, res) {
                 thesis_abstract,
                 thesis_introduction,
                 thesis_conclusion,
-                thesis_discussion,
-                thesis_references,
+                thesis_scope_and_limitation,
+                thesis_recommendation,
                 issue_date: issueDate,
                 thesis_file_url,
                 thesis_file_name: thesis_file.originalname,
@@ -136,7 +136,7 @@ async function SumbitThesis(req, res) {
 async function UpdateThesis(req, res) {
     try {
         const { id } = req.params;
-        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_discussion, thesis_references, thesis_conclusion, entrep_intro, entrep_action_plan, entrep_market_product_description, entrep_survey_result, entrep_target_market, entrep_product, entrep_production, } = req.body;
+        const { title, author, course, issueDate, thesis_abstract, thesis_introduction, thesis_scope_and_limitation, thesis_recommendation, thesis_conclusion, entrep_intro, entrep_action_plan, entrep_market_product_description, entrep_survey_result, entrep_target_market, entrep_product, entrep_production, } = req.body;
         const files = req.files;
         const thesis_file = files?.[0];
         let thesis_file_url;
@@ -185,8 +185,8 @@ async function UpdateThesis(req, res) {
             issue_date: issueDate,
             thesis_abstract,
             thesis_introduction,
-            thesis_discussion,
-            thesis_references,
+            thesis_scope_and_limitation,
+            thesis_recommendation,
             thesis_conclusion,
             ...(thesis_file_url && { thesis_file_url }),
             ...(thesis_file_name && { thesis_file_name }),
@@ -269,7 +269,7 @@ async function getRandomThesis(req, res) {
     try {
         const { data, error } = await supa_client_1.supabase
             .from("Thesis")
-            .select("*, ThesisDataAnalytics(views, downloads)")
+            .select("*, ThesisDataAnalytics(views, downloads, saves)")
             .order("created_at", { ascending: Math.random() < 0.5 })
             .limit(4);
         if (error) {

@@ -4,7 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyToken = verifyToken;
+exports.facultyOnly = facultyOnly;
 exports.adminOnly = adminOnly;
+exports.adminOrFaculty = adminOrFaculty;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 function verifyToken(req, res, next) {
     const token = req.cookies.accessToken;
@@ -20,10 +22,24 @@ function verifyToken(req, res, next) {
         return res.status(403).json({ message: "Invalid token" });
     }
 }
+function facultyOnly(req, res, next) {
+    const user = req.user;
+    if (!user || user.role !== "faculty") {
+        return res.status(403).json({ message: "Faculty access required" });
+    }
+    next();
+}
 function adminOnly(req, res, next) {
     const user = req.user;
     if (!user || user.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+}
+function adminOrFaculty(req, res, next) {
+    const user = req.user;
+    if (!user || (user.role !== "admin" && user.role !== "faculty")) {
+        return res.status(403).json({ message: "Admin or faculty access required" });
     }
     next();
 }
