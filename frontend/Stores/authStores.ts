@@ -75,7 +75,25 @@ interface UpdateAvatarResult {
   message?: string;
 }
 
+// Shapes returned by the API for each endpoint, used to type res.data below
+interface LoginResponseData {
+  user: userProps;
+  message?: string;
+}
 
+interface MessageResponseData {
+  message?: string;
+}
+
+interface UpdateProfileResponseData {
+  user: userProps;
+  message?: string;
+}
+
+interface UpdateAvatarResponseData {
+  profileUrl: string;
+  message?: string;
+}
 
 interface authProps{
     user: userProps | null;
@@ -118,7 +136,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     try {
       set({ loading: true });
 
-      const res = await axios.post('/auth/login', { email, password });
+      const res = await axios.post<LoginResponseData>('/auth/login', { email, password });
 
       set({
         user: res.data.user,
@@ -144,7 +162,7 @@ export const authUserStore = create<authProps>((set, get) => ({
   checkAuth: async (): Promise<void> => {
     set({ checkingAuth: true, loading: true });
     try {
-      const res = await axios.get('auth/profile');
+      const res = await axios.get<userProps>('auth/profile');
       set({ user: res.data, checkingAuth: false, loading: false });
     } catch (error: any) {
       set({ checkingAuth: false, user: null, loading: false });
@@ -164,7 +182,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     try {
       set({ forgotPasswordLoading: true });
 
-      const res = await axios.post('/auth/forgot-password', { email });
+      const res = await axios.post<MessageResponseData>('/auth/forgot-password', { email });
 
       set({ forgotPasswordLoading: false });
 
@@ -189,7 +207,7 @@ export const authUserStore = create<authProps>((set, get) => ({
   try {
     set({ resetPasswordLoading: true });
 
-    const res = await axios.post('/auth/reset-password', {
+    const res = await axios.post<MessageResponseData>('/auth/reset-password', {
       id,
       token,
       password,
@@ -215,7 +233,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     try {
       set({ updateProfileLoading: true });
 
-      const res = await axios.put('/auth/update-details', {
+      const res = await axios.put<UpdateProfileResponseData>('/auth/update-details', {
         firstname,
         lastname,
         middleInitial, 
@@ -250,7 +268,7 @@ export const authUserStore = create<authProps>((set, get) => ({
     try {
       set({ updatePasswordLoading: true });
 
-      const res = await axios.post('/auth/change-password', {
+      const res = await axios.post<MessageResponseData>('/auth/change-password', {
         currentPassword,
         newPassword,
       });
@@ -278,7 +296,7 @@ export const authUserStore = create<authProps>((set, get) => ({
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const res = await axios.put('/auth/avatar', formData, {
+      const res = await axios.put<UpdateAvatarResponseData>('/auth/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
