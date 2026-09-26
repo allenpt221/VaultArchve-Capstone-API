@@ -9,8 +9,8 @@ export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const DAILY_PROMPT_LIMIT = 3;
-export const DAILY_PROMPT_LIMIT_PAPER_REVIEW = 2;
+export const DAILY_PROMPT_LIMIT = 4;
+export const DAILY_PROMPT_LIMIT_PAPER_REVIEW = 3;
 export const DAILY_PROMPT_LIMIT_TITLE_RECOMMENDATION = 5;
 
 const MIN_RESEARCH_QUESTIONS_DA = 1;
