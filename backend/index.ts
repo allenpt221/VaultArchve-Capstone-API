@@ -9,6 +9,7 @@ import RepoRouter from './route/repository.route';
 import AiRouter from './route/generativeAI.router';
 import SavedThesisRouter from './route/saveThesis.route'
 import EntrepAiRouter from './route/EntrepGenerative.route'
+import PlagiarismRoute from './route/PlagiarismRoute'
 
 
 dotenv.config();
@@ -41,6 +42,7 @@ nextApp.prepare().then(() => {
   app.use('/api/repository', RepoRouter);
   app.use('/api/ai', AiRouter);
   app.use('/api/entrep-ai', EntrepAiRouter);
+  app.use('/api/plagiarism', PlagiarismRoute);
 
 
   // ── Next.js handles all non-API routes ──

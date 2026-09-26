@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { STAGES } from '@/hooks/constants'
 import { useProgressiveTrial } from '@/hooks/useProgressiveTrial'
-import { Microscope, Briefcase, Check, Lock, ArrowRight, HelpCircle } from 'lucide-react'
+import { Microscope, Briefcase, Check, Lock, ArrowRight, HelpCircle, ShieldCheck } from 'lucide-react'
 import { TopicSelectionStage } from './Progressive-components/TopicSelection'
 import { LiteratureReviewStage } from './Progressive-components/LiteraturestageReview'
 import { MethodologyStage } from './Progressive-components/Methodology'
@@ -12,11 +12,13 @@ import ProgressiveTrailGuideModal from '../Modal/Progressivetrailguidemodal '
 import EntrepProgressiveTrailGuideModal from '../Modal/EntrepProgressiveTrailGuideModal'
 import EntrepProgressive from './EntrepProgressive'
 import { ObjectivesSuggestionPanel } from './Progressive-components/ObjectiveStudy'
+import PlagiarismModal from '../PlagiarismStage'
 // import EntrepProgressive from '../EntrepProgressive'
 
 function ProgressiveTrial() {
   const [track, setTrack] = useState<'research' | 'entrep'>('research')
   const [showGuide, setShowGuide] = useState(false)
+  const [showPlagiarismCheck, setShowPlagiarismCheck] = useState(false)
 
   const t = useProgressiveTrial()
   const activeLabel = STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
@@ -118,6 +120,25 @@ function ProgressiveTrial() {
             </div>
           </div>
 
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowPlagiarismCheck(true)}
+            className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors"
+            style={{
+              borderColor: 'rgba(186, 117, 23, 0.35)',
+              background: '#FFFFFF',
+              color: '#0B1C33',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+            Check for Plagiarism
+            <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
+          </button>
+        </div>
+
           {/* ── Stage tabs ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
             {STAGES.map((stage, i) => {
@@ -165,6 +186,11 @@ function ProgressiveTrial() {
               )
             })}
           </div>
+
+          <PlagiarismModal
+            isOpen={showPlagiarismCheck}
+            onClose={() => setShowPlagiarismCheck(false)}
+          />
 
           {/* ── Stage content ── */}
           {stageLocked ? (
