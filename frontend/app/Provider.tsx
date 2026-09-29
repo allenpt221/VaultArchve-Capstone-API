@@ -32,7 +32,7 @@ export default function Provider() {
     // Only act when we're actually ON the login page.
     if (pathname !== "/login") return;
 
-    if (user?.role === "admin" || user?.role === "faculty") {
+    if (user?.role === "admin" || user?.role === "research") {
       router.replace("/dashboard");
       return;
     }

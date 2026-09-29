@@ -39,8 +39,8 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
 export function facultyOnly(req: Request, res: Response, next: NextFunction) {
   const user = req.user;
 
-  if (!user || user.role !== "faculty") {
-    return res.status(403).json({ message: "Faculty access required" });
+  if (!user || user.role !== "research") {
+    return res.status(403).json({ message: "Research Coordinator access required" });
   }
 
   next();
@@ -59,8 +59,8 @@ export function adminOnly(req: Request, res: Response, next: NextFunction) {
 export function adminOrFaculty(req: Request, res: Response, next: NextFunction) {
   const user = req.user;
 
-  if (!user || (user.role !== "admin" && user.role !== "faculty")) {
-    return res.status(403).json({ message: "Admin or faculty access required" });
+  if (!user || (user.role !== "admin" && user.role !== "research")) {
+    return res.status(403).json({ message: "Admin or Research Coordinator access required" });
   }
 
   next();

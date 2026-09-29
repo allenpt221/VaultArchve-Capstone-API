@@ -31,7 +31,7 @@ interface registerFormState {
   lastname: string
   email: string
   password: string
-  program: string;
+  program: string
   role: string
 }
 
@@ -44,6 +44,12 @@ const initialFormState: registerFormState = {
   role: 'student',
 }
 
+const roleLabels: Record<string, string> = {
+  student: 'Student',
+  research: 'Research Coordinator',
+  admin: 'Admin',
+}
+
 function RegisterModal({ isOpen, onClose }: registerModalProps) {
   const { addUser } = userStore()
 
@@ -51,6 +57,9 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const roleLabel = roleLabels[form.role] ?? 'User'
+  const isStudent = form.role === 'student'
 
   function handleChange(field: keyof registerFormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -78,14 +87,21 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
       return
     }
 
+    // Only students have an academic program
+    const { program, ...rest } = form
+    const payload = isStudent ? form : rest
+
     setLoading(true)
-    const result = await addUser(form)
+    const result = await addUser(payload as registerFormState)
     setLoading(false)
 
     if (result?.success) {
       resetAndClose()
     } else {
-      setError(result?.message || 'Failed to register student. Please try again.')
+      setError(
+        result?.message ||
+          `Failed to register ${roleLabel.toLowerCase()}. Please try again.`
+      )
     }
   }
 
@@ -107,10 +123,10 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
             </div>
             <div>
               <DialogTitle className="text-lg font-bold leading-tight">
-                Register Student
+                Register {roleLabel}
               </DialogTitle>
               <DialogDescription className="text-xs mt-0.5">
-                Create a new student account.
+                Create a new {roleLabel.toLowerCase()} account.
               </DialogDescription>
             </div>
           </div>
@@ -192,27 +208,6 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
 
           <div className="space-y-1.5">
             <Label htmlFor="role" className="text-xs font-medium">
-              Academic Program
-            </Label>
-            <Select
-              value={form.program}
-              onValueChange={(value) => handleChange('program', value)}
-              disabled={loading}
-            >
-              <SelectTrigger id="role" className="text-sm">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Bachelor of Public Administration">Bachelor of Public Administration</SelectItem>
-                <SelectItem value="Bachelor of Science in Accounting Information System">Bachelor of Science in Accounting Information System</SelectItem>
-                <SelectItem value="Bachelor of Science in Accountancy">Bachelor of Science in Accountancy</SelectItem>
-                <SelectItem value="Bachelor of Science in Entrepreneurship">Bachelor of Science in Entrepreneurship</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="role" className="text-xs font-medium">
               Role
             </Label>
             <Select
@@ -225,11 +220,42 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="faculty">Faculty</SelectItem>
+                <SelectItem value="research">Research Coordinator</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {isStudent && (
+            <div className="space-y-1.5">
+              <Label htmlFor="program" className="text-xs font-medium">
+                Academic Program
+              </Label>
+              <Select
+                value={form.program}
+                onValueChange={(value) => handleChange('program', value)}
+                disabled={loading}
+              >
+                <SelectTrigger id="program" className="text-sm">
+                  <SelectValue placeholder="Select program" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bachelor of Public Administration">
+                    Bachelor of Public Administration
+                  </SelectItem>
+                  <SelectItem value="Bachelor of Science in Accounting Information System">
+                    Bachelor of Science in Accounting Information System
+                  </SelectItem>
+                  <SelectItem value="Bachelor of Science in Accountancy">
+                    Bachelor of Science in Accountancy
+                  </SelectItem>
+                  <SelectItem value="Bachelor of Science in Entrepreneurship">
+                    Bachelor of Science in Entrepreneurship
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {error && (
             <p
@@ -246,7 +272,7 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
               variant="outline"
               onClick={resetAndClose}
               disabled={loading}
-              className="text-sm cursor-pointer" 
+              className="text-sm cursor-pointer"
             >
               Cancel
             </Button>
@@ -262,7 +288,7 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
                   Registering...
                 </>
               ) : (
-                'Register Student'
+                `Register ${roleLabel}`
               )}
             </Button>
           </DialogFooter>

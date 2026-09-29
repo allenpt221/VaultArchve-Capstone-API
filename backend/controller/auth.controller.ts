@@ -25,9 +25,14 @@ interface User {
     status:string;
 }
 
+const ALLOWED_ROLES = ["student", "research", "admin"] as const;
+
+
 export async function Signup(req: Request, res: Response) {
     try {
-        const { email, firstname, lastname, password, program }: User = req.body;
+        const { email, firstname, lastname, password, program, role }: User = req.body;
+
+        const finalRole = ALLOWED_ROLES.includes(role as any) ? role : "student";
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -59,21 +64,21 @@ export async function Signup(req: Request, res: Response) {
         });
         }
 
-        const { data: insertedUser, error } = await supabase
-        .from('Authentication')
-        .insert([
-            {
-                email,
-                firstname,
-                lastname,
-                password: hashedPassword,
-                program,
-                profile: null,
-                role: "student"
-            }
-        ])
-        .select("id, email, firstname, lastname, role, status, program") // exclude password
-        .single();
+      const { data: insertedUser, error } = await supabase
+              .from('Authentication')
+              .insert([
+                  {
+                      email,
+                      firstname,
+                      lastname,
+                      password: hashedPassword,
+                      program: finalRole === "student" ? program : null,
+                      profile: null,
+                      role: finalRole
+                  }
+              ])
+              .select("id, email, firstname, lastname, role, status, program")
+              .single();
 
         if (error) {
               console.error('Supabase error:', error);

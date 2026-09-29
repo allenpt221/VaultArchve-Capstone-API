@@ -84,7 +84,7 @@ function Navbar() {
           ))}
 
           {/* Admin link */}
-          {(user?.role === "admin" || user?.role === "faculty") && (
+          {(user?.role === "admin" || user?.role === "research") && (
             <Link
               href='/dashboard'
               className={`flex items-center gap-1.5 font-medium text-sm px-4 py-2 rounded-lg transition-all duration-200 ${
@@ -255,7 +255,7 @@ function Navbar() {
           ))}
 
 
-          {(user?.role === "admin" || user?.role === "faculty") && (
+          {(user?.role === "admin" || user?.role === "research") && (
             <Link
               href='/dashboard'
               onClick={() => setOpenMenu(false)}

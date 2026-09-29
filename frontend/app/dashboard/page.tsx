@@ -51,13 +51,13 @@ function AdminContent() {
 
 useEffect(() => {
   if (checkingAuth) return;
-  if (!user || (user.role !== "admin" && user.role !== "faculty")) {
+  if (!user || (user.role !== "admin" && user.role !== "research")) {
     router.replace('/');
   }
 }, [user, checkingAuth]);
 
 if (checkingAuth) return null;
-if (!user || (user.role !== "admin" && user.role !== "faculty")) return null;
+if (!user || (user.role !== "admin" && user.role !== "research")) return null;
 
 const menuItems = [
   { id: "data-analytics", label: "Analytics Dashboard", icon: LayoutDashboard },

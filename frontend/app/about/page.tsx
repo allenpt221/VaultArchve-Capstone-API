@@ -51,7 +51,7 @@ export default function TermsPage() {
         </p>
 
         <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-4">
-          The Platform is intended for GCC students, faculty, staff, and
+          The Platform is intended for GCC students, research coordinator, staff, and
           researchers. Some features — such as browsing and reading published
           theses — may be available to the public, while submission, review,
           and administrative features are restricted to authorized accounts.
