@@ -1,19 +1,22 @@
 'use client'
 import { ENTREP_STAGES } from '@/hooks/entrepconstant'
 import { useEntrepProgressiveTrial } from '@/hooks/useEntrepProgressiveTrail'
-import { Check, Lock } from 'lucide-react'
+import { ArrowRight, Check, Lock, ShieldCheck } from 'lucide-react'
 import { ConceptStage } from './Entrep-Progressive/ConceptStage'
 import { SWOTStage } from './Entrep-Progressive/SWOTStage'
 import { MarketResearchStage } from './Entrep-Progressive/MarketResearchStage'
 import { ProductionStage } from './Entrep-Progressive/ProductionStage'
 import { FinancialStage } from './Entrep-Progressive/FinancialStage'
+import PlagiarismModal from '../PlagiarismStage'
+import { useState } from 'react'
 
 function EntrepProgressive() {
   const t = useEntrepProgressiveTrial()
   const activeLabel = ENTREP_STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
   const previousLabel = ENTREP_STAGES[t.activeIndex - 1]?.label
   const stageLocked = t.isStageLocked(t.activeStage)
-
+  const [showPlagiarismCheck, setShowPlagiarismCheck] = useState(false)
+  
   return (
     <div className="max-w-7xl mx-auto space-y-5">
       {/* ── Progress bar ── */}
@@ -29,6 +32,25 @@ function EntrepProgressive() {
           />
         </div>
       </div>
+
+              <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowPlagiarismCheck(true)}
+            className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors"
+            style={{
+              borderColor: 'rgba(186, 117, 23, 0.35)',
+              background: '#FFFFFF',
+              color: '#0B1C33',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+            Check for Plagiarism
+            <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
+          </button>
+        </div>
 
       {/* ── Stage tabs ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -77,6 +99,12 @@ function EntrepProgressive() {
           )
         })}
       </div>
+      
+
+      <PlagiarismModal
+        isOpen={showPlagiarismCheck}
+        onClose={() => setShowPlagiarismCheck(false)}
+      />
 
       {/* ── Stage content ── */}
       {stageLocked ? (
