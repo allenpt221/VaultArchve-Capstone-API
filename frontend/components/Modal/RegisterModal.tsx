@@ -206,27 +206,7 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="role" className="text-xs font-medium">
-              Role
-            </Label>
-            <Select
-              value={form.role}
-              onValueChange={(value) => handleChange('role', value)}
-              disabled={loading}
-            >
-              <SelectTrigger id="role" className="text-sm">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="research">Research Coordinator</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isStudent && (
+                    {isStudent && (
             <div className="space-y-1.5">
               <Label htmlFor="program" className="text-xs font-medium">
                 Academic Program
@@ -256,6 +236,26 @@ function RegisterModal({ isOpen, onClose }: registerModalProps) {
               </Select>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="role" className="text-xs font-medium">
+              Role
+            </Label>
+            <Select
+              value={form.role}
+              onValueChange={(value) => handleChange('role', value)}
+              disabled={loading}
+            >
+              <SelectTrigger id="role" className="text-sm">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="research">Research Coordinator</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {error && (
             <p
