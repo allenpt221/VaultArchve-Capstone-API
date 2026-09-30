@@ -94,7 +94,17 @@ export function useEntrepProgressiveTrial() {
   const [selectedProductionId, setSelectedProductionId] = useState<string | null>(null)
   const [selectedFinancialId, setSelectedFinancialId] = useState<string | null>(null)
 
-  // ── NEW: input reset helpers ─────────────────────────────────────
+  // ── FIX: which idea each freshly generated (store) result belongs to ──
+  // The store keeps the last generated result no matter what the idea input
+  // says now. We tag each result with the idea it was generated for and only
+  // display it while that idea still matches the current one.
+  const [conceptGuidanceIdea, setConceptGuidanceIdea] = useState<string | null>(null)
+  const [swotGuidanceIdea, setSwotGuidanceIdea] = useState<string | null>(null)
+  const [marketGuidanceIdea, setMarketGuidanceIdea] = useState<string | null>(null)
+  const [productionGuidanceIdea, setProductionGuidanceIdea] = useState<string | null>(null)
+  const [financialGuidanceIdea, setFinancialGuidanceIdea] = useState<string | null>(null)
+
+  // ── input reset helpers ──────────────────────────────────────────
   const normalize = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 
   // Clears every input that belongs to the downstream stages (SWOT → Financial).
@@ -111,7 +121,19 @@ export function useEntrepProgressiveTrial() {
 
   // Use this instead of raw setIdea for the idea input.
   const handleIdeaChange = (value: string) => {
-    if (normalize(value) !== normalize(idea)) resetDownstreamInputs()
+    if (normalize(value) !== normalize(idea)) {
+      resetDownstreamInputs()
+      // FIX: also clear the concept fields so the old name/tagline don't linger
+      setSelectedConceptStatement('')
+      setSelectedName('')
+      setSelectedTagline('')
+      setSelectedRationale('')
+      // FIX: stages generated for the old idea must not stay "complete".
+      // The match effect below re-marks any saved stages for the new idea.
+      setCompletedStages(new Set())
+      // NOTE: don't clear selectedConceptId here — the effect needs it to
+      // detect the mismatch and unmark the stage.
+    }
     setIdea(value)
   }
 
@@ -247,7 +269,7 @@ export function useEntrepProgressiveTrial() {
         const match = swotHistory.find((s) => (s.idea ?? '').trim().toLowerCase() === normalizedIdea)
         if (match) {
           setSelectedSwotId(match.id)
-          setSwotNotes(match.notes || '') // NEW
+          setSwotNotes(match.notes || '')
           markComplete('swot')
           swotStillValid = true
         }
@@ -273,7 +295,7 @@ export function useEntrepProgressiveTrial() {
         const match = marketHistory.find((m) => (m.idea ?? '').trim().toLowerCase() === normalizedIdea)
         if (match) {
           setSelectedMarketId(match.id)
-          setMarketNotes(match.notes || '') // NEW
+          setMarketNotes(match.notes || '')
           setSurveyResultsInterpretation(match.survey_results_interpretation || '')
           markComplete('market')
           marketStillValid = true
@@ -352,11 +374,13 @@ export function useEntrepProgressiveTrial() {
     if (!idea.trim() || loading || conceptDailyLimit.limitedUntil) return
     setConceptError(null)
     setSelectedConceptId(null)
+    setConceptGuidanceIdea(null) // FIX: hide the old result while loading / on failure
     const success = await EntrepConceptAI({ idea, context })
 
     const currentMessage = entrepGenerativeStore.getState().message
 
     if (success) {
+      setConceptGuidanceIdea(idea) // FIX: this result belongs to `idea`
       setConceptError(null)
       markComplete('concept')
       GetEntrepConcepts({ limit: 20, offset: 0 })
@@ -372,7 +396,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedConcept = (id: string) => {
     const saved = conceptHistory.find((c) => c.id === id)
     if (!saved) return
-    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs()
     setConceptError(null)
     setSelectedConceptId(id)
     setIdea(saved.idea ?? '')
@@ -392,21 +416,26 @@ export function useEntrepProgressiveTrial() {
     if (wasActiveConcept) {
       setConceptError(null)
       setSelectedConceptId(null)
+      setConceptGuidanceIdea(null)
       unmarkComplete('concept')
 
       // Cascade: every later stage was generated against this idea's text.
       // The backend already deletes their DB rows; clear local selection
       // state here too so the UI reflects it immediately.
       setSelectedSwotId(null)
+      setSwotGuidanceIdea(null)
       unmarkComplete('swot')
       setSelectedMarketId(null)
+      setMarketGuidanceIdea(null)
       unmarkComplete('market')
       setSelectedProductionId(null)
+      setProductionGuidanceIdea(null)
       unmarkComplete('production')
       setSelectedFinancialId(null)
+      setFinancialGuidanceIdea(null)
       unmarkComplete('financial')
 
-      resetDownstreamInputs() // NEW
+      resetDownstreamInputs()
 
       setIdea('')
       setContext('')
@@ -432,19 +461,24 @@ export function useEntrepProgressiveTrial() {
         }
       }
     }
-    return conceptGuidance
-  }, [selectedConceptId, conceptHistory, conceptGuidance])
+    // FIX: only show the store result if it was generated for the current idea
+    return conceptGuidanceIdea !== null && normalize(conceptGuidanceIdea) === normalize(idea)
+      ? conceptGuidance
+      : null
+  }, [selectedConceptId, conceptHistory, conceptGuidance, conceptGuidanceIdea, idea])
 
   // ── SWOT handlers ────────────────────────────────────────────────
   const handleGenerateSWOT = async () => {
     if (!idea.trim() || !selectedConceptStatement.trim() || loading || swotDailyLimit.limitedUntil) return
     setSwotError(null)
     setSelectedSwotId(null)
+    setSwotGuidanceIdea(null)
     const success = await EntrepSWOTAI({ idea, conceptStatement: selectedConceptStatement, notes: swotNotes })
 
     const currentMessage = entrepGenerativeStore.getState().message
 
     if (success) {
+      setSwotGuidanceIdea(idea)
       setSwotError(null)
       markComplete('swot')
       GetEntrepSWOTs({ limit: 20, offset: 0 })
@@ -460,7 +494,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedSWOT = (id: string) => {
     const saved = swotHistory.find((s) => s.id === id)
     if (!saved) return
-    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs()
     setSwotError(null)
     setSelectedSwotId(id)
     setIdea(saved.idea ?? '')
@@ -484,19 +518,23 @@ export function useEntrepProgressiveTrial() {
         }
       }
     }
-    return swotGuidance
-  }, [selectedSwotId, swotHistory, swotGuidance])
+    return swotGuidanceIdea !== null && normalize(swotGuidanceIdea) === normalize(idea)
+      ? swotGuidance
+      : null
+  }, [selectedSwotId, swotHistory, swotGuidance, swotGuidanceIdea, idea])
 
   // ── Market Research handlers ─────────────────────────────────────
   const handleGenerateMarketResearch = async () => {
     if (!idea.trim() || !selectedConceptStatement.trim() || loading || marketDailyLimit.limitedUntil) return
     setMarketError(null)
     setSelectedMarketId(null)
+    setMarketGuidanceIdea(null)
     const success = await EntrepMarketResearchAI({ idea, conceptStatement: selectedConceptStatement, notes: marketNotes })
 
     const currentMessage = entrepGenerativeStore.getState().message
 
     if (success) {
+      setMarketGuidanceIdea(idea)
       setMarketError(null)
       markComplete('market')
       GetEntrepMarketResearches({ limit: 20, offset: 0 })
@@ -512,7 +550,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedMarketResearch = (id: string) => {
     const saved = marketHistory.find((m) => m.id === id)
     if (!saved) return
-    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs()
     setMarketError(null)
     setSelectedMarketId(id)
     setIdea(saved.idea ?? '')
@@ -534,8 +572,10 @@ export function useEntrepProgressiveTrial() {
         }
       }
     }
-    return marketGuidance
-  }, [selectedMarketId, marketHistory, marketGuidance])
+    return marketGuidanceIdea !== null && normalize(marketGuidanceIdea) === normalize(idea)
+      ? marketGuidance
+      : null
+  }, [selectedMarketId, marketHistory, marketGuidance, marketGuidanceIdea, idea])
 
   // ── Production handlers ──────────────────────────────────────────
   const handleAddSupplier = () =>
@@ -562,6 +602,7 @@ export function useEntrepProgressiveTrial() {
     }
     setProductionError(null)
     setSelectedProductionId(null)
+    setProductionGuidanceIdea(null)
     const success = await EntrepProductionAI({
       idea,
       conceptStatement: selectedConceptStatement,
@@ -574,6 +615,7 @@ export function useEntrepProgressiveTrial() {
     const currentMessage = entrepGenerativeStore.getState().message
 
     if (success) {
+      setProductionGuidanceIdea(idea)
       setProductionError(null)
       markComplete('production')
       GetEntrepProductions({ limit: 20, offset: 0 })
@@ -589,7 +631,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedProduction = (id: string) => {
     const saved = productionHistory.find((p) => p.id === id)
     if (!saved) return
-    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs()
     setProductionError(null)
     setSelectedProductionId(id)
     setIdea(saved.idea ?? '')
@@ -611,19 +653,23 @@ export function useEntrepProgressiveTrial() {
         }
       }
     }
-    return productionGuidance
-  }, [selectedProductionId, productionHistory, productionGuidance])
+    return productionGuidanceIdea !== null && normalize(productionGuidanceIdea) === normalize(idea)
+      ? productionGuidance
+      : null
+  }, [selectedProductionId, productionHistory, productionGuidance, productionGuidanceIdea, idea])
 
   // ── Financial handlers ───────────────────────────────────────────
   const handleGenerateFinancial = async () => {
     if (!idea.trim() || !selectedConceptStatement.trim() || loading || financialDailyLimit.limitedUntil) return
     setFinancialError(null)
     setSelectedFinancialId(null)
+    setFinancialGuidanceIdea(null)
     const success = await EntrepFinancialAI({ idea, conceptStatement: selectedConceptStatement, notes: financialNotes })
 
     const currentMessage = entrepGenerativeStore.getState().message
 
     if (success) {
+      setFinancialGuidanceIdea(idea)
       setFinancialError(null)
       markComplete('financial')
       GetEntrepFinancials({ limit: 20, offset: 0 })
@@ -639,7 +685,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedFinancial = (id: string) => {
     const saved = financialHistory.find((f) => f.id === id)
     if (!saved) return
-    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs()
     setFinancialError(null)
     setSelectedFinancialId(id)
     setIdea(saved.idea ?? '')
@@ -667,8 +713,10 @@ export function useEntrepProgressiveTrial() {
         }
       }
     }
-    return financialGuidance
-  }, [selectedFinancialId, financialHistory, financialGuidance])
+    return financialGuidanceIdea !== null && normalize(financialGuidanceIdea) === normalize(idea)
+      ? financialGuidance
+      : null
+  }, [selectedFinancialId, financialHistory, financialGuidance, financialGuidanceIdea, idea])
 
   return {
     // navigation / progress
@@ -695,7 +743,7 @@ export function useEntrepProgressiveTrial() {
 
     // concept
     idea,
-    setIdea: handleIdeaChange, // NEW: resets downstream inputs when the idea text changes
+    setIdea: handleIdeaChange, // resets downstream inputs + concept fields when the idea text changes
     context,
     setContext,
     selectedConceptStatement,
