@@ -11,6 +11,7 @@ import {
   LineChart,
   ListChecks,
   FileText,
+  Wallet,
 } from 'lucide-react'
 import type { FinancialGuidance, SavedFinancial } from '@/hooks/entrpTypes'
 import { CopyButton } from '@/components/Copybutton'
@@ -62,6 +63,7 @@ export function FinancialStage({
     <div className="rounded-xl border bg-white p-6 space-y-5" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
       <div className="flex items-center gap-2.5">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FAEEDA' }}>
+          <Wallet className="w-4 h-4" style={{ color: '#BA7517' }} />
         </div>
         <div>
           <h2 className="font-semibold text-lg leading-tight">Financial Plan</h2>

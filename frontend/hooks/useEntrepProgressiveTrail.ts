@@ -94,6 +94,27 @@ export function useEntrepProgressiveTrial() {
   const [selectedProductionId, setSelectedProductionId] = useState<string | null>(null)
   const [selectedFinancialId, setSelectedFinancialId] = useState<string | null>(null)
 
+  // ── NEW: input reset helpers ─────────────────────────────────────
+  const normalize = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
+
+  // Clears every input that belongs to the downstream stages (SWOT → Financial).
+  const resetDownstreamInputs = () => {
+    setSwotNotes('')
+    setMarketNotes('')
+    setSurveyResultsInterpretation('')
+    setSuppliers([{ name: '', address: '', materials: '', quantity: '' }])
+    setDailyOutput('')
+    setOperatingDaysPerWeek('')
+    setVariants('')
+    setFinancialNotes('')
+  }
+
+  // Use this instead of raw setIdea for the idea input.
+  const handleIdeaChange = (value: string) => {
+    if (normalize(value) !== normalize(idea)) resetDownstreamInputs()
+    setIdea(value)
+  }
+
   const activeIndex = ENTREP_STAGES.findIndex((s) => s.key === activeStage)
   const percentComplete = Math.round((completedStages.size / ENTREP_STAGES.length) * 100)
 
@@ -226,6 +247,7 @@ export function useEntrepProgressiveTrial() {
         const match = swotHistory.find((s) => (s.idea ?? '').trim().toLowerCase() === normalizedIdea)
         if (match) {
           setSelectedSwotId(match.id)
+          setSwotNotes(match.notes || '') // NEW
           markComplete('swot')
           swotStillValid = true
         }
@@ -251,6 +273,7 @@ export function useEntrepProgressiveTrial() {
         const match = marketHistory.find((m) => (m.idea ?? '').trim().toLowerCase() === normalizedIdea)
         if (match) {
           setSelectedMarketId(match.id)
+          setMarketNotes(match.notes || '') // NEW
           setSurveyResultsInterpretation(match.survey_results_interpretation || '')
           markComplete('market')
           marketStillValid = true
@@ -349,6 +372,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedConcept = (id: string) => {
     const saved = conceptHistory.find((c) => c.id === id)
     if (!saved) return
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
     setConceptError(null)
     setSelectedConceptId(id)
     setIdea(saved.idea ?? '')
@@ -381,6 +405,8 @@ export function useEntrepProgressiveTrial() {
       unmarkComplete('production')
       setSelectedFinancialId(null)
       unmarkComplete('financial')
+
+      resetDownstreamInputs() // NEW
 
       setIdea('')
       setContext('')
@@ -434,6 +460,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedSWOT = (id: string) => {
     const saved = swotHistory.find((s) => s.id === id)
     if (!saved) return
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
     setSwotError(null)
     setSelectedSwotId(id)
     setIdea(saved.idea ?? '')
@@ -485,6 +512,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedMarketResearch = (id: string) => {
     const saved = marketHistory.find((m) => m.id === id)
     if (!saved) return
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
     setMarketError(null)
     setSelectedMarketId(id)
     setIdea(saved.idea ?? '')
@@ -561,6 +589,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedProduction = (id: string) => {
     const saved = productionHistory.find((p) => p.id === id)
     if (!saved) return
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
     setProductionError(null)
     setSelectedProductionId(id)
     setIdea(saved.idea ?? '')
@@ -610,6 +639,7 @@ export function useEntrepProgressiveTrial() {
   const handleSelectSavedFinancial = (id: string) => {
     const saved = financialHistory.find((f) => f.id === id)
     if (!saved) return
+    if (normalize(saved.idea) !== normalize(idea)) resetDownstreamInputs() // NEW
     setFinancialError(null)
     setSelectedFinancialId(id)
     setIdea(saved.idea ?? '')
@@ -665,7 +695,7 @@ export function useEntrepProgressiveTrial() {
 
     // concept
     idea,
-    setIdea,
+    setIdea: handleIdeaChange, // NEW: resets downstream inputs when the idea text changes
     context,
     setContext,
     selectedConceptStatement,
