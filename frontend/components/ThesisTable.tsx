@@ -1,4 +1,5 @@
 'use client';
+import { useState } from "react";
 import { MoreHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
   TableCell,
   TableRow,
 } from "@/components/ui/table";
+import DeleteThesisModal from "./Modal/DeleteConfirmationModalEntrep";
 
 interface TableActionsProps {
   id: string;
@@ -21,7 +23,7 @@ interface TableActionsProps {
   course: string;
   filename: string;
   isOpen?: () => void;
-  DeleteThesis: (id: string) => void;
+  DeleteThesis: (id: string) => void | Promise<unknown>;
 
   abstract?: string;
   introduction?: string;
@@ -45,6 +47,20 @@ export function TableActions({
   isOpen,
   DeleteThesis
 }: TableActionsProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await DeleteThesis(id);
+      setConfirmOpen(false);
+    } catch (err) {
+      console.error("Failed to delete thesis:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // FIX: guard against undefined id (e.g. API returns _id instead of id)
   function shortId(id: string) {
@@ -131,7 +147,7 @@ export function TableActions({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontalIcon className=""/>
+              <MoreHorizontalIcon className="" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -142,11 +158,23 @@ export function TableActions({
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" className="cursor-pointer py-2"
-            onClick={() => DeleteThesis(id)}
-            >Delete</DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              className="cursor-pointer py-2"
+              onClick={() => setConfirmOpen(true)}
+            >
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <DeleteThesisModal
+          isOpen={confirmOpen}
+          thesisTitle={title}
+          loading={isDeleting}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={handleConfirmDelete}
+        />
       </TableCell>
     </TableRow>
   );
