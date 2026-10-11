@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { supabase } from "../supabase/supa-client";
-import { checkMeaningfulText, DAILY_PROMPT_LIMIT, openai } from "./generativeAI.controller";
-import { checkUsageLimit, logUsage } from "../lib/usageLimit";
+import { checkMeaningfulText, openai } from "./generativeAI.controller";
 import { saveOrReplace } from "../lib/Saveorreplace";
 
 /**
@@ -33,16 +32,6 @@ export async function EntrepConcept(req: Request, res: Response) {
     const contextCheck = checkMeaningfulText(context);
     if (!contextCheck.valid) {
       return res.status(400).json({ error: contextCheck.error, message: contextCheck.message });
-    }
-
-    const { allowed } = await checkUsageLimit(user_id, "entrepConcept", DAILY_PROMPT_LIMIT);
-
-    if (!allowed) {
-      return res.status(429).json({
-        error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
-        remaining: 0,
-      });
     }
 
     const prompt = `
@@ -78,8 +67,6 @@ export async function EntrepConcept(req: Request, res: Response) {
         },
       ],
     });
-
-    await logUsage(user_id, "entrepConcept");
 
     const rawText = result.choices[0].message.content || "";
 
@@ -146,16 +133,6 @@ export async function EntrepSWOT(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkUsageLimit(user_id, "entrepSWOT", DAILY_PROMPT_LIMIT);
-
-    if (!allowed) {
-      return res.status(429).json({
-        error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
-        remaining: 0,
-      });
-    }
-
     const prompt = `
       Business concept statement: ${conceptStatement}
 
@@ -187,8 +164,6 @@ export async function EntrepSWOT(req: Request, res: Response) {
         },
       ],
     });
-
-    await logUsage(user_id, "entrepSWOT");
 
     const rawText = result.choices[0].message.content || "";
 
@@ -257,16 +232,6 @@ export async function EntrepMarketResearch(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkUsageLimit(user_id, "entrepMarketResearch", DAILY_PROMPT_LIMIT);
-
-    if (!allowed) {
-      return res.status(429).json({
-        error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
-        remaining: 0,
-      });
-    }
-
     const prompt = `
       Business concept statement: ${conceptStatement}
 
@@ -301,8 +266,6 @@ export async function EntrepMarketResearch(req: Request, res: Response) {
         },
       ],
     });
-
-    await logUsage(user_id, "entrepMarketResearch");
 
     const rawText = result.choices[0].message.content || "";
 
@@ -371,16 +334,6 @@ export async function EntrepProduction(req: Request, res: Response) {
       return res.status(400).json({ message: "Daily output is required." });
     }
 
-    const { allowed } = await checkUsageLimit(user_id, "entrepProduction", DAILY_PROMPT_LIMIT);
-
-    if (!allowed) {
-      return res.status(429).json({
-        error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
-        remaining: 0,
-      });
-    }
-
     const supplierSummary = suppliers
       .map((s: any) => `${s.name} (${s.materials}, qty: ${s.quantity})`)
       .join("; ");
@@ -417,8 +370,6 @@ export async function EntrepProduction(req: Request, res: Response) {
         },
       ],
     });
-
-    await logUsage(user_id, "entrepProduction");
 
     const rawText = result.choices[0].message.content || "";
 
@@ -485,16 +436,6 @@ export async function EntrepFinancial(req: Request, res: Response) {
       return res.status(400).json({ error: notesCheck.error, message: notesCheck.message });
     }
 
-    const { allowed } = await checkUsageLimit(user_id, "entrepFinancial", DAILY_PROMPT_LIMIT);
-
-    if (!allowed) {
-      return res.status(429).json({
-        error: "Daily limit reached",
-        message: `You've reached your daily limit of ${DAILY_PROMPT_LIMIT} prompts. Please try again.`,
-        remaining: 0,
-      });
-    }
-
     const prompt = `
       Business concept statement: ${conceptStatement}
 
@@ -547,8 +488,6 @@ export async function EntrepFinancial(req: Request, res: Response) {
         },
       ],
     });
-
-    await logUsage(user_id, "entrepFinancial");
 
     const rawText = result.choices[0].message.content || "";
 

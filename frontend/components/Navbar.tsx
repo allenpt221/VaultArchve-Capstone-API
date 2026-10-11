@@ -45,7 +45,7 @@ function Navbar() {
   const getInitials = (email: string) => email?.charAt(0).toUpperCase() ?? "U";
 
   return (
-    <nav className='sticky top-0 z-50'>
+    <nav className='sticky top-0 z-90'>
       {/* Glassmorphism backdrop */}
       <div className='absolute inset-0 bg-[#060f24]/90 backdrop-blur-md border-b border-white/10' />
 

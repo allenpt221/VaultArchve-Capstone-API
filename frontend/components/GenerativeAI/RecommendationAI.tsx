@@ -1,5 +1,5 @@
 'use client'
-import { Bot, ChevronDown, ChevronRight, CircleX, Clock, GraduationCap, History, Loader2, MessageSquare, PenSquare, Send, SparklesIcon, User, X } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronRight, CircleX, Clock, ClipboardPaste, GraduationCap, History, Loader2, MessageSquare, PenSquare, Send, SparklesIcon, User, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { generativeStore, ThesisChatMessage, ThesisChatSession } from "@/Stores/generativeStore";
@@ -27,7 +27,9 @@ const isValidationMsg = (msg: string) =>
   msg.includes("random or meaningless") ||
   msg.includes("too short") ||
   msg.includes("or any visual content") || // survives "images, photos" vs "images, videos, photos" wording changes
-  msg.includes("Unsupported");
+  msg.includes("Unsupported") ||
+  msg.includes("I can only help with thesis title") || // off-topic guard message
+  msg.includes("I can only generate"); // literature review / over-5-titles messages
 
 const isDailyLimitMsg = (msg: string) =>
   msg.includes("Daily limit reached") || msg.includes("daily limit of");
@@ -118,6 +120,9 @@ function AIrecommendation() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyEntered, setHistoryEntered] = useState(false); // drives the slide/fade transition
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  // Which result card was last pasted to the Progressive Trail (drives the
+  // temporary "Sent" confirmation on the button)
+  const [pastedKey, setPastedKey] = useState<string | null>(null);
 
   const {
     RecommendedAI,
@@ -129,6 +134,7 @@ function AIrecommendation() {
     StartNewThesisChat,
     SelectThesisSession,
     DeleteThesisHistory,
+    SetPendingTopic,
   } = generativeStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -334,6 +340,21 @@ function AIrecommendation() {
     }
   };
 
+  // Sends a recommended title to the Progressive Trail's Topic Selection
+  // stage. The trail (useProgressiveTrial) picks it up from the store,
+  // fills in the topic field, and switches to the topic stage.
+  const pasteToTrail = (msgId: string, index: number, title: string) => {
+    if (!title?.trim()) return;
+    SetPendingTopic(title.trim());
+
+    const key = `${msgId}-${index}`;
+    setPastedKey(key);
+    setTimeout(() => setPastedKey((k) => (k === key ? null : k)), 2000);
+
+    // If the Progressive Trail lives on a separate route, navigate here, e.g.:
+    // router.push('/progressive-trail');
+  };
+
   const hasStarted = messages.length > 0;
 
   return (
@@ -464,7 +485,7 @@ function AIrecommendation() {
             <div className="font-body text-xs text-amber-600 text-center max-w-sm mb-5 flex items-center gap-1 ">
               <div className="flex sm:flex-row flex-col items-center gap-1">
                 <span className="flex gap-2">
-                  <GraduationCap className="h-3.5 w-3.5" /> Currently set to 
+                  <GraduationCap className="h-3.5 w-3.5" /> Currently set to
                 </span>
               <span className="font-semibold">{selectedInterest}</span>
               </div>
@@ -615,6 +636,29 @@ function AIrecommendation() {
                                       ))}
                                     </div>
                                   )}
+
+                                  {/* Paste this title into the Progressive Trail's Topic Selection */}
+                                  <div className="pt-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => pasteToTrail(msg.id, index, item.title)}
+                                      className="h-7 rounded-full text-[11px] gap-1.5 cursor-pointer"
+                                    >
+                                      {pastedKey === `${msg.id}-${index}` ? (
+                                        <>
+                                          <Check className="h-3 w-3 text-green-600" />
+                                          Sent to Progressive Trail
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ClipboardPaste className="h-3 w-3" />
+                                          Paste to Progressive Trail
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>

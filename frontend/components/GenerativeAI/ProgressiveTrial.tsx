@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { STAGES } from '@/hooks/constants'
 import { useProgressiveTrial } from '@/hooks/useProgressiveTrial'
+import { generativeStore } from '@/Stores/generativeStore'
 import { Microscope, Briefcase, Check, Lock, ArrowRight, HelpCircle, ShieldCheck } from 'lucide-react'
 import { TopicSelectionStage } from './Progressive-components/TopicSelection'
 import { LiteratureReviewStage } from './Progressive-components/LiteraturestageReview'
@@ -24,6 +25,37 @@ function ProgressiveTrial() {
   const activeLabel = STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
   const previousLabel = STAGES[t.activeIndex - 1]?.label
   const stageLocked = t.isStageLocked(t.activeStage)
+
+  // When a title is pasted from the recommendation chat, make sure the
+  // Research track is showing (the topic stage lives there, not in Business Plan).
+  const pendingTopic = generativeStore((s) => s.pendingTopic)
+  useEffect(() => {
+    if (pendingTopic) setTrack('research')
+  }, [pendingTopic])
+
+  // After a topic is pasted in, scroll down to the stage content and put the
+  // cursor in its first text field (the topic input on the Topic Selection stage).
+  const stageContentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!t.pasteSignal) return
+    // Small delay so the stage has rendered before we measure/scroll/focus
+    const timer = setTimeout(() => {
+      const el = stageContentRef.current
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      const field = el.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        'textarea, input:not([type=hidden]):not([type=checkbox]):not([type=radio])'
+      )
+      if (field) {
+        field.focus({ preventScroll: true })
+        // Put the cursor at the end of the pasted title
+        const end = field.value.length
+        field.setSelectionRange?.(end, end)
+      }
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [t.pasteSignal])
 
   return (
     <div className="sm:px-4 px-3 py-10 space-y-8" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -193,6 +225,7 @@ function ProgressiveTrial() {
           />
 
           {/* ── Stage content ── */}
+          <div ref={stageContentRef}>
           {stageLocked ? (
             <div className="rounded-xl border bg-white p-10 text-center space-y-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
               <Lock className="w-5 h-5 mx-auto text-muted-foreground" />
@@ -327,6 +360,7 @@ function ProgressiveTrial() {
               <p className="text-xs text-muted-foreground">This stage's AI guidance isn't wired up yet.</p>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

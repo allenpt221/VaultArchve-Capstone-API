@@ -60,6 +60,8 @@ export function useProgressiveTrial() {
     objectivesHistoryLoading,
     loading,
     message,
+    pendingTopic,
+    SetPendingTopic,
   } = generativeStore()
 
 
@@ -70,6 +72,10 @@ export function useProgressiveTrial() {
   // Topic Selection stage — form inputs
   const [topic, setTopic] = useState('')
   const [context, setContext] = useState('')
+  // Bumps every time a topic is pasted in from the recommendation chat, so the
+  // page can react (scroll to the stage + focus the field) even if the same
+  // title is pasted twice.
+  const [pasteSignal, setPasteSignal] = useState(0)
 
   // Shared between Methodology and Data Collection — research questions
   // are used by both stages, so this state isn't scoped to just one of them.
@@ -136,6 +142,23 @@ export function useProgressiveTrial() {
   useEffect(() => {
     localStorage.setItem(RESEARCH_QUESTIONS_STORAGE_KEY, JSON.stringify(researchQuestions))
   }, [researchQuestions])
+
+  // ── Consume a topic pasted from the recommendation chat ───────────
+  // The AI recommendation chat calls SetPendingTopic(title) when the user
+  // clicks "Paste to Progressive Trail". We drop it into the topic field,
+  // jump to the Topic Selection stage, then clear the pending value so it
+  // only applies once. The auto-match effect below then runs on the new
+  // topic text and selects any saved work that already exists for it.
+  useEffect(() => {
+    if (!pendingTopic) return
+    setTopic(pendingTopic)
+    setContext('')
+    setTopicError(null)
+    setActiveStage('topic')
+    setPasteSignal((n) => n + 1)
+    SetPendingTopic(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTopic])
 
   // ── Auto-match saved work to the current topic ────────────────────
   // If the current topic text matches a saved topic guidance, objectives
@@ -402,7 +425,7 @@ const paperReviewLimit = useLimitCountdown()
     if (!topic.trim() || loading || topicLimit.limitedUntil) return
     setTopicError(null)
     setSelectedTopicId(null)
-    
+
     const success = await TopicSelectionAI({ topic, context });
 
     const currentMessage = generativeStore.getState().message;
@@ -411,8 +434,8 @@ const paperReviewLimit = useLimitCountdown()
       setTopicError(null)
       markComplete('topic')
       GetTopicSelections()
-    } else 
-      
+    } else
+
       setTopicError(currentMessage || 'Unable to generate topic guidance.')
 
       if(isDailyLimitMsg(generativeStore.getState().message)) {
@@ -439,7 +462,7 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
   if (wasActiveTopic) {
 
     setTopicError(null)
-    
+
     // Clear the topic stage itself
     setSelectedTopicId(null)
     unmarkComplete('topic')
@@ -486,8 +509,8 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
       setObjectivesTopic(topic)
       markComplete('objective')
       GetObjectives({ limit: 20, offset: 0 })
-    } else 
-      
+    } else
+
       setObjectiveError(currentMessage || 'Unable to generate objectives.')
 
       if(isDailyLimitMsg(generativeStore.getState().message)) {
@@ -581,7 +604,7 @@ const displayedObjectives = useMemo(() => {
 
     setLiteratureError(null)
     setSelectedReviewId(null)
-    
+
     const success = await LiteratureReviewAI({ topic })
 
     const currentMessage = generativeStore.getState().message
@@ -590,7 +613,7 @@ const displayedObjectives = useMemo(() => {
       setLiteratureError(null)
       markComplete('literature')
       GetLiteratureReviews()
-    } else 
+    } else
       setLiteratureError(currentMessage || 'Unable to generate the literature review.')
 
       if(isDailyLimitMsg(generativeStore.getState().message)) {
@@ -638,7 +661,7 @@ const displayedObjectives = useMemo(() => {
 
   const handleGenerateMethodology = async () => {
     if (!methodologyObjective.trim() || researchQuestions.length < MIN_RESEARCH_QUESTIONS || loading || methodologyLimit.limitedUntil) return
-    
+
     setMethodologyError(null)
     setSelectedMethodologyId(null)
 
@@ -655,7 +678,7 @@ const displayedObjectives = useMemo(() => {
       setMethodologyError(null)
       markComplete('methodology')
       GetMethodologies()
-    } else 
+    } else
       setMethodologyError(currentMessage || 'Unable to generate the methodology.')
 
       if(isDailyLimitMsg(generativeStore.getState().message)) {
@@ -726,10 +749,10 @@ const displayedObjectives = useMemo(() => {
     if (success) {
       markComplete('collection')
       GetDataAnalyses({ limit: 20, offset: 0 })
-    } else 
+    } else
 
       setDataCollectionError(currentMessage || 'Unable to generate the data analysis.');
-      
+
       if(isDailyLimitMsg(generativeStore.getState().message)) {
       collectionLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
     }
@@ -788,12 +811,12 @@ const displayedObjectives = useMemo(() => {
 
     const state = generativeStore.getState()
 
-    if (state.fullPaperReview) { 
-      setPaperReviewError(null) 
-      markComplete('paper-review') 
-      GetFullPaperReviews({ limit: 20, offset: 0 }) 
-    } else { 
-      setPaperReviewError( state.message || 'Unable to generate the paper review.' ) 
+    if (state.fullPaperReview) {
+      setPaperReviewError(null)
+      markComplete('paper-review')
+      GetFullPaperReviews({ limit: 20, offset: 0 })
+    } else {
+      setPaperReviewError( state.message || 'Unable to generate the paper review.' )
 
       if (isDailyLimitMsg(state.message)) {
         paperReviewLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
@@ -844,14 +867,15 @@ const displayedObjectives = useMemo(() => {
     percentComplete,
     isStageLocked,
     markComplete,
-    
+    pasteSignal,
+
     message,
 
-    topicError, 
-    objectiveError, 
-    literatureError, 
-    methodologyError, 
-    dataCollectionError, 
+    topicError,
+    objectiveError,
+    literatureError,
+    methodologyError,
+    dataCollectionError,
     paperReviewError,
 
     isTopicLoading: loading && activeStage === 'topic',

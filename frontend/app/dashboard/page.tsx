@@ -29,7 +29,6 @@ function AdminContent() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const activePage = searchParams.get("tab") ?? "data-analytics"; 
-  const getInitials = (email: string) => email?.charAt(0).toUpperCase() ?? "U";
 
 
 
@@ -60,7 +59,7 @@ if (checkingAuth) return null;
 if (!user || (user.role !== "admin" && user.role !== "research")) return null;
 
 const menuItems = [
-  { id: "data-analytics", label: "Analytics Dashboard", icon: LayoutDashboard },
+  { id: "data-analytics", label: "Research Summary", icon: LayoutDashboard },
   { id: "submit-thesis", label: "Publish Thesis", icon: FileText },
   ...(user?.role === "admin"
     ? [{ id: "users-management", label: "User Management", icon: Users }]

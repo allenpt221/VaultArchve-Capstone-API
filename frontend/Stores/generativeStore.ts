@@ -290,6 +290,10 @@ interface generativeAiProps {
   StartNewThesisChat: () => void;
   SelectThesisSession: (sessionId: string) => void;
   DeleteThesisHistory: (id: string) => Promise<void>;
+
+  // ---- Handoff: recommendation chat -> Progressive Trail topic stage ----
+  pendingTopic: string | null;
+  SetPendingTopic: (topic: string | null) => void;
 }
 
 export const generativeStore = create<generativeAiProps>((set, get) => ({
@@ -334,10 +338,16 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
     thesisSessions: [],
     thesisHistoryLoading: false,
 
+    // ---- Handoff: recommendation chat -> Progressive Trail ----
+    pendingTopic: null,
+    SetPendingTopic: (topic) => set({ pendingTopic: topic }),
+
   // POST METHOD
   RecommendedAI: async ({ chatPrompt, course, session_id }: RecommendedProps): Promise<void> => {
     try {
-      set({ loading: true, message: "" });
+      // result: [] clears the previous recommendations so a rejected request
+      // (off-topic, over 5 titles, etc.) can't re-show the last successful results.
+      set({ loading: true, message: "", result: [] });
 
       // Continue the current chat unless the caller explicitly passed a
       // session_id (or explicitly started a new one via StartNewThesisChat,
@@ -379,7 +389,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
           });
         } else {
           const existing = sessions[idx];
-          sessions[idx] = {
+          const updated: ThesisChatSession = {
             ...existing,
             course,
             updatedAt: new Date(created_at).getTime(),
@@ -387,7 +397,7 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
           };
           // Bump most-recently-updated session to the front
           sessions.splice(idx, 1);
-          sessions.unshift(sessions[idx] ?? { ...existing, messages: [...existing.messages, ...newMessages] });
+          sessions.unshift(updated);
         }
 
         return { thesisSessions: sessions, currentThesisSessionId: returnedSessionId };
@@ -686,17 +696,17 @@ export const generativeStore = create<generativeAiProps>((set, get) => ({
 
       if (status === 400) {
         set({ message: data?.message || "Invalid request. Please check your input." });
-        return false;;
+        return false;
       }
 
       if (status === 429) {
         set({ message: data?.message || "Daily limit reached. Please try again tomorrow." });
-        return false;;
+        return false;
       }
 
       if (status === 500) {
         set({ message: data?.error || data?.message || "Something went wrong. Please try again." });
-        return false;;
+        return false;
       }
 
       console.error("Suggested Objectives Error:", error);

@@ -2,6 +2,7 @@
 import ProgressiveTrial from '@/components/GenerativeAI/ProgressiveTrial'
 import AIrecommendation from '@/components/GenerativeAI/RecommendationAI'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { generativeStore } from '@/Stores/generativeStore'
 import { Bot } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -19,6 +20,15 @@ function page() {
   useEffect(() => {
     localStorage.setItem(ASSISTANT_STORAGE_KEY, selectedAssistant)
   }, [selectedAssistant])
+
+  // When a title is pasted from the recommendation chat ("Paste to Progressive
+  // Trail"), the store holds it as pendingTopic. Switch to the Progressive
+  // Trail view; useProgressiveTrial consumes the pending topic as soon as it
+  // mounts, fills the Topic Selection field, and clears it from the store.
+  const pendingTopic = generativeStore((s) => s.pendingTopic)
+  useEffect(() => {
+    if (pendingTopic) setSelectedAssistant('Progressive Trail')
+  }, [pendingTopic])
 
   return (
     <div className='sm:h-[89vh] w-full flex flex-col bg-background sm:px-3'>
@@ -71,4 +81,4 @@ function page() {
   )
 }
 
-export default page
+export default page;

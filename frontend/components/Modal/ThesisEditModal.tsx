@@ -22,12 +22,15 @@ interface ThesisEditModalProps {
   issue_date?: string;
   course?: string;
   abstract?: string;
+  keywords?: string;
+  file_url?: string;
+
+  // No longer used by this modal. Kept optional so existing parents that still
+  // pass them keep compiling; you can stop passing them and delete these lines.
   introduction?: string;
   scope_and_limitation?: string;
   conclusion?: string;
   recommendation?: string;
-  file_url?: string;
-  // Entrepreneurship fields
   entrep_intro?: string;
   entrep_action_plan?: string;
   entrep_market_product_description?: string;
@@ -48,18 +51,8 @@ function ThesisEditModal({
   issue_date,
   course,
   abstract,
-  introduction,
-  scope_and_limitation,
-  conclusion,
-  recommendation,
+  keywords,
   file_url,
-  entrep_intro,
-  entrep_action_plan,
-  entrep_market_product_description,
-  entrep_survey_result,
-  entrep_target_market,
-  entrep_product,
-  entrep_production,
 }: ThesisEditModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { updateThesis, loading } = repoStores();
@@ -69,17 +62,7 @@ function ThesisEditModal({
     author: author ?? '',
     course: course ?? '',
     thesis_abstract: normalize(abstract),
-    thesis_introduction: normalize(introduction),
-    thesis_scope_and_limitation: normalize(scope_and_limitation),
-    thesis_conclusion: normalize(conclusion),
-    thesis_recommendation: normalize(recommendation),
-    entrep_intro: normalize(entrep_intro),
-    entrep_action_plan: normalize(entrep_action_plan),
-    entrep_market_product_description: normalize(entrep_market_product_description),
-    entrep_survey_result: normalize(entrep_survey_result),
-    entrep_target_market: normalize(entrep_target_market),
-    entrep_product: normalize(entrep_product),
-    entrep_production: normalize(entrep_production),
+    keywords: normalize(keywords),
   });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -93,45 +76,21 @@ function ThesisEditModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
-  const isEntrepreneurship = formData.course === 'Entrepreneurship';
-
   const handleSave = async () => {
     if (!id) return;
 
     const issueDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : (issue_date ?? '');
 
-    const base = {
+    await updateThesis({
       id,
       title: formData.title,
       author: formData.author,
       course: formData.course,
       issueDate,
+      thesis_abstract: formData.thesis_abstract,
+      keywords: formData.keywords.trim(),
       file: selectedFile ?? undefined,
-    };
-
-    if (isEntrepreneurship) {
-      await updateThesis({
-        ...base,
-        type: 'entrepreneurship',
-        entrep_intro: formData.entrep_intro,
-        entrep_action_plan: formData.entrep_action_plan,
-        entrep_market_product_description: formData.entrep_market_product_description,
-        entrep_survey_result: formData.entrep_survey_result,
-        entrep_target_market: formData.entrep_target_market,
-        entrep_product: formData.entrep_product,
-        entrep_production: formData.entrep_production,
-      });
-    } else {
-      await updateThesis({
-        ...base,
-        type: 'standard',
-        thesis_abstract: formData.thesis_abstract,
-        thesis_introduction: formData.thesis_introduction,
-        thesis_scope_and_limitation: formData.thesis_scope_and_limitation,
-        thesis_conclusion: formData.thesis_conclusion,
-        thesis_recommendation: formData.thesis_recommendation,
-      });
-    }
+    });
 
     onClose?.();
   };
@@ -206,154 +165,29 @@ function ThesisEditModal({
             </div>
           </div>
 
-          {isEntrepreneurship ? (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_intro">Introduction</Label>
-                <Textarea
-                  id="entrep_intro"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_intro}
-                  onChange={handleChange('entrep_intro')}
-                  placeholder={entrep_intro === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="abstract">Abstract</Label>
+            <Textarea
+              id="abstract"
+              className="resize-none overflow-hidden"
+              style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
+              value={formData.thesis_abstract}
+              onChange={handleChange('thesis_abstract')}
+            />
+          </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_action_plan">Action Plan</Label>
-                <Textarea
-                  id="entrep_action_plan"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_action_plan}
-                  onChange={handleChange('entrep_action_plan')}
-                  placeholder={entrep_action_plan === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_market_product_description">Market / Product Description</Label>
-                <Textarea
-                  id="entrep_market_product_description"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_market_product_description}
-                  onChange={handleChange('entrep_market_product_description')}
-                  placeholder={entrep_market_product_description === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_survey_result">Survey Result</Label>
-                <Textarea
-                  id="entrep_survey_result"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_survey_result}
-                  onChange={handleChange('entrep_survey_result')}
-                  placeholder={entrep_survey_result === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_target_market">Target Market</Label>
-                <Textarea
-                  id="entrep_target_market"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_target_market}
-                  onChange={handleChange('entrep_target_market')}
-                  placeholder={entrep_target_market === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_product">Product</Label>
-                <Textarea
-                  id="entrep_product"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_product}
-                  onChange={handleChange('entrep_product')}
-                  placeholder={entrep_product === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="entrep_production">Production</Label>
-                <Textarea
-                  id="entrep_production"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.entrep_production}
-                  onChange={handleChange('entrep_production')}
-                  placeholder={entrep_production === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="abstract">Abstract</Label>
-                <Textarea
-                  id="abstract"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_abstract}
-                  onChange={handleChange('thesis_abstract')}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="introduction">Introduction</Label>
-                <Textarea
-                  id="introduction"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_introduction}
-                  onChange={handleChange('thesis_introduction')}
-                  placeholder={introduction === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="scope_and_limitation">Scope and Limitation</Label>
-                <Textarea
-                  id="scope_and_limitation"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_scope_and_limitation}
-                  onChange={handleChange('thesis_scope_and_limitation')}
-                  placeholder={scope_and_limitation === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="conclusion">Conclusion</Label>
-                <Textarea
-                  id="conclusion"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_conclusion}
-                  onChange={handleChange('thesis_conclusion')}
-                  placeholder={conclusion === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="recommendation">Recommendation</Label>
-                <Textarea
-                  id="recommendation"
-                  className="resize-none overflow-hidden"
-                  style={{ height: 'auto', minHeight: '2.5rem', fieldSizing: 'content' } as React.CSSProperties}
-                  value={formData.thesis_recommendation}
-                  onChange={handleChange('thesis_recommendation')}
-                  placeholder={recommendation === 'N/A' ? 'N/A' : ''}
-                />
-              </div>
-            </>
-          )}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="keywords">
+              Keywords
+            </Label>
+            <Input
+              id="keywords"
+              placeholder="e.g., cost accounting, small businesses, inventory management"
+              value={formData.keywords}
+              onChange={handleChange('keywords')}
+            />
+            <p className="text-xs text-muted-foreground">Separate each keyword with a comma</p>
+          </div>
 
           {/* PDF Upload */}
           <div className="flex flex-col gap-1.5">

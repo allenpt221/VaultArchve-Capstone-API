@@ -17,6 +17,7 @@ import DeleteThesisModal from "./Modal/DeleteConfirmationModalEntrep";
 
 interface TableActionsProps {
   id: string;
+  thesis_id?: number;
   title: string;
   author: string;
   issue_date: string;
@@ -26,23 +27,27 @@ interface TableActionsProps {
   DeleteThesis: (id: string) => void | Promise<unknown>;
 
   abstract?: string;
+  keywords?: string | null;
+
+  // No longer shown in the table. Kept optional so existing parents that still
+  // pass them keep compiling; you can stop passing them and delete these lines.
   introduction?: string;
   scope_and_limitation?: string;
   conclusion?: string;
   recommendation?: string;
 }
 
+const MAX_VISIBLE_KEYWORDS = 2;
+
 export function TableActions({
   id,
+  thesis_id,
   title,
   author,
   issue_date,
   course,
   abstract,
-  introduction,
-  scope_and_limitation,
-  conclusion,
-  recommendation,
+  keywords,
   filename,
   isOpen,
   DeleteThesis
@@ -62,12 +67,6 @@ export function TableActions({
     }
   };
 
-  // FIX: guard against undefined id (e.g. API returns _id instead of id)
-  function shortId(id: string) {
-    if (!id) return '—'
-    return id.slice(0, 8) + "…";
-  }
-
   // FIX: guard against undefined/empty author
   function initials(name: string) {
     if (!name) return '?'
@@ -79,16 +78,23 @@ export function TableActions({
       .join("");
   }
 
-  const contentFields = [introduction, scope_and_limitation, conclusion, recommendation];
+  // "a, b, c" -> ["a", "b", "c"]
+  const keywordList = (keywords ?? "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k && k.toLowerCase() !== "null" && k !== "N/A");
+
+  const visibleKeywords = keywordList.slice(0, MAX_VISIBLE_KEYWORDS);
+  const hiddenCount = keywordList.length - visibleKeywords.length;
 
   return (
     <TableRow>
       <TableCell>
         <span
-          className="inline-block max-w-20 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+          className="inline-block whitespace-nowrap rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
           title={id}
         >
-          {shortId(id)}
+          {thesis_id != null ? `Thesis ${thesis_id}` : '—'}
         </span>
       </TableCell>
 
@@ -98,6 +104,33 @@ export function TableActions({
 
       <TableCell className="max-w-30 truncate font-medium">
         {abstract}
+      </TableCell>
+
+      <TableCell className="text-left">
+        {keywordList.length === 0 ? (
+          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            N/A
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1"
+            title={keywordList.join(", ")}
+          >
+            {visibleKeywords.map((k) => (
+              <span
+                key={k}
+                className="inline-block max-w-24 truncate rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+              >
+                {k}
+              </span>
+            ))}
+            {hiddenCount > 0 && (
+              <span className="whitespace-nowrap text-xs text-muted-foreground">
+                +{hiddenCount}
+              </span>
+            )}
+          </span>
+        )}
       </TableCell>
 
       <TableCell className="text-left">
@@ -119,23 +152,6 @@ export function TableActions({
           {course}
         </span>
       </TableCell>
-
-      {contentFields.map((val, i) => (
-        <TableCell key={i} className="text-left">
-          {!val || val === "N/A" ? (
-            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              N/A
-            </span>
-          ) : (
-            <span
-              className="inline-block max-w-25 truncate text-xs text-muted-foreground"
-              title={val}
-            >
-              {val}
-            </span>
-          )}
-        </TableCell>
-      ))}
 
       <TableCell className="text-left">
         <span className="inline-block rounded-full truncate max-w-15 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">

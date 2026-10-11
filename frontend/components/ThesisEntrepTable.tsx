@@ -17,6 +17,7 @@ import DeleteThesisModal from "./Modal/DeleteConfirmationModalEntrep";
 
 interface EntrepTableActionsProps {
   id: string;
+  thesis_id?: number;
   title: string;
   author: string;
   issue_date: string;
@@ -36,6 +37,7 @@ interface EntrepTableActionsProps {
 
 export function EntrepTableActions({
   id,
+  thesis_id,
   title,
   author,
   issue_date,
@@ -66,12 +68,6 @@ export function EntrepTableActions({
     }
   };
 
-  // FIX: guard against undefined id (e.g. API returns _id instead of id)
-  function shortId(id: string) {
-    if (!id) return '—'
-    return id.slice(0, 8) + "…";
-  }
-
   // FIX: guard against undefined/empty author
   function initials(name: string) {
     if (!name) return '?'
@@ -97,10 +93,10 @@ export function EntrepTableActions({
     <TableRow>
       <TableCell>
         <span
-          className="inline-block max-w-20 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+          className="inline-block whitespace-nowrap rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
           title={id}
         >
-          {shortId(id)}
+          {thesis_id != null ? `Thesis ${thesis_id}` : '—'}
         </span>
       </TableCell>
 

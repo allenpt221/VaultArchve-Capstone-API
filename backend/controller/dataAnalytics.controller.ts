@@ -123,10 +123,19 @@ export async function getFilteredThesis(req: Request, res: Response) {
       order?: "asc" | "desc";
     };
 
-    const allowedSortColumns = ["issue_date", "title", "author", "views"];
+    // thesis_id is what the admin table sorts by; views/downloads/saves come from ThesisDataAnalytics
+    const allowedSortColumns = [
+      "issue_date",
+      "title",
+      "author",
+      "thesis_id",
+      "views",
+      "downloads",
+      "saves",
+    ];
     const sortColumn = allowedSortColumns.includes(sort) ? sort : "issue_date";
 
-    const isRelatedSort = ["views", "downloads"].includes(sortColumn);
+    const isRelatedSort = ["views", "downloads", "saves"].includes(sortColumn);
 
     let query = supabase
       .from("Thesis")
@@ -137,7 +146,14 @@ export async function getFilteredThesis(req: Request, res: Response) {
     }
 
     if (search && search.trim() !== "") {
-      query = query.or(`title.ilike.%${search.trim()}%,author.ilike.%${search.trim()}%`);
+      // Commas, parentheses, % and * have special meaning inside .or(), so strip them
+      const term = search.trim().replace(/[,%()*\\]/g, " ").trim();
+
+      if (term) {
+        query = query.or(
+          `title.ilike.%${term}%,author.ilike.%${term}%,keywords.ilike.%${term}%`
+        );
+      }
     }
 
     if (year && year !== "all") {
@@ -153,6 +169,8 @@ export async function getFilteredThesis(req: Request, res: Response) {
     const { data, error } = await query;
 
     if (error) {
+      // Log the real reason so it shows up in the server terminal
+      console.error("getFilteredThesis supabase error:", error);
       return res.status(500).json({ error: error.message });
     }
 

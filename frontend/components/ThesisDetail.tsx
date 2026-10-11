@@ -12,12 +12,19 @@ import {
   Calendar,
   ArrowLeft,
   CircleAlert,
-  ChevronLeft,
-  ChevronRight,
   Bookmark,
+  Loader2,
 } from 'lucide-react';
 import { Card } from './ui/card';
 import axios from '@/lib/axios';
+
+// "a, b, c" -> ["a", "b", "c"]
+function parseKeywords(value?: string | null): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter((k) => k && k.toLowerCase() !== 'null' && k !== 'N/A');
+}
 
 function ThesisDetail({ id }: { id: string }) {
   const {
@@ -40,8 +47,6 @@ function ThesisDetail({ id }: { id: string }) {
 
   const [hasFetched, setHasFetched] = useState(false);
 
-  const [currentPage, setCurrentPage] = useState(0);
-
   useEffect(() => {
     let cancelled = false;
     setHasFetched(false);
@@ -55,11 +60,6 @@ function ThesisDetail({ id }: { id: string }) {
     };
   }, [id]);
 
-  // Reset to first section whenever a new thesis loads
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [id, thesisData?.id]);
-
   useEffect(() => {
     if (id && saveStatusMap[id] === undefined) {
       checkSaveStatus(id);
@@ -69,38 +69,7 @@ function ThesisDetail({ id }: { id: string }) {
   if (loading || !hasFetched) return <PageLoader />;
   if (notFound || !thesisData) return <NotFound />;
 
-  const isEntrep =
-    thesisData.course?.toLowerCase().includes('entrepreneurship');
-
-  const sections = isEntrep
-    ? [
-        { title: 'Introduction', content: thesisData.entrep_intro },
-        { title: 'Action Plan', content: thesisData.entrep_action_plan },
-        {
-          title: 'Market / Product Description',
-          content: thesisData.entrep_market_product_description,
-        },
-        { title: 'Survey Result', content: thesisData.entrep_survey_result },
-        { title: 'Target Market', content: thesisData.entrep_target_market },
-        { title: 'Product', content: thesisData.entrep_product },
-        { title: 'Production', content: thesisData.entrep_production },
-      ]
-    : [
-        { title: 'Abstract', content: thesisData.thesis_abstract },
-        { title: 'Introduction', content: thesisData.thesis_introduction },
-        { title: 'Scope and Limitation', content: thesisData.thesis_scope_and_limitation },
-        { title: 'Conclusion', content: thesisData.thesis_conclusion },
-        { title: 'Recommendation', content: thesisData.thesis_recommendation },
-      ];
-
-  const totalPages = sections.length;
-  const safePage = Math.min(currentPage, totalPages - 1);
-  const activeSection = sections[safePage];
-
-  function goToPage(page: number) {
-    if (page < 0 || page > totalPages - 1) return;
-    setCurrentPage(page);
-  }
+  const keywordList = parseKeywords(thesisData.keywords);
 
   function triggerAlert() {
     setShowAlert(true);
@@ -173,261 +142,195 @@ function ThesisDetail({ id }: { id: string }) {
 
   const isSaved = saveStatusMap[id] ?? false;
 
+  const analytics = thesisData.ThesisDataAnalytics?.[0];
+  const issueDate = new Date(thesisData.issue_date);
+
+  const details = [
+    { label: 'Department', value: thesisData.course },
+    { label: 'Year', value: issueDate.getFullYear() },
+    { label: 'Publish date', value: issueDate.toLocaleDateString() },
+    {
+      label: 'Created',
+      value: new Date(thesisData.created_at).toLocaleDateString(),
+    },
+    { label: 'Views', value: analytics?.views ?? 0 },
+    { label: 'Downloads', value: analytics?.downloads ?? 0 },
+  ];
+
+  const focusRing =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2';
+
   return (
-    <div className="w-full mx-auto sm:px-10 px-4 py-8">
-      <div className="w-full">
-        {/* Back */}
-        <Link
-          href="/browse"
-          className="inline-flex items-center gap-1.5 text-base text-amber-600 hover:text-amber-700 mb-6 transition-colors"
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-10 sm:py-10">
+      {/* Back */}
+      <Link
+        href="/browse"
+        className={`mb-6 inline-flex items-center gap-1.5 rounded-md text-base text-amber-600 transition-colors hover:text-amber-700 ${focusRing}`}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to browse
+      </Link>
+
+      {/* Badges */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 sm:text-sm">
+          {thesisData.course}
+        </span>
+        <span className="flex items-center gap-1.5 text-sm text-green-700">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+          Published
+        </span>
+      </div>
+
+      {/* Title + Save button */}
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <h1 className="text-xl font-semibold leading-snug tracking-tight text-gray-900 sm:text-3xl">
+          {thesisData.title}
+        </h1>
+
+        <button
+          onClick={handleToggleSave}
+          disabled={isSaving}
+          aria-pressed={isSaved}
+          aria-label={isSaved ? 'Unsave thesis' : 'Save thesis'}
+          className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${focusRing} ${
+            isSaved
+              ? 'border-amber-600 bg-amber-600 text-white hover:bg-amber-700'
+              : 'border-gray-200 bg-white text-gray-600 hover:border-amber-600 hover:text-amber-600'
+          }`}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to browse
-        </Link>
+          <Bookmark
+            className="h-4 w-4"
+            fill={isSaved ? 'currentColor' : 'none'}
+          />
+          <span className="hidden sm:inline">{isSaved ? 'Saved' : 'Save'}</span>
+        </button>
+      </div>
 
-        {/* Badges */}
-        <div className="flex justify-between items-center gap-2 mb-3">
-          <span className="bg-amber-100 text-amber-800 sm:text-sm text-xs font-medium px-3 py-1 rounded-full">
-            {thesisData.course}
-          </span>
-          <span className="flex items-center gap-1 text-sm text-green-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-            Published
-          </span>
-        </div>
-
-        {/* Title + Save button */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <h1 className="sm:text-3xl text-lg font-medium text-gray-900 leading-snug">
-            {thesisData.title}
-          </h1>
-
-          <button
-            onClick={handleToggleSave}
-            disabled={isSaving}
-            aria-label={isSaved ? 'Unsave thesis' : 'Save thesis'}
-            className={`cursor-pointer shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
-              isSaved
-                ? 'bg-amber-600 border-amber-600 text-white hover:bg-amber-700'
-                : 'bg-white border-gray-200 text-gray-600 hover:border-amber-600 hover:text-amber-600'
-            }`}
-          >
-            <Bookmark
-              className="w-4 h-4"
-              fill={isSaved ? 'currentColor' : 'none'}
-            />
-            <span className="hidden sm:inline">
-              {isSaved ? 'Saved' : 'Save'}
-            </span>
-          </button>
-        </div>
-
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-3 text-base text-gray-500 pb-5 mb-6 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 sm:text-xs text-[10px] rounded-full bg-amber-100 flex items-center justify-center font-medium text-amber-800">
-              {initials}
-            </div>
-            <span className="font-medium sm:text-[17px] text-xs text-gray-800">
-              {thesisData.author}
-            </span>
+      {/* Meta */}
+      <div className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-3 border-b pb-6 text-sm text-gray-500">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800">
+            {initials}
           </div>
-
-          <span className="text-gray-300">·</span>
-
-          <span className="flex items-center gap-1">
-            <Calendar className="w-4 h-4" />
-            {new Date(thesisData.issue_date).getFullYear()}
-          </span>
-
-          <span className="text-gray-300">·</span>
-
-          <span className="flex items-center gap-1">
-            <Eye className="w-4 h-4" />
-            {thesisData.ThesisDataAnalytics?.[0]?.views ?? 0} views
-          </span>
-
-          <span className="text-gray-300">·</span>
-
-          <span className="flex items-center gap-1">
-            <Download className="w-4 h-4" />
-            {thesisData.ThesisDataAnalytics?.[0]?.downloads ?? 0} downloads
-          </span>
-
-          <span className="text-gray-300">·</span>
-
-          <span className="flex items-center gap-1">
-            <Bookmark className="w-4 h-4" />
-            {thesisData.ThesisDataAnalytics?.[0]?.saves ?? 0} saves
+          <span className="text-sm font-medium text-gray-900">
+            {thesisData.author}
           </span>
         </div>
 
-        {/* Body */}
-        <div className="flex flex-col sm:flex-row gap-8 items-start w-full">
-          <Card className="p-4 flex-1">
-            {/* Section tabs (jump directly to a section) */}
-            <div className="flex flex-wrap gap-2 mb-5 pb-4 border-b">
-              {sections.map(({ title }, idx) => (
-                <button
-                  key={title}
-                  onClick={() => goToPage(idx)}
-                  className={`cursor-pointer text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${
-                    idx === safePage
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {title}
-                </button>
-              ))}
-            </div>
+        <span className="flex items-center gap-1.5">
+          <Calendar className="h-4 w-4" />
+          {issueDate.getFullYear()}
+        </span>
 
-            {/* Active section content */}
-            <div>
-              <h2 className="text-base font-medium text-gray-900 mb-2">
-                {activeSection.title}
-              </h2>
-              <p className="text-base text-gray-600 leading-relaxed whitespace-pre-line min-h-[8rem]">
-                {activeSection.content ?? 'N/A'}
-              </p>
-            </div>
+        <span className="flex items-center gap-1.5">
+          <Eye className="h-4 w-4" />
+          {analytics?.views ?? 0} views
+        </span>
 
-            {/* Pagination controls */}
-            <div className="flex items-center justify-between mt-7 pt-4 border-t">
-              <button
-                onClick={() => goToPage(safePage - 1)}
-                disabled={safePage === 0}
-                className="cursor-pointer flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-600 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </button>
+        <span className="flex items-center gap-1.5">
+          <Download className="h-4 w-4" />
+          {analytics?.downloads ?? 0} downloads
+        </span>
 
-              <div className="flex items-center gap-1.5">
-                {sections.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => goToPage(idx)}
-                    aria-label={`Go to page ${idx + 1}`}
-                    className={`cursor-pointer rounded-full transition-all ${
-                      idx === safePage
-                        ? 'w-5 h-1.5 bg-amber-600'
-                        : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
-                    }`}
-                  />
-                ))}
-              </div>
+        <span className="flex items-center gap-1.5">
+          <Bookmark className="h-4 w-4" />
+          {analytics?.saves ?? 0} saves
+        </span>
+      </div>
 
-              <button
-                onClick={() => goToPage(safePage + 1)}
-                disabled={safePage === totalPages - 1}
-                className="cursor-pointer flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-gray-600 transition-colors"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-center text-xs text-gray-400 mt-3">
-              {safePage + 1} of {totalPages}
+      {/* Body */}
+      <div className="flex w-full flex-col items-start gap-6 lg:flex-row lg:gap-8">
+        <Card className="w-full min-w-0 flex-1 p-6 sm:p-8">
+          {/* Abstract */}
+          <div>
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              Abstract
+            </h2>
+            <p className="max-w-[72ch] whitespace-pre-line text-base leading-7 text-gray-600">
+              {thesisData.thesis_abstract || 'N/A'}
             </p>
-          </Card>
+          </div>
 
-          {/* Sidebar */}
-          <div className="flex flex-col gap-1 sm:w-80 w-full shrink-0">
-            <Card className="border rounded-xl p-4">
-              <p className="text-sm font-medium text-gray-900 mb-3">
-                Details
-              </p>
+          {/* Keywords */}
+          <div className="mt-8 border-t pt-6">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              Keywords
+            </h2>
 
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    label: 'Department',
-                    value: thesisData.course,
-                  },
-                  {
-                    label: 'Year',
-                    value: new Date(
-                      thesisData.issue_date
-                    ).getFullYear(),
-                  },
-                  {
-                    label: 'Publish date',
-                    value: new Date(
-                      thesisData.issue_date
-                    ).toLocaleDateString(),
-                  },
-                  {
-                    label: 'Views',
-                    value:
-                      thesisData.ThesisDataAnalytics?.[0]?.views,
-                  },
-                  {
-                    label: 'Downloads',
-                    value:
-                      thesisData.ThesisDataAnalytics?.[0]
-                        ?.downloads,
-                  },
-                  {
-                    label: 'Created',
-                    value: new Date(
-                      thesisData.created_at
-                    ).toLocaleDateString(),
-                  },
-                ].map(({ label, value }) => (
-                  <div
-                    key={label}
-                    className="flex flex-col gap-0.5"
+            {keywordList.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {keywordList.map((keyword) => (
+                  <span
+                    key={keyword}
+                    className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800"
                   >
-                    <span className="text-xs uppercase tracking-wide text-gray-400">
-                      {label}
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 truncate">
-                      {value}
-                    </span>
-                  </div>
+                    {keyword}
+                  </span>
                 ))}
               </div>
-            </Card>
-
-            {downloadError && (
-              <div className="flex items-start gap-2 mt-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{downloadError}</span>
-              </div>
-            )}
-
-            {thesisData.thesis_file_url && (
-              <button
-                onClick={() =>
-                  handleDownload(
-                    thesisData.id,
-                    thesisData.thesis_file_url
-                  )
-                }
-                disabled={isDownloading}
-                className="cursor-pointer w-full flex items-center justify-center gap-2 mt-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-base font-medium py-2.5 px-4 rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                {isDownloading
-                  ? 'Downloading...'
-                  : 'Download full thesis'}
-              </button>
+            ) : (
+              <p className="text-base text-gray-400">N/A</p>
             )}
           </div>
+        </Card>
+
+        {/* Sidebar */}
+        <div className="flex w-full shrink-0 flex-col gap-3 lg:sticky lg:top-6 lg:w-80">
+          {thesisData.thesis_file_url && (
+            <button
+              onClick={() =>
+                handleDownload(thesisData.id, thesisData.thesis_file_url)
+              }
+              disabled={isDownloading}
+              className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-3 text-base font-medium text-white transition-colors hover:bg-amber-700 active:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isDownloading ? 'Downloading...' : 'Download full thesis'}
+            </button>
+          )}
+
+          {downloadError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+            >
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{downloadError}</span>
+            </div>
+          )}
+
+          <Card className="rounded-xl border p-5">
+            <p className="mb-4 text-sm font-semibold text-gray-900">Details</p>
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
+              {details.map(({ label, value }) => (
+                <div key={label} className="flex min-w-0 flex-col gap-0.5">
+                  <dt className="text-xs text-gray-400">{label}</dt>
+                  <dd className="truncate text-sm font-medium text-gray-900">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
         </div>
       </div>
 
       {showAlert && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-100 w-[90%] max-w-md px-6 py-4 shadow-lg rounded-xl border border-red-500 bg-red-100">
+        <div
+          role="alert"
+          className="fixed left-1/2 top-6 z-50 w-[90%] max-w-md -translate-x-1/2 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-lg"
+        >
           <div className="flex items-start gap-3">
-            <CircleAlert className="text-red-500 w-5 h-5 mt-0.5 shrink-0" />
+            <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
             <div>
-              <p className="text-red-600 font-semibold">Login Required</p>
-              <p className="text-red-600 text-xs">
-                Log in to save this thesis.
-              </p>
+              <p className="font-semibold text-red-600">Login Required</p>
+              <p className="text-xs text-red-600">Log in to save this thesis.</p>
             </div>
           </div>
         </div>
