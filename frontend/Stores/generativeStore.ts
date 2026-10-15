@@ -49,6 +49,11 @@ const normalizeSuggestedObjectives = (data: any): SavedSuggestedObjectives => ({
       ? JSON.parse(data.specific_objectives)
       : data.specific_objectives,
 
+  objective_rationale:
+    typeof data.objective_rationale === "string"
+      ? JSON.parse(data.objective_rationale)
+      : (data.objective_rationale ?? []),
+
   suggested_variables:
     typeof data.suggested_variables === "string"
       ? JSON.parse(data.suggested_variables)

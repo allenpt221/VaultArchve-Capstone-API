@@ -1,14 +1,15 @@
 'use client'
+import { useEffect, useMemo, useState } from 'react'
 import { ENTREP_STAGES } from '@/hooks/entrepconstant'
 import { useEntrepProgressiveTrial } from '@/hooks/useEntrepProgressiveTrail'
-import { ArrowRight, Check, Lock, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Check, History, Lock, ShieldCheck } from 'lucide-react'
 import { ConceptStage } from './Entrep-Progressive/ConceptStage'
 import { SWOTStage } from './Entrep-Progressive/SWOTStage'
 import { MarketResearchStage } from './Entrep-Progressive/MarketResearchStage'
 import { ProductionStage } from './Entrep-Progressive/ProductionStage'
 import { FinancialStage } from './Entrep-Progressive/FinancialStage'
 import PlagiarismModal from '../PlagiarismStage'
-import { useState } from 'react'
+import HistoryModalEntrepProgressive from '../Modal/Historymodalentrepprogressive'
 
 function EntrepProgressive() {
   const t = useEntrepProgressiveTrial()
@@ -16,7 +17,91 @@ function EntrepProgressive() {
   const previousLabel = ENTREP_STAGES[t.activeIndex - 1]?.label
   const stageLocked = t.isStageLocked(t.activeStage)
   const [showPlagiarismCheck, setShowPlagiarismCheck] = useState(false)
-  
+  const [showHistory, setShowHistory] = useState(false)
+
+  // Close the history modal whenever the stage changes
+  useEffect(() => {
+    setShowHistory(false)
+  }, [t.activeStage])
+
+  // History config for the current stage
+  const historyConfig = useMemo(() => {
+    switch (t.activeStage) {
+      case 'concept':
+        return {
+          title: 'Saved Concepts',
+          items: t.conceptHistory ?? [],
+          loading: t.conceptHistoryLoading,
+          selectedId: t.selectedConceptId,
+          onSelect: t.handleSelectSavedConcept,
+          // The entrep modal's onDelete signature is (e, id), same as the handler
+          onDelete: t.handleDeleteSavedConcept,
+          emptyMessage: 'No saved concepts yet.',
+        }
+      case 'swot':
+        return {
+          title: 'SWOT History',
+          items: t.swotHistory ?? [],
+          loading: t.swotHistoryLoading,
+          selectedId: t.selectedSwotId,
+          onSelect: t.handleSelectSavedSWOT,
+          emptyMessage: 'No saved SWOT analyses yet.',
+        }
+      case 'market':
+        return {
+          title: 'Market Research History',
+          items: t.marketHistory ?? [],
+          loading: t.marketHistoryLoading,
+          selectedId: t.selectedMarketId,
+          onSelect: t.handleSelectSavedMarketResearch,
+          emptyMessage: 'No saved market research yet.',
+        }
+      case 'production':
+        return {
+          title: 'Production Plan History',
+          items: t.productionHistory ?? [],
+          loading: t.productionHistoryLoading,
+          selectedId: t.selectedProductionId,
+          onSelect: t.handleSelectSavedProduction,
+          emptyMessage: 'No saved production plans yet.',
+        }
+      case 'financial':
+        return {
+          title: 'Financial Plan History',
+          items: t.financialHistory ?? [],
+          loading: t.financialHistoryLoading,
+          selectedId: t.selectedFinancialId,
+          onSelect: t.handleSelectSavedFinancial,
+          emptyMessage: 'No saved financial plans yet.',
+        }
+      default:
+        return null
+    }
+  }, [
+    t.activeStage,
+    t.conceptHistory,
+    t.conceptHistoryLoading,
+    t.selectedConceptId,
+    t.handleSelectSavedConcept,
+    t.handleDeleteSavedConcept,
+    t.swotHistory,
+    t.swotHistoryLoading,
+    t.selectedSwotId,
+    t.handleSelectSavedSWOT,
+    t.marketHistory,
+    t.marketHistoryLoading,
+    t.selectedMarketId,
+    t.handleSelectSavedMarketResearch,
+    t.productionHistory,
+    t.productionHistoryLoading,
+    t.selectedProductionId,
+    t.handleSelectSavedProduction,
+    t.financialHistory,
+    t.financialHistoryLoading,
+    t.selectedFinancialId,
+    t.handleSelectSavedFinancial,
+  ])
+
   return (
     <div className="max-w-7xl mx-auto space-y-5">
       {/* ── Progress bar ── */}
@@ -33,11 +118,14 @@ function EntrepProgressive() {
         </div>
       </div>
 
-              <div className="flex justify-end">
+      {/* ── Action buttons: History + Plagiarism ── */}
+      <div className="flex justify-end gap-2">
+        {/* The concept stage has its own "saved concepts" button inside the stage */}
+        {historyConfig && t.activeStage !== 'concept' && (
           <button
             type="button"
-            onClick={() => setShowPlagiarismCheck(true)}
-            className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors"
+            onClick={() => setShowHistory(true)}
+            className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer"
             style={{
               borderColor: 'rgba(186, 117, 23, 0.35)',
               background: '#FFFFFF',
@@ -46,11 +134,36 @@ function EntrepProgressive() {
             onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
             onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
           >
-            <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-            Check for Plagiarism
-            <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
+            <History className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+            History
+            {historyConfig.items.length > 0 && (
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] leading-none"
+                style={{ background: '#F1EFEA', color: '#6B6A65' }}
+              >
+                {historyConfig.items.length}
+              </span>
+            )}
           </button>
-        </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setShowPlagiarismCheck(true)}
+          className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer"
+          style={{
+            borderColor: 'rgba(186, 117, 23, 0.35)',
+            background: '#FFFFFF',
+            color: '#0B1C33',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+          Check for Plagiarism
+          <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
+        </button>
+      </div>
 
       {/* ── Stage tabs ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -99,12 +212,25 @@ function EntrepProgressive() {
           )
         })}
       </div>
-      
 
       <PlagiarismModal
         isOpen={showPlagiarismCheck}
         onClose={() => setShowPlagiarismCheck(false)}
       />
+
+      {historyConfig && (
+        <HistoryModalEntrepProgressive
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          title={historyConfig.title}
+          items={historyConfig.items}
+          loading={historyConfig.loading}
+          selectedId={historyConfig.selectedId}
+          onSelect={historyConfig.onSelect}
+          onDelete={'onDelete' in historyConfig ? historyConfig.onDelete : undefined}
+          emptyMessage={historyConfig.emptyMessage}
+        />
+      )}
 
       {/* ── Stage content ── */}
       {stageLocked ? (
@@ -124,11 +250,9 @@ function EntrepProgressive() {
           errorMessage={t.conceptError}
           limitedUntil={t.conceptLimitedUntil}
           countdown={t.conceptCountdown}
-          savedConcepts={t.conceptHistory}
-          savedConceptsLoading={t.conceptHistoryLoading}
+          onOpenSavedConcepts={() => setShowHistory(true)}
+          savedConceptsCount={t.conceptHistory?.length ?? 0}
           selectedConceptId={t.selectedConceptId}
-          onSelectSavedConcept={t.handleSelectSavedConcept}
-          onDeleteSavedConcept={t.handleDeleteSavedConcept}
           guidance={t.displayedConcept}
           selectedConceptStatement={t.selectedConceptStatement}
           onSelectedConceptStatementChange={t.setSelectedConceptStatement}

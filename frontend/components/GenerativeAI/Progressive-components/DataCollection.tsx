@@ -439,7 +439,7 @@ export function DataCollectionStage({
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <button
               onClick={onContinue}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity cursor-pointer"
               style={{ color: '#0B1C33' }}
             >
               Continue Paper Review

@@ -273,10 +273,10 @@ export function LiteratureReviewStage({
 
           <button
             onClick={onContinue}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+            className="inline-flex items-center gap-1.5 cursor-pointer text-sm font-semibold hover:opacity-80 transition-opacity"
             style={{ color: '#0B1C33' }}
           >
-            Continue to Research Question
+            Continue to Methodology
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

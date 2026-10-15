@@ -8,18 +8,10 @@ import {
   Clock,
   Check,
   ArrowRight,
-  X,
 } from 'lucide-react'
-import type { MouseEvent } from 'react'
 import { FEASIBILITY_STYLES } from '@/hooks/constants'
 import { TopicGuidance } from '@/hooks/types'
 import { CopyButton } from '@/components/Copybutton'
-
-type SavedTopic = {
-  id: string
-  topic: string
-  created_at: string
-}
 
 type Props = {
   topic: string
@@ -30,13 +22,12 @@ type Props = {
   isLoading: boolean
   errorMessage: string | null
 
-  savedTopics: SavedTopic[]
-  savedTopicsLoading: boolean
-  selectedTopicId: string | null
-  onSelectSavedTopic: (id: string) => void
-  onDeleteSavedTopic: (e: MouseEvent, id: string) => void
+  // Opens the saved-topics modal (owned by the parent)
+  onOpenSavedTopics: () => void
+  savedTopicsCount: number
 
   guidance: TopicGuidance | null
+  selectedTopicId: string | null
   onContinue: () => void
 
   // Rate-limit information
@@ -100,23 +91,14 @@ export function TopicSelectionStage({
   onGetGuidance,
   isLoading,
   errorMessage,
-  savedTopics,
-  savedTopicsLoading,
+  onOpenSavedTopics,
+  savedTopicsCount,
   selectedTopicId,
-  onSelectSavedTopic,
-  onDeleteSavedTopic,
   guidance,
   onContinue,
   limitedUntil,
   countdown,
 }: Props) {
-  /*
-   * These are intentionally received here because the parent component
-   * passes them into TopicSelectionStage.
-   *
-   * If you don't want to display them yet, they can remain unused.
-   */
-
   return (
     <div
       className="rounded-2xl border bg-white p-6 space-y-5 shadow-sm"
@@ -148,79 +130,23 @@ export function TopicSelectionStage({
         </div>
       </div>
 
-      {/* ── Saved topics ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <History className="w-3.5 h-3.5 text-muted-foreground" />
-
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Your saved topics
-          </p>
-        </div>
-
-        {savedTopicsLoading ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading your saved topics...
-          </div>
-        ) : savedTopics.length > 0 ? (
-          <div className="grid sm:grid-cols-2 gap-2">
-            {savedTopics.map((t) => {
-              const isSelected = t.id === selectedTopicId
-
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => onSelectSavedTopic(t.id)}
-                  className="overflow-hidden relative text-left rounded-xl border px-3 py-2.5 transition-all hover:bg-amber-50 hover:shadow-sm group"
-                  style={{
-                    borderColor: isSelected
-                      ? '#BA7517'
-                      : 'rgba(0,0,0,0.08)',
-                    background: isSelected
-                      ? '#FAEEDA'
-                      : '#FFFFFF',
-                  }}
-                  title={t.topic}
-                >
-                  <span
-                    onClick={(e) =>
-                      onDeleteSavedTopic(e, t.id)
-                    }
-                    role="button"
-                    aria-label="Delete saved topic"
-                    className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </span>
-
-                  <div className="text-sm font-medium truncate pr-5">
-                    {t.topic}
-                  </div>
-
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 text-muted-foreground" />
-
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(
-                        t.created_at
-                      ).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground py-1">
-            No saved topics yet — get AI guidance above and
-            it'll show up here.
-          </p>
-        )}
+      {/* ── Saved topics (opens modal) ── */}
+      <div className="flex">
+        <button
+          type="button"
+          onClick={onOpenSavedTopics}
+          className="group inline-flex items-center gap-2 text-sm cursor-pointer transition-colors hover:text-[#0B1C33]"
+          style={{ color: '#4A4A48' }}
+        >
+          <History className="w-4 h-4 shrink-0" />
+          <span className="underline decoration-1 underline-offset-4 decoration-[#C7C6C1] group-hover:decoration-[#0B1C33]">
+            {savedTopicsCount > 0
+              ? `View ${savedTopicsCount} saved ${
+                  savedTopicsCount === 1 ? 'topic' : 'topics'
+                }`
+              : 'View saved topics'}
+          </span>
+        </button>
       </div>
 
       {/* ── Topic input ── */}
@@ -407,7 +333,7 @@ export function TopicSelectionStage({
                 ))}
               </div>
 
-              {/* Research questions reminder */}
+              {/* Research questions note */}
               {guidance.suggestedResearchQuestions?.length >
                 0 && (
                 <div
@@ -422,9 +348,10 @@ export function TopicSelectionStage({
                       color: '#8A5A00',
                     }}
                   >
-                    Reminder: copy all the suggested research
-                    questions below. You'll need them in the
-                    Methodology stage.
+                    Your suggested research questions will be
+                    added to the Methodology stage
+                    automatically. You can still edit them
+                    there.
                   </p>
 
                   <CopyButton

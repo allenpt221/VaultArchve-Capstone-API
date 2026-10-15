@@ -421,6 +421,15 @@ Output only JSON: {"relevant": true|false}`,
   }
 }
 
+// Strict gate: the chatbox only accepts messages that explicitly mention
+// thesis / research context. Vague requests like "ideas for my school
+// project" are rejected before any AI call or DB query happens.
+const THESIS_RESEARCH_KEYWORDS =
+  /\b(thesis|theses|research|researches|study|studies|capstone|dissertation|title|titles|topic|topics|feasibility|proposal|methodology|respondents?|sdg|framework|system\s+for|app\s+for|innovation)\b/i;
+
+const NOT_THESIS_MESSAGE =
+  "This chat is designed only for thesis and research assistance, so I can't help with general questions, school projects, or other topics. To get thesis title recommendations, please mention your thesis or research focus in your message and include a topic, problem, or area you are interested in. For example: \"thesis titles about inventory systems for small businesses\", \"research topics on student attendance monitoring\", or \"capstone ideas about online enrollment for senior high school\". You can also add details like your target users, location, or preferred technology to get more specific and useful suggestions.";
+
 export async function RecommendedAI(req: Request, res: Response) {
   try {
     const { course, chatPrompt, session_id } = req.body;
@@ -441,12 +450,12 @@ export async function RecommendedAI(req: Request, res: Response) {
 
     const promptText = (chatPrompt || "").trim().toLowerCase();
 
-  if(isUnsupportedMediaRequest(promptText)) {
-    return res.status(400).json({
-      error: IMAGE_REQUEST_ERROR,
-      message: IMAGE_REQUEST_MESSAGE,
-    });
-  }
+    if (isUnsupportedMediaRequest(promptText)) {
+      return res.status(400).json({
+        error: IMAGE_REQUEST_ERROR,
+        message: IMAGE_REQUEST_MESSAGE,
+      });
+    }
 
     const isOffTopicRequest =
       /(write|generate|create|make|give|provide|suggest|draft|compose|produce).*(review|literature|abstract|introduction|conclusion|methodology|chapter|paragraph|essay|paper|article|content|text|report|summary|outline|research\s+paper|related\s+studies|background|discussion|analysis|findings|recommendation(?!s?\s+title))/i.test(promptText) ||
@@ -461,7 +470,7 @@ export async function RecommendedAI(req: Request, res: Response) {
       });
     }
 
-        const courseMismatch = checkCourseMismatch(promptText, course);
+    const courseMismatch = checkCourseMismatch(promptText, course);
     if (!courseMismatch.valid) {
       return res.status(400).json({
         error: "Course mismatch",
@@ -481,6 +490,15 @@ export async function RecommendedAI(req: Request, res: Response) {
     // Reject anything that isn't about thesis topics before touching the DB.
     // Only runs when the user actually typed something (chatPrompt is optional).
     if (promptText) {
+      // Layer 1: must explicitly be about thesis / research (no AI call needed).
+      if (!THESIS_RESEARCH_KEYWORDS.test(promptText)) {
+        return res.status(400).json({
+          error: OFF_TOPIC_ERROR,
+          message: NOT_THESIS_MESSAGE,
+        });
+      }
+
+      // Layer 2: existing relevance check for everything that passed layer 1.
       const relevant = await isThesisRelatedRequest(promptText, course);
       if (!relevant) {
         return res.status(400).json({
@@ -490,11 +508,9 @@ export async function RecommendedAI(req: Request, res: Response) {
       }
     }
 
-    const isEntrepCourse = /entrepreneurship/i.test(course);
-
     const { data: thesisPool, error: fetchError } = await supabase
       .from("Thesis")
-      .select("id, title, thesis_introduction, entrep_intro")
+      .select("id, title, thesis_abstract")
       .ilike("course", `%${course}%`);
 
     if (fetchError) {
@@ -522,9 +538,9 @@ export async function RecommendedAI(req: Request, res: Response) {
     const existingBlock = hasExisting
       ? existingTheses
           .map((t, i) => {
-            const intro = isEntrepCourse ? t.entrep_intro : t.thesis_introduction;
-            return `[${i + 1}] Title: "${t.title}"\n     Introduction: ${
-              intro ? intro.slice(0, 300) + "..." : "No introduction available."
+            const abstract = t.thesis_abstract;
+            return `[${i + 1}] Title: "${t.title}"\n     Abstract: ${
+              abstract ? abstract.slice(0, 300) + "..." : "No abstract available."
             }`;
           })
           .join("\n\n")
@@ -549,7 +565,7 @@ export async function RecommendedAI(req: Request, res: Response) {
       ${existingBlock}
 
       YOUR TASK:
-      - Use the existing thesis titles and introductions above as your BASE
+      - Use the existing thesis titles and abstracts above as your BASE
       - EVOLVE each one: add new features, new research angles, updated scope, or modern methods
       - Keep the same research context/location if mentioned (e.g. "Guagua Pampanga"), but expand the scope
       - Do NOT copy the title verbatim — evolve it meaningfully with new direction
@@ -778,6 +794,7 @@ export async function GetThesisHistory(req: Request, res: Response) {
     return res.status(500).json({ error: error.message });
   }
 }
+
 
 export async function DeleteThesisHistory(req: Request, res: Response) {
   try {

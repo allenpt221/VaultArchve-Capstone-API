@@ -1,8 +1,7 @@
 'use client'
-import { Lightbulb, Sparkles, Loader2, History, Clock, ArrowRight, X, Trash2 } from 'lucide-react'
-import type { MouseEvent } from 'react'
+import { Lightbulb, Sparkles, Loader2, History, ArrowRight } from 'lucide-react'
 import { FEASIBILITY_STYLES } from '@/hooks/entrepconstant'
-import type { ConceptGuidance, SavedConcept } from '@/hooks/entrpTypes'
+import type { ConceptGuidance } from '@/hooks/entrpTypes'
 import { CopyButton } from '@/components/Copybutton'
 
 type Props = {
@@ -14,11 +13,10 @@ type Props = {
   isLoading: boolean
   errorMessage: string | null
 
-  savedConcepts: SavedConcept[]
-  savedConceptsLoading: boolean
+  // Opens the saved-concepts modal (owned by the parent)
+  onOpenSavedConcepts: () => void
+  savedConceptsCount: number
   selectedConceptId: string | null
-  onSelectSavedConcept: (id: string) => void
-  onDeleteSavedConcept: (e: MouseEvent, id: string) => void
 
   guidance: ConceptGuidance | null
   selectedConceptStatement: string
@@ -42,11 +40,9 @@ export function ConceptStage({
   onGenerateConcept,
   isLoading,
   errorMessage,
-  savedConcepts,
-  savedConceptsLoading,
+  onOpenSavedConcepts,
+  savedConceptsCount,
   selectedConceptId,
-  onSelectSavedConcept,
-  onDeleteSavedConcept,
   guidance,
   selectedConceptStatement,
   onSelectedConceptStatementChange,
@@ -75,61 +71,21 @@ export function ConceptStage({
         </div>
       </div>
 
-      {/* ── Saved concepts ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <History className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your saved concepts</p>
-        </div>
-
-        {savedConceptsLoading ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading your saved concepts...
-          </div>
-        ) : savedConcepts.length > 0 ? (
-          <div className="grid sm:grid-cols-2 gap-2">
-            {savedConcepts.map((c) => {
-              const isSelected = c.id === selectedConceptId
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onSelectSavedConcept(c.id)}
-                  className="overflow-hidden relative text-left rounded-lg border px-3 py-2.5 transition-colors hover:bg-amber-50 group"
-                  style={{
-                    borderColor: isSelected ? '#BA7517' : 'rgba(0,0,0,0.08)',
-                    background: isSelected ? '#FAEEDA' : '#FFFFFF',
-                  }}
-                  title={c.idea}
-                >
-                  <span
-                    onClick={(e) => onDeleteSavedConcept(e, c.id)}
-                    role="button"
-                    aria-label="Delete saved concept"
-                    className="absolute top-2 right-2 md:opacity-0 md:group-hover:opacity-100 opacity-100 text-muted-foreground hover:text-red-600 transition-opacity cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="text-sm font-medium truncate pr-5">{c.idea}</div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground py-1">
-            No saved concepts yet — generate guidance below and it'll show up here.
-          </p>
-        )}
+      {/* ── Saved concepts (opens modal) ── */}
+      <div className="flex">
+        <button
+          type="button"
+          onClick={onOpenSavedConcepts}
+          className="group inline-flex items-center gap-2 text-sm cursor-pointer transition-colors hover:text-[#0B1C33]"
+          style={{ color: '#4A4A48' }}
+        >
+          <History className="w-4 h-4 shrink-0" />
+          <span className="underline decoration-1 underline-offset-4 decoration-[#C7C6C1] group-hover:decoration-[#0B1C33]">
+            {savedConceptsCount > 0
+              ? `View ${savedConceptsCount} saved ${savedConceptsCount === 1 ? 'concept' : 'concepts'}`
+              : 'View saved concepts'}
+          </span>
+        </button>
       </div>
 
       <div className="space-y-1.5">

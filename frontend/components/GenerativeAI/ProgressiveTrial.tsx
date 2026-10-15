@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { STAGES } from '@/hooks/constants'
 import { useProgressiveTrial } from '@/hooks/useProgressiveTrial'
 import { generativeStore } from '@/Stores/generativeStore'
-import { Microscope, Briefcase, Check, Lock, ArrowRight, HelpCircle, ShieldCheck } from 'lucide-react'
+import { Microscope, Briefcase, Check, Lock, ArrowRight, HelpCircle, ShieldCheck, History } from 'lucide-react'
 import { TopicSelectionStage } from './Progressive-components/TopicSelection'
 import { LiteratureReviewStage } from './Progressive-components/LiteraturestageReview'
 import { MethodologyStage } from './Progressive-components/Methodology'
@@ -11,6 +11,7 @@ import { DataCollectionStage } from './Progressive-components/DataCollection'
 import PaperReview from './Progressive-components/PaperReview'
 import ProgressiveTrailGuideModal from '../Modal/Progressivetrailguidemodal '
 import EntrepProgressiveTrailGuideModal from '../Modal/EntrepProgressiveTrailGuideModal'
+import HistoryModal from '../Modal/HistoryModalProgressiveTrail'
 import EntrepProgressive from './EntrepProgressive'
 import { ObjectivesSuggestionPanel } from './Progressive-components/ObjectiveStudy'
 import PlagiarismModal from '../PlagiarismStage'
@@ -20,11 +21,108 @@ function ProgressiveTrial() {
   const [track, setTrack] = useState<'research' | 'entrep'>('research')
   const [showGuide, setShowGuide] = useState(false)
   const [showPlagiarismCheck, setShowPlagiarismCheck] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const t = useProgressiveTrial()
   const activeLabel = STAGES.find((s) => s.key === t.activeStage)?.label ?? ''
   const previousLabel = STAGES[t.activeIndex - 1]?.label
   const stageLocked = t.isStageLocked(t.activeStage)
+
+  // Close the history modal whenever the stage or track changes
+  useEffect(() => {
+    setShowHistory(false)
+  }, [t.activeStage, track])
+
+  // History config for the current stage (stages without saved history return null)
+  const historyConfig = useMemo(() => {
+    switch (t.activeStage) {
+      case 'topic':
+        return {
+          title: 'Saved Topics',
+          items: t.topicSelectionHistory ?? [],
+          loading: t.topicHistoryLoading,
+          selectedId: t.selectedTopicId,
+          onSelect: t.handleSelectSavedTopic,
+          // handleDeleteSavedTopic expects (event, id); the modal only has the id,
+          // so pass a stub event (the handler just needs stopPropagation/preventDefault)
+          onDelete: (id: string) =>
+            t.handleDeleteSavedTopic(
+              { stopPropagation: () => {}, preventDefault: () => {} } as any,
+              id
+            ),
+          emptyMessage: 'No saved topics yet.',
+        }
+      case 'literature':
+        return {
+          title: 'Literature Review History',
+          items: t.literatureReviewHistory ?? [],
+          loading: t.historyLoading,
+          selectedId: t.selectedReviewId,
+          onSelect: t.handleSelectSavedReview,
+          emptyMessage: 'No saved literature reviews yet.',
+        }
+      case 'methodology':
+        return {
+          title: 'Methodology History',
+          items: t.methodologyHistory ?? [],
+          loading: t.methodologyHistoryLoading,
+          selectedId: t.selectedMethodologyId,
+          onSelect: t.handleSelectSavedMethodology,
+          emptyMessage: 'No saved methodologies yet.',
+        }
+      case 'collection':
+        return {
+          title: 'Data Analysis History',
+          items: t.dataAnalysisHistory ?? [],
+          loading: t.dataAnalysesLoading,
+          selectedId: t.selectedDataAnalysisId,
+          onSelect: t.handleSelectSavedDataAnalysis,
+          hasMore: t.hasMoreDataAnalyses,
+          onLoadMore: t.handleLoadMoreDataAnalyses,
+          emptyMessage: 'No saved analyses yet.',
+        }
+      case 'paper-review':
+        return {
+          title: 'Paper Review History',
+          items: t.fullPaperReviewHistory ?? [],
+          loading: t.fullPaperReviewHistoryLoading,
+          selectedId: t.selectedPaperReviewId,
+          onSelect: t.handleSelectSavedPaperReview,
+          hasMore: t.hasMorePaperReviews,
+          onLoadMore: t.handleLoadMorePaperReviews,
+          emptyMessage: 'No saved paper reviews yet.',
+        }
+      default:
+        return null
+    }
+  }, [
+    t.activeStage,
+    t.topicSelectionHistory,
+    t.topicHistoryLoading,
+    t.selectedTopicId,
+    t.handleSelectSavedTopic,
+    t.handleDeleteSavedTopic,
+    t.literatureReviewHistory,
+    t.historyLoading,
+    t.selectedReviewId,
+    t.handleSelectSavedReview,
+    t.methodologyHistory,
+    t.methodologyHistoryLoading,
+    t.selectedMethodologyId,
+    t.handleSelectSavedMethodology,
+    t.dataAnalysisHistory,
+    t.dataAnalysesLoading,
+    t.selectedDataAnalysisId,
+    t.handleSelectSavedDataAnalysis,
+    t.hasMoreDataAnalyses,
+    t.handleLoadMoreDataAnalyses,
+    t.fullPaperReviewHistory,
+    t.fullPaperReviewHistoryLoading,
+    t.selectedPaperReviewId,
+    t.handleSelectSavedPaperReview,
+    t.hasMorePaperReviews,
+    t.handleLoadMorePaperReviews,
+  ])
 
   // When a title is pasted from the recommendation chat, make sure the
   // Research track is showing (the topic stage lives there, not in Business Plan).
@@ -152,24 +250,52 @@ function ProgressiveTrial() {
             </div>
           </div>
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setShowPlagiarismCheck(true)}
-            className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors"
-            style={{
-              borderColor: 'rgba(186, 117, 23, 0.35)',
-              background: '#FFFFFF',
-              color: '#0B1C33',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
-            Check for Plagiarism
-            <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
-          </button>
-        </div>
+          {/* ── Action buttons: History + Plagiarism ── */}
+          <div className="flex justify-end gap-2">
+            {/* The topic stage has its own "Your saved topics" button inside the stage */}
+            {historyConfig && t.activeStage !== 'topic' && (
+              <button
+                type="button"
+                onClick={() => setShowHistory(true)}
+                className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer"
+                style={{
+                  borderColor: 'rgba(186, 117, 23, 0.35)',
+                  background: '#FFFFFF',
+                  color: '#0B1C33',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+              >
+                <History className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+                History
+                {historyConfig.items.length > 0 && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10px] leading-none"
+                    style={{ background: '#F1EFEA', color: '#6B6A65' }}
+                  >
+                    {historyConfig.items.length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowPlagiarismCheck(true)}
+              className="group inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer"
+              style={{
+                borderColor: 'rgba(186, 117, 23, 0.35)',
+                background: '#FFFFFF',
+                color: '#0B1C33',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#FBF3E7')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#BA7517' }} />
+              Check for Plagiarism
+              <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" style={{ color: '#BA7517' }} />
+            </button>
+          </div>
 
           {/* ── Stage tabs ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
@@ -224,6 +350,22 @@ function ProgressiveTrial() {
             onClose={() => setShowPlagiarismCheck(false)}
           />
 
+          {historyConfig && (
+            <HistoryModal
+              isOpen={showHistory}
+              onClose={() => setShowHistory(false)}
+              title={historyConfig.title}
+              items={historyConfig.items}
+              loading={historyConfig.loading}
+              selectedId={historyConfig.selectedId}
+              onSelect={historyConfig.onSelect}
+              onDelete={'onDelete' in historyConfig ? historyConfig.onDelete : undefined}
+              hasMore={'hasMore' in historyConfig ? historyConfig.hasMore : false}
+              onLoadMore={'onLoadMore' in historyConfig ? historyConfig.onLoadMore : undefined}
+              emptyMessage={historyConfig.emptyMessage}
+            />
+          )}
+
           {/* ── Stage content ── */}
           <div ref={stageContentRef}>
           {stageLocked ? (
@@ -241,11 +383,9 @@ function ProgressiveTrial() {
               onGetGuidance={t.handleGetGuidance}
               isLoading={t.isTopicLoading}
               errorMessage={t.topicError}
-              savedTopics={t.topicSelectionHistory}
-              savedTopicsLoading={t.topicHistoryLoading}
+              onOpenSavedTopics={() => setShowHistory(true)}
+              savedTopicsCount={t.topicSelectionHistory?.length ?? 0}
               selectedTopicId={t.selectedTopicId}
-              onSelectSavedTopic={t.handleSelectSavedTopic}
-              onDeleteSavedTopic={t.handleDeleteSavedTopic}
               guidance={t.displayedGuidance}
               onContinue={() => t.setActiveStage('objective')}
               limitedUntil={t.topicLimitedUntil}

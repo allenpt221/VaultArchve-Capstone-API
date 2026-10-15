@@ -172,16 +172,9 @@ export function MethodologyStage({
         <textarea
           value={safeObjective}
           onChange={(e) => onObjectiveChange(e.target.value)}
-          onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                onAddResearchQuestion()
-              }
-              // Shift + Enter is allowed to create a new line
-            }}
           placeholder="e.g. This study aims to determine the effectiveness of..."
           rows={2}
-          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white  transition-shadow"
+          className="w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-400 bg-white transition-shadow"
           style={{ borderColor: 'rgba(0,0,0,0.12)' }}
         />
         {safeObjective.trim().length === 0 && (
@@ -268,35 +261,35 @@ export function MethodologyStage({
         />
       </div>
 
-{(errorMessage || (limitedUntil && countdown)) && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
-    {errorMessage && (
-      <div
-        className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
-        style={{
-          background: '#FBEAEA',
-          color: '#7A2020',
-        }}
-      >
-        {errorMessage}
-      </div>
-    )}
+      {(errorMessage || (limitedUntil && countdown)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
+          {errorMessage && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FBEAEA',
+                color: '#7A2020',
+              }}
+            >
+              {errorMessage}
+            </div>
+          )}
 
-    {limitedUntil && countdown && (
-      <div
-        className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
-        style={{
-          background: '#FDF3E3',
-          color: '#8A5A00',
-        }}
-      >
-        Please wait{' '}
-        <strong>{countdown}</strong>{' '}
-        before requesting AI guidance again.
-      </div>
-    )}
-  </div>
-)}
+          {limitedUntil && countdown && (
+            <div
+              className="min-w-0 rounded-lg px-3.5 py-2.5 text-xs font-medium leading-relaxed break-words"
+              style={{
+                background: '#FDF3E3',
+                color: '#8A5A00',
+              }}
+            >
+              Please wait{' '}
+              <strong>{countdown}</strong>{' '}
+              before requesting AI guidance again.
+            </div>
+          )}
+        </div>
+      )}
 
       <button
         onClick={onGenerateMethodology}
@@ -509,8 +502,8 @@ export function MethodologyStage({
                   <li key={i} className="text-sm flex gap-2">
                     <Link2 className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#BA7517' }} />
                     <span>
-                      
-                      <Link  href={ref.url}
+                      <Link
+                        href={ref.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium underline hover:opacity-80"
@@ -531,7 +524,7 @@ export function MethodologyStage({
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <button
               onClick={onContinue}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80 transition-opacity"
+              className="inline-flex items-center gap-1.5 cursor-pointer text-sm font-semibold hover:opacity-80 transition-opacity"
               style={{ color: '#0B1C33' }}
             >
               Continue to Data Collection & Analysis

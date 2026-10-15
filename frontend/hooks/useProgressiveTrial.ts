@@ -14,10 +14,6 @@ export function useProgressiveTrial() {
   const [dataCollectionError, setDataCollectionError] = useState<string | null>(null)
   const [paperReviewError, setPaperReviewError] = useState<string | null>(null)
 
-
-
-
-
   const {
     TopicSelectionAI,
     LiteratureReviewAI,
@@ -63,7 +59,6 @@ export function useProgressiveTrial() {
     pendingTopic,
     SetPendingTopic,
   } = generativeStore()
-
 
   const TOPIC_STORAGE_KEY = 'progressiveTrail:topic'
   const STAGE_STORAGE_KEY = 'progressiveTrail:activeStage'
@@ -170,10 +165,9 @@ export function useProgressiveTrial() {
   //
   // NOTE on Objectives: matching relies on a `topic` field on the saved
   // record (SavedObjectives.topic), the same pattern as every other saved
-  // record here. Field names below (general_objective, specific_objectives,
-  // suggested_variables, scope_considerations, research_considerations)
-  // mirror normalizeSuggestedObjectives in generativeStore.ts — adjust if
-  // the actual objectivesHistory item shape differs.
+  // record here. When an objectives record is matched (newest one wins),
+  // its general objective is also copied into the Methodology "General
+  // objective" field, replacing whatever was there for the previous topic.
   //
   // NOTE on Full Paper Review: matching relies on a `topic` field on the
   // saved record (SavedFullPaperReview.topic). FullPaperReviewAI now sends
@@ -221,11 +215,17 @@ export function useProgressiveTrial() {
       }
     }
     if (!objectiveStillValid && normalizedTopic) {
-      const match = objectivesHistory.find(
-        (o) => o.topic.trim().toLowerCase() === normalizedTopic
-      )
+      // Several saved sets can share a topic — pick the newest so the result
+      // doesn't depend on the order the backend returns them in.
+      const match = objectivesHistory
+        .filter((o) => o.topic.trim().toLowerCase() === normalizedTopic)
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]
       if (match) {
         setSelectedObjectiveId(match.id)
+        // Auto-fill the Methodology general objective. Overwrites on purpose:
+        // a match only happens when the topic changes or history loads, so a
+        // leftover objective from a previous topic must not stay behind.
+        setMethodologyObjective(match.general_objective)
         markComplete('objective')
       }
     }
@@ -370,55 +370,75 @@ export function useProgressiveTrial() {
       return next
     })
 
-
-   const isDailyLimitMsg = (msg: string | null) =>
+  const isDailyLimitMsg = (msg: string | null) =>
     !!msg && (msg.includes("Daily limit reached") || msg.includes("daily limit of"))
 
-    // Reset happens at local midnight, matching the backend's per-day window
-    function getMsUntilMidnight() {
-      const now = new Date()
-      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-      return midnight.getTime() - now.getTime()
-    }
+  // Reset happens at local midnight, matching the backend's per-day window
+  function getMsUntilMidnight() {
+    const now = new Date()
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    return midnight.getTime() - now.getTime()
+  }
 
-    function formatCountdown(ms: number) {
-      const totalSeconds = Math.max(0, Math.floor(ms / 1000))
-      const h = Math.floor(totalSeconds / 3600)
-      const m = Math.floor((totalSeconds % 3600) / 60)
-      const s = totalSeconds % 60
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    }
-
+  function formatCountdown(ms: number) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000))
+    const h = Math.floor(totalSeconds / 3600)
+    const m = Math.floor((totalSeconds % 3600) / 60)
+    const s = totalSeconds % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
 
   function useLimitCountdown() {
-  const [limitedUntil, setLimitedUntil] = useState<number | null>(null)
-  const [countdown, setCountdown] = useState('')
+    const [limitedUntil, setLimitedUntil] = useState<number | null>(null)
+    const [countdown, setCountdown] = useState('')
 
-  useEffect(() => {
-    if (!limitedUntil) return
-    const tick = () => {
-      const remaining = limitedUntil - Date.now()
-      if (remaining <= 0) {
-        setLimitedUntil(null)
-        setCountdown('')
-      } else {
-        setCountdown(formatCountdown(remaining))
+    useEffect(() => {
+      if (!limitedUntil) return
+      const tick = () => {
+        const remaining = limitedUntil - Date.now()
+        if (remaining <= 0) {
+          setLimitedUntil(null)
+          setCountdown('')
+        } else {
+          setCountdown(formatCountdown(remaining))
+        }
       }
-    }
-    tick()
-    const interval = setInterval(tick, 1000)
-    return () => clearInterval(interval)
-  }, [limitedUntil])
+      tick()
+      const interval = setInterval(tick, 1000)
+      return () => clearInterval(interval)
+    }, [limitedUntil])
 
-  return { limitedUntil, setLimitedUntil, countdown }
-}
+    return { limitedUntil, setLimitedUntil, countdown }
+  }
 
-const topicLimit = useLimitCountdown()
-const objectiveLimit = useLimitCountdown()
-const literatureLimit = useLimitCountdown()
-const methodologyLimit = useLimitCountdown()
-const collectionLimit = useLimitCountdown()
-const paperReviewLimit = useLimitCountdown()
+  const topicLimit = useLimitCountdown()
+  const objectiveLimit = useLimitCountdown()
+  const literatureLimit = useLimitCountdown()
+  const methodologyLimit = useLimitCountdown()
+  const collectionLimit = useLimitCountdown()
+  const paperReviewLimit = useLimitCountdown()
+
+  // ── Copy a topic's suggested research questions into the shared list ──
+  // Called only when guidance is freshly generated or a saved topic is clicked,
+  // so it never overwrites questions restored by the auto-match effect or
+  // localStorage on page load.
+  const importSuggestedQuestions = (questions?: string[] | null) => {
+    if (!questions?.length) return
+    setResearchQuestions(
+      questions
+        .map((q) => q.trim())
+        .filter(Boolean)
+        .slice(0, MAX_RESEARCH_QUESTIONS)
+    )
+  }
+
+  // ── NEW: copy a generated/saved general objective into the Methodology
+  // stage's "General objective" field and flag it as applied. ──
+  const importGeneralObjective = (generalObjective?: string | null) => {
+    if (!generalObjective?.trim()) return
+    setMethodologyObjective(generalObjective.trim())
+    setObjectiveApplied(true)
+  }
 
   // ── Topic Selection handlers ──────────────────────────────────────
   const handleGetGuidance = async () => {
@@ -433,13 +453,17 @@ const paperReviewLimit = useLimitCountdown()
     if (success) {
       setTopicError(null)
       markComplete('topic')
+      // Auto-fill the Methodology research questions
+      importSuggestedQuestions(
+        generativeStore.getState().topicGuidance?.suggestedResearchQuestions
+      )
       GetTopicSelections()
-    } else
-
+    } else {
       setTopicError(currentMessage || 'Unable to generate topic guidance.')
 
-      if(isDailyLimitMsg(generativeStore.getState().message)) {
-      topicLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      if (isDailyLimitMsg(currentMessage)) {
+        topicLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
@@ -452,45 +476,46 @@ const paperReviewLimit = useLimitCountdown()
     setTopic(saved.topic)
     setContext(saved.context || '')
     markComplete('topic')
+    // Auto-fill the Methodology research questions from the saved topic
+    importSuggestedQuestions(saved.suggested_research_questions)
   }
 
-const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
-  e.stopPropagation() // don't trigger the card's onClick (which selects it)
+  const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
+    e.stopPropagation() // don't trigger the card's onClick (which selects it)
 
-  const wasActiveTopic = selectedTopicId === id
+    const wasActiveTopic = selectedTopicId === id
 
-  if (wasActiveTopic) {
+    if (wasActiveTopic) {
+      setTopicError(null)
 
-    setTopicError(null)
+      // Clear the topic stage itself
+      setSelectedTopicId(null)
+      unmarkComplete('topic')
 
-    // Clear the topic stage itself
-    setSelectedTopicId(null)
-    unmarkComplete('topic')
+      // Cascade: every later stage was generated against this topic's text.
+      // Their saved records live in separate tables and won't self-clear
+      // via the auto-match effect (that effect only re-checks a stage
+      // against its OWN history, not against whether the topic itself
+      // still exists) — so we unmark them explicitly here.
+      setSelectedObjectiveId(null)
+      unmarkComplete('objective')
+      setSelectedReviewId(null)
+      unmarkComplete('literature')
+      setSelectedMethodologyId(null)
+      unmarkComplete('methodology')
+      setSelectedDataAnalysisId(null)
+      unmarkComplete('collection')
+      setSelectedPaperReviewId(null)
+      unmarkComplete('paper-review')
 
-    // Cascade: every later stage was generated against this topic's text.
-    // Their saved records live in separate tables and won't self-clear
-    // via the auto-match effect (that effect only re-checks a stage
-    // against its OWN history, not against whether the topic itself
-    // still exists) — so we unmark them explicitly here.
-    setSelectedObjectiveId(null)
-    unmarkComplete('objective')
-    setSelectedReviewId(null)
-    unmarkComplete('literature')
-    setSelectedMethodologyId(null)
-    unmarkComplete('methodology')
-    setSelectedDataAnalysisId(null)
-    unmarkComplete('collection')
-    setSelectedPaperReviewId(null)
-    unmarkComplete('paper-review')
+      // Reset the topic text too, so the stepper doesn't sit there still
+      // "matching" a topic string that no longer has a saved record behind it.
+      setTopic('')
+      setContext('')
+    }
 
-    // Reset the topic text too, so the stepper doesn't sit there still
-    // "matching" a topic string that no longer has a saved record behind it.
-    setTopic('')
-    setContext('')
+    DeleteTopicSelection(id)
   }
-
-  DeleteTopicSelection(id)
-}
 
   // ── Objectives handlers ─────────────────────────────────────────────
   const handleSuggestObjectives = async () => {
@@ -508,17 +533,26 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
       setObjectiveError(null)
       setObjectivesTopic(topic)
       markComplete('objective')
+      // Auto-fill the Methodology general objective
+      importGeneralObjective(generativeStore.getState().objectives?.generalObjective)
       GetObjectives({ limit: 20, offset: 0 })
-    } else
-
+    } else {
       setObjectiveError(currentMessage || 'Unable to generate objectives.')
 
-      if(isDailyLimitMsg(generativeStore.getState().message)) {
-      objectiveLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      if (isDailyLimitMsg(currentMessage)) {
+        objectiveLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
-  const handleSelectSavedObjective = (id: string) => {
+  // `null` comes from the panel when it leaves the saved view (deselecting a
+  // card, or right before generating a fresh set).
+  const handleSelectSavedObjective = (id: string | null) => {
+    if (id === null) {
+      setSelectedObjectiveId(null)
+      return
+    }
+
     const saved = objectivesHistory.find((o) => o.id === id)
     if (!saved) return
 
@@ -526,8 +560,9 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
     setSelectedObjectiveId(id)
     setTopic(saved.topic)
     setContext(saved.context || '')
-    setObjectiveApplied(false)
     markComplete('objective')
+    // Auto-fill the Methodology general objective
+    importGeneralObjective(saved.general_objective)
   }
 
   const handleApplyObjective = () => {
@@ -548,35 +583,35 @@ const handleDeleteSavedTopic = (e: MouseEvent, id: string) => {
   // saved objectives set would show nothing until regenerating — the old
   // version only ever checked objectivesTopic (same-session state) and
   // never looked at objectivesHistory at all.
-const displayedObjectives = useMemo(() => {
-  if (selectedObjectiveId) {
-    const saved = objectivesHistory.find((o) => o.id === selectedObjectiveId)
+  const displayedObjectives = useMemo(() => {
+    if (selectedObjectiveId) {
+      const saved = objectivesHistory.find((o) => o.id === selectedObjectiveId)
 
-    if (saved) {
-      return {
-        generalObjective: saved.general_objective,
-        generalObjectiveRationale: saved.general_objective_rationale,
-        specificObjectives: saved.specific_objectives,
-        objectiveRationale: saved.objective_rationale,
-        suggestedVariables: saved.suggested_variables ?? [],
-        scopeConsiderations: saved.scope_considerations ?? [],
-        researchConsiderations: saved.research_considerations ?? [],
+      if (saved) {
+        return {
+          generalObjective: saved.general_objective,
+          generalObjectiveRationale: saved.general_objective_rationale,
+          specificObjectives: saved.specific_objectives,
+          objectiveRationale: saved.objective_rationale,
+          suggestedVariables: saved.suggested_variables ?? [],
+          scopeConsiderations: saved.scope_considerations ?? [],
+          researchConsiderations: saved.research_considerations ?? [],
+        }
       }
     }
-  }
 
-  if (objectivesTopic && objectivesTopic === topic.trim()) {
-    return objectives
-  }
+    if (objectivesTopic && objectivesTopic === topic.trim()) {
+      return objectives
+    }
 
-  return null
-}, [
-  selectedObjectiveId,
-  objectivesHistory,
-  objectivesTopic,
-  objectives,
-  topic,
-])
+    return null
+  }, [
+    selectedObjectiveId,
+    objectivesHistory,
+    objectivesTopic,
+    objectives,
+    topic,
+  ])
 
   // The guidance currently on screen: a saved one from the database, or a freshly
   // generated one — normalized to the same shape either way.
@@ -613,11 +648,12 @@ const displayedObjectives = useMemo(() => {
       setLiteratureError(null)
       markComplete('literature')
       GetLiteratureReviews()
-    } else
+    } else {
       setLiteratureError(currentMessage || 'Unable to generate the literature review.')
 
-      if(isDailyLimitMsg(generativeStore.getState().message)) {
-      literatureLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      if (isDailyLimitMsg(currentMessage)) {
+        literatureLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
@@ -678,11 +714,12 @@ const displayedObjectives = useMemo(() => {
       setMethodologyError(null)
       markComplete('methodology')
       GetMethodologies()
-    } else
+    } else {
       setMethodologyError(currentMessage || 'Unable to generate the methodology.')
 
-      if(isDailyLimitMsg(generativeStore.getState().message)) {
-      methodologyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      if (isDailyLimitMsg(currentMessage)) {
+        methodologyLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
@@ -749,12 +786,12 @@ const displayedObjectives = useMemo(() => {
     if (success) {
       markComplete('collection')
       GetDataAnalyses({ limit: 20, offset: 0 })
-    } else
-
+    } else {
       setDataCollectionError(currentMessage || 'Unable to generate the data analysis.');
 
-      if(isDailyLimitMsg(generativeStore.getState().message)) {
-      collectionLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      if (isDailyLimitMsg(currentMessage)) {
+        collectionLimit.setLimitedUntil(Date.now() + getMsUntilMidnight())
+      }
     }
   }
 
@@ -856,7 +893,6 @@ const displayedObjectives = useMemo(() => {
     }
     return fullPaperReview
   }, [selectedPaperReviewId, fullPaperReviewHistory, fullPaperReview])
-
 
   return {
     // navigation / progress
@@ -963,7 +999,6 @@ const displayedObjectives = useMemo(() => {
     selectedPaperReviewId,
     handleSelectSavedPaperReview,
     displayedPaperReview,
-
 
     topicLimitedUntil: topicLimit.limitedUntil,
     topicCountdown: topicLimit.countdown,
