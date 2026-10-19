@@ -169,7 +169,7 @@ function ProgressiveTrial() {
           </p>
         </div>
         <h1 className="font-bold text-4xl" style={{ color: '#0B1C33' }}>
-          Progressive Trail
+          Research Flow
         </h1>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           {track === 'research'

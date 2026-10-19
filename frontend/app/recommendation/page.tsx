@@ -10,7 +10,7 @@ const ASSISTANT_STORAGE_KEY = 'thesisAssistant:selectedAssistant'
 
 function page() {
 
-  const AssistantAI = ['Title recommendation', 'Progressive Trail']
+  const AssistantAI = ['Title recommendation', 'Research Flow']
   const [selectedAssistant, setSelectedAssistant] = useState(() => {
     if (typeof window === 'undefined') return 'Title recommendation'
     const saved = localStorage.getItem(ASSISTANT_STORAGE_KEY)
@@ -27,7 +27,7 @@ function page() {
   // mounts, fills the Topic Selection field, and clears it from the store.
   const pendingTopic = generativeStore((s) => s.pendingTopic)
   useEffect(() => {
-    if (pendingTopic) setSelectedAssistant('Progressive Trail')
+    if (pendingTopic) setSelectedAssistant('Research Flow')
   }, [pendingTopic])
 
   return (
@@ -75,7 +75,7 @@ function page() {
       </div>
 
       {selectedAssistant === "Title recommendation" && <AIrecommendation />}
-      {selectedAssistant === "Progressive Trail" && <ProgressiveTrial />}
+      {selectedAssistant === "Research Flow" && <ProgressiveTrial />}
 
     </div>
   )

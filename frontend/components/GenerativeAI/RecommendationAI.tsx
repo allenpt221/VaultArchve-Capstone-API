@@ -740,64 +740,69 @@ function AIrecommendation() {
         className="flex-1 min-h-0 overflow-y-auto scroll-smooth"
       >
         {!hasStarted ? (
-          <div className="h-full flex flex-col items-center justify-center px-4 py-6">
-            <div className="relative mb-5">
-              <div className="absolute inset-0 rounded-2xl bg-amber-400/30 blur-xl" />
-              <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md ring-1 ring-amber-500/30">
-                <SparklesIcon className="h-6 w-6 text-black" />
+          // FIX: min-h-full (not h-full) lets the wrapper grow past the container,
+          // and my-auto on the inner div centers only when there is spare room,
+          // so the top is never clipped on short viewports.
+          <div className="min-h-full flex flex-col items-center px-4 py-6">
+            <div className="my-auto flex flex-col items-center w-full">
+              <div className="relative mb-5">
+                <div className="absolute inset-0 rounded-2xl bg-amber-400/30 blur-xl" />
+                <div className="relative h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md ring-1 ring-amber-500/30">
+                  <SparklesIcon className="h-6 w-6 text-black" />
+                </div>
               </div>
-            </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
-              Thesis Recommendations
-            </h1>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2 text-center">
+                Thesis Recommendations
+              </h1>
 
-            <p className="font-body text-sm text-muted-foreground text-center max-w-sm mb-4">
-              Tell me your course and a thesis or research topic you're curious about, and I'll suggest related thesis titles.
-            </p>
+              <p className="font-body text-sm text-muted-foreground text-center max-w-sm mb-4">
+                Tell me your course and a thesis or research topic you're curious about, and I'll suggest related thesis titles.
+              </p>
 
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-body text-xs text-amber-700 mb-5">
-              <GraduationCap className="h-3.5 w-3.5" />
-              <span>Currently set to</span>
-              <span className="font-semibold">
-                {selectedInterest}
-              </span>
-            </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 font-body text-xs text-amber-700 mb-5">
+                <GraduationCap className="h-3.5 w-3.5" />
+                <span>Currently set to</span>
+                <span className="font-semibold">
+                  {selectedInterest}
+                </span>
+              </div>
 
-            {(thesisHistoryLoading ||
-              thesisSessions.length > 0) && (
-              <button
-                type="button"
-                onClick={() => setShowHistory(true)}
-                className="cursor-pointer flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 underline underline-offset-4 decoration-border"
-              >
-                <History className="h-3.5 w-3.5" />
-
-                {thesisHistoryLoading
-                  ? "Loading previous chats…"
-                  : `View ${thesisSessions.length} previous chat${
-                      thesisSessions.length > 1 ? 's' : ''
-                    }`}
-              </button>
-            )}
-
-            <div className="grid sm:grid-cols-2 gap-2.5 max-w-lg w-full">
-              {suggestions.map((s) => (
+              {(thesisHistoryLoading ||
+                thesisSessions.length > 0) && (
                 <button
                   type="button"
-                  key={s.text}
-                  onClick={() => sendMessage(s.text, s.course)}
-                  disabled={!!limitedUntil || loading || disabled}
-                  className="group cursor-pointer flex items-center gap-3 text-left text-xs sm:text-sm text-foreground border border-border rounded-2xl px-4 py-3 hover:border-amber-300 hover:bg-amber-50/60 hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-border disabled:hover:shadow-none"
+                  onClick={() => setShowHistory(true)}
+                  className="cursor-pointer flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 underline underline-offset-4 decoration-border"
                 >
-                  <span className="h-8 w-8 shrink-0 rounded-lg bg-muted group-hover:bg-amber-100 flex items-center justify-center transition-colors">
-                    <GraduationCap className="h-4 w-4 text-muted-foreground group-hover:text-amber-700" />
-                  </span>
-                  <span className="min-w-0 leading-snug">
-                    {s.text}
-                  </span>
+                  <History className="h-3.5 w-3.5" />
+
+                  {thesisHistoryLoading
+                    ? "Loading previous chats…"
+                    : `View ${thesisSessions.length} previous chat${
+                        thesisSessions.length > 1 ? 's' : ''
+                      }`}
                 </button>
-              ))}
+              )}
+
+              <div className="grid sm:grid-cols-2 gap-2.5 max-w-lg w-full">
+                {suggestions.map((s) => (
+                  <button
+                    type="button"
+                    key={s.text}
+                    onClick={() => sendMessage(s.text, s.course)}
+                    disabled={!!limitedUntil || loading || disabled}
+                    className="group cursor-pointer flex items-center gap-3 text-left text-xs sm:text-sm text-foreground border border-border rounded-2xl px-4 py-3 hover:border-amber-300 hover:bg-amber-50/60 hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-border disabled:hover:shadow-none"
+                  >
+                    <span className="h-8 w-8 shrink-0 rounded-lg bg-muted group-hover:bg-amber-100 flex items-center justify-center transition-colors">
+                      <GraduationCap className="h-4 w-4 text-muted-foreground group-hover:text-amber-700" />
+                    </span>
+                    <span className="min-w-0 leading-snug">
+                      {s.text}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -1025,12 +1030,12 @@ function AIrecommendation() {
                                         {isPasted ? (
                                           <>
                                             <Check className="h-3 w-3 text-green-600" />
-                                            Sent to Progressive Trail
+                                            Sent to Research Flow
                                           </>
                                         ) : (
                                           <>
                                             <ClipboardPaste className="h-3 w-3" />
-                                            Paste to Progressive Trail
+                                            Paste to Research Flow
                                           </>
                                         )}
                                       </Button>

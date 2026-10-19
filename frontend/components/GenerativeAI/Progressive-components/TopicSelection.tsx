@@ -305,8 +305,8 @@ export function TopicSelectionStage({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Click a topic to use it as your thesis topic,
-                or copy it to keep.
+                Click a topic, or copy it, to use it as your
+                thesis topic.
               </p>
 
               <div className="space-y-1.5">
@@ -319,16 +319,24 @@ export function TopicSelectionStage({
                     }}
                   >
                     <button
+                      type="button"
                       onClick={() => onTopicChange(t)}
                       className="flex-1 text-left text-sm cursor-pointer"
                     >
                       {t}
                     </button>
 
-                    <CopyButton
-                      text={t}
-                      title="Copy topic to clipboard"
-                    />
+                    {/* Copies to clipboard AND puts the topic in the
+                        "Your thesis topic / research area" field. */}
+                    <span
+                      onClick={() => onTopicChange(t)}
+                      className="inline-flex"
+                    >
+                      <CopyButton
+                        text={t}
+                        title="Copy topic and use it as your thesis topic"
+                      />
+                    </span>
                   </div>
                 ))}
               </div>
